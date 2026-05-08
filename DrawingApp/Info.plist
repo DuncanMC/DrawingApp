@@ -2,17 +2,51 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.json</string>
+			</array>
+			<key>UTTypeIdentifier</key>
+			<string>com.wareto.drawingDocument</string>
+			<key>UTTypeDescription</key>
+			<string>Drawing document</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.mime-type</key>
+				<string>application/vnd.DrawingApp+json</string>
+				<key>public.filename-extension</key>
+				<array>
+					<string>DRaw</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>DRaw</string>
+			</array>
 			<key>LSItemContentTypes</key>
 			<array>
-				<string>com.example.plain-text</string>
+				<string>com.wareto.drawingDocument</string>
 			</array>
 			<key>NSUbiquitousDocumentUserActivityType</key>
-			<string>$(PRODUCT_BUNDLE_IDENTIFIER).exampledocument</string>
+			<string>com.wareto.drawingDocument</string>
+			<key>CFBundleTypeOSTypes</key>
+			<array>
+				<string>DRaw</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>Drawing document</string>
 		</dict>
 	</array>
 	<key>UTImportedTypeDeclarations</key>
@@ -20,17 +54,19 @@
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>
-				<string>public.plain-text</string>
+				<string>public.json</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>Example Text</string>
+			<string>Drawing document</string>
 			<key>UTTypeIdentifier</key>
-			<string>com.example.plain-text</string>
+			<string>com.wareto.drawingDocument</string>
+			<key>UTTypeIcons</key>
+			<dict/>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
 				<array>
-					<string>exampletext</string>
+					<string>DRaw</string>
 				</array>
 			</dict>
 		</dict>

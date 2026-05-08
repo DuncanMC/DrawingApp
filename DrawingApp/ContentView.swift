@@ -7,14 +7,35 @@
 
 import SwiftUI
 
-struct ContentView: View {
-    @Binding var document: DrawingAppDocument
+@MainActor struct ContentView: View {
+    @Binding var drawingInfo: DrawingInfo
 
     var body: some View {
-        TextEditor(text: $document.text)
+        VStack {
+            VStack {
+                DrawingView(drawingInfo: $drawingInfo)
+                    .frame(width: DrawingInfo.defaultSize.width, height: DrawingInfo.defaultSize.height)
+                    .border(Color.blue, width: 4)
+                    .aspectRatio(drawingInfo.imageSize, contentMode: .fit)
+                TextEditor(text: $drawingInfo.text)
+                    .frame(maxHeight: 50)
+                HStack {
+                    Button("Stuff") {
+                        drawingInfo.text += " Extra words."
+                    }
+
+                    Toggle(isOn: $drawingInfo.toggleIsOn) {
+                        Text("Toggle is on")
+                    }
+                    Slider(value: $drawingInfo.linePlacement, in: -1...1) {
+                        
+                    }
+                }
+            }
+        }
     }
 }
 
 #Preview {
-    ContentView(document: .constant(DrawingAppDocument()))
+    ContentView(drawingInfo: .constant(DrawingInfo(title: "foo", text: "bar")))
 }
