@@ -32,7 +32,8 @@ final class DrawingInfo: ObservableObject, Codable {
     // Items not saved with Codable
     
     var cancellables = Set<AnyCancellable>()
-    static let defaultSize: CGSize = CGSize(width: 800, height: 300)
+//    static let defaultSize: CGSize = CGSize(width: 800, height: 300)
+    static let defaultSize: CGSize = CGSize(width: 800, height: 800)
 //    static let defaultSize: CGSize = CGSize(width: 1000, height: 250)
 
     var imageAspectRatio: Float {
@@ -62,7 +63,8 @@ final class DrawingInfo: ObservableObject, Codable {
             self.backgroundColor = .white
         }
         self.texAspect = try container.decodeIfPresent(Float.self, forKey: .texAspect) ?? 1.0
-        self.linePlacement = try container.decodeIfPresent(Float.self, forKey: .linePlacement) ?? 0
+//        self.linePlacement = try container.decodeIfPresent(Float.self, forKey: .linePlacement) ?? 0
+        self.linePlacement =  0
         self.viewportSize = DrawingInfo.defaultSize
         doInitSetup()
     }

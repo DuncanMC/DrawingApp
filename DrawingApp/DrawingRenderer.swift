@@ -17,7 +17,7 @@ import UIKit
 class DrawingRenderer: NSObject, MTKViewDelegate {
     
     let red: SIMD4<Float> = SIMD4<Float>(1, 0, 0, 1)
-    let yellow: SIMD4<Float> = SIMD4<Float>(1, 1, 0, 1)
+    let yellow: SIMD4<Float> = SIMD4<Float>(1, 1, 0, 0.5)
     let blue: SIMD4<Float> = SIMD4<Float>(0, 0, 1, 1)
     let black: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 1)
     let white: SIMD4<Float> = SIMD4<Float>(1, 1, 1, 1)
@@ -160,13 +160,21 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         )
 
         
-        let limit: Float = 0.93
+        let limit: Float = 0.9
         drawThickLine(
             p1: simd_float2(-limit,limit * drawingInfo.wrappedValue.linePlacement),
             p2: simd_float2(limit, -limit * drawingInfo.wrappedValue.linePlacement),
             color: black,
             thickness: 20,
         )
+        drawCircle(center: simd_float2(-0.5, -0.5), color: blue, radius: 30, lineThickness: 6)
+        drawCircle(center: simd_float2(-0.5, -0.5), color: black, radius: 20, lineThickness: 6)
+        drawCircle(center: simd_float2(-0.5, -0.5), color: blue, radius: 10, lineThickness: 6)
+        drawCircle(center: simd_float2(-0.5, -0.5), color: black, radius: 2, lineThickness: 4)
+        drawCircle(center: simd_float2(0, 0), color: blue, radius: 350, steps: 120, lineThickness: 6)
+        
+        drawSquare(center: simd_float2(0.5, 0.5), color: yellow, width: 58, orthoMatrix: orthoMatrix, texAspect: texAspect)
+
         encoder.endEncoding()
         commandBuffer.present(drawable)
         commandBuffer.commit()
@@ -198,38 +206,41 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             lineThickness: Float,
             asDiamond: Bool = false) {
                 
-                let radius = radius * scale
-                let widthPerPixel: Float = lineThickness * scale / Float(min(drawableSize.width, drawableSize.height))
+                let aspect = drawingInfo.wrappedValue.imageAspectRatio
+                let landscape = aspect > 1
+                let adjustment: simd_float2 = landscape ?  simd_float2(1, aspect) : simd_float2(1/aspect, 1)
 
-                let center: simd_float2 = simd_float2(x: center.x, y: center.y)
+                let widthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
+
                 let startAngleRadians = startAngle.degreesToRadians
                 let arcDelta = endAngle.degreesToRadians - startAngleRadians
                 let notFullCircle = startAngle != 0.0 || endAngle != 360.0
                 
                 var verticies = [simd_float2]()
                 verticies.reserveCapacity(steps * 2)
+                let radius = 2 * radius + lineThickness / 8
                 
                 let loopSteps = notFullCircle ? steps - 1 : steps
                 for step in 0 ..< loopSteps {
                     let angle: Float = startAngleRadians + Float(step) / Float(steps) * arcDelta
                     let angle2 = startAngleRadians + Float((step+1) % steps) / Float(loopSteps) * arcDelta
                     
-                    var deltaX: Float = cos(angle) * widthPerPixel / Float(texAspect) * (radius - widthPerPixel / 2)
-                    var deltaY = sin(angle) * widthPerPixel * (radius - widthPerPixel / 2)
+                    var deltaX = cos(angle) * widthPerPixel * (radius - lineThickness) * adjustment.x
+                    var deltaY = sin(angle) * widthPerPixel * (radius - lineThickness) * adjustment.y
                     
                     let p1Inside = simd_float2(x: center.x + deltaX, y: center.y + deltaY)
                     
-                    deltaX = cos(angle) * widthPerPixel / texAspect * (radius + widthPerPixel / 2)
+                    deltaX = cos(angle) * widthPerPixel  * (radius + lineThickness) * adjustment.x
+                    deltaY = sin(angle) * widthPerPixel * (radius + lineThickness) * adjustment.y
                     
-                    deltaY = sin(angle) * widthPerPixel * (radius + widthPerPixel / 2)
                     let p1Outside = simd_float2(x: center.x + deltaX, y: center.y + deltaY)
                     
-                    deltaX = cos(angle2) * widthPerPixel / texAspect * (radius - widthPerPixel / 2)
-                    deltaY = sin(angle2) * widthPerPixel * (radius - widthPerPixel / 2)
+                    deltaX = cos(angle2) * widthPerPixel * (radius - lineThickness) * adjustment.x
+                    deltaY = sin(angle2) * widthPerPixel * (radius - lineThickness) * adjustment.y
                     let p2Inside = simd_float2(x: center.x + deltaX, y: center.y + deltaY)
                     
-                    deltaX = cos(angle2) * widthPerPixel / texAspect * (radius + widthPerPixel / 2)
-                    deltaY = sin(angle2) * widthPerPixel * (radius + widthPerPixel / 2)
+                    deltaX = cos(angle2) * widthPerPixel  * (radius + lineThickness) * adjustment.x
+                    deltaY = sin(angle2) * widthPerPixel * (radius + lineThickness) * adjustment.y
                     let p2Outside = simd_float2(x: center.x + deltaX, y: center.y + deltaY)
                     
                     verticies += [p1Inside, p1Outside, p2Inside, p2Outside]
@@ -258,11 +269,15 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             
             asDiamond: Bool = false) {
                 
-                let width = width * scale
+                let aspect = drawingInfo.wrappedValue.imageAspectRatio
+                let landscape = aspect > 1
+                let adjustment: simd_float2 = landscape ?  simd_float2(1, 1/aspect) : simd_float2(1*aspect, 1)
+
+                let width = width
                 let center: simd_float2 = simd_float2(x: center.x, y: center.y)
-                let widthPerPixel: Float = 1 / Float(view.drawableSize.width)
-                let yOffset = (widthPerPixel * width)
-                let xOffset = (widthPerPixel * width / texAspect)
+                let widthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
+                let yOffset = (widthPerPixel * width) / adjustment.y
+                let xOffset = widthPerPixel * width / texAspect / adjustment.x
                 let p1: simd_float2
                 let p2: simd_float2
                 let p3: simd_float2
@@ -312,8 +327,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             orthoMatrix: float4x4,
             texAspect: Float) {
                 let thickness = thickness * scale
-                let widthPerPixel: Float = 1 / Float(view.drawableSize.width)
-                
+                let widthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
+
                 let tipXOffset = (direction == .left ? -widthPerPixel * thickness / 2 : 0) / drawingInfo.wrappedValue.texAspect
                 let tipYOffset = (direction == .down ? -widthPerPixel * thickness / 2 : 0)
                 
@@ -382,9 +397,9 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 let p1Tweaked = p1  * adjustment
                 let p2Tweaked = p2  * adjustment
                 
-                let thickness = thickness * scale / Float(min(drawableSize.width, drawableSize.height))
+                let thickness = thickness * scale / Float(max(drawableSize.width, drawableSize.height))
                 let dir = normalize(p2Tweaked - p1Tweaked)
-                let normal = simd_float2(-dir.y, dir.x) * thickness / 4
+                let normal = simd_float2(-dir.y, dir.x) * thickness
                 
                 
                 let v0 = (p1Tweaked + normal) / adjustment

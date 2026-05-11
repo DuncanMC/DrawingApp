@@ -10,6 +10,15 @@ import SwiftUI
 @MainActor struct ContentView: View {
     @Binding var drawingInfo: DrawingInfo
 
+    var toggleAlignment: Alignment {
+    #if os(macOS)
+            return .leading
+    #else
+            return .trailing
+    #endif
+
+    }
+
     var body: some View {
         VStack {
             VStack {
@@ -27,9 +36,12 @@ import SwiftUI
                     Toggle(isOn: $drawingInfo.toggleIsOn) {
                         Text("Toggle is on")
                     }
+                    .frame(maxWidth: 200, alignment: toggleAlignment)
+
                     Slider(value: $drawingInfo.linePlacement, in: -1...1) {
                         
                     }
+                    .frame(maxWidth: 200)
                 }
             }
         }
