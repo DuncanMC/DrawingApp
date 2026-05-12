@@ -16,8 +16,8 @@ import UIKit
 
 class DrawingRenderer: NSObject, MTKViewDelegate {
     
-    let red: SIMD4<Float> = SIMD4<Float>(1, 0, 0, 1)
-    let yellow: SIMD4<Float> = SIMD4<Float>(1, 1, 0, 0.5)
+    let red: SIMD4<Float> = SIMD4<Float>(0.7, 0, 0, 1)
+    let yellow: SIMD4<Float> = SIMD4<Float>(1, 1, 0, 1)
     let blue: SIMD4<Float> = SIMD4<Float>(0, 0, 1, 1)
     let black: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 1)
     let white: SIMD4<Float> = SIMD4<Float>(1, 1, 1, 1)
@@ -167,13 +167,14 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             color: black,
             thickness: 20,
         )
-        drawCircle(center: simd_float2(-0.5, -0.5), color: blue, radius: 30, lineThickness: 6)
-        drawCircle(center: simd_float2(-0.5, -0.5), color: black, radius: 20, lineThickness: 6)
-        drawCircle(center: simd_float2(-0.5, -0.5), color: blue, radius: 10, lineThickness: 6)
-        drawCircle(center: simd_float2(-0.5, -0.5), color: black, radius: 2, lineThickness: 4)
-        drawCircle(center: simd_float2(0, 0), color: blue, radius: 350, steps: 120, lineThickness: 6)
+        drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 30, lineThickness: 6)
+        drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 20, lineThickness: 6)
+        drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 10, lineThickness: 6)
+        drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 2, lineThickness: 4)
         
-        drawSquare(center: simd_float2(0.5, 0.5), color: yellow, width: 58, orthoMatrix: orthoMatrix, texAspect: texAspect)
+        drawCircle(center: simd_float2(0, 0), color: blue, radius: 280, steps: 120, lineThickness: 6)
+        
+        drawSquare(center: simd_float2(0.7, 0.7), color: red, width: 58, orthoMatrix: orthoMatrix, texAspect: texAspect)
 
         encoder.endEncoding()
         commandBuffer.present(drawable)

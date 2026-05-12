@@ -33,7 +33,7 @@ final class DrawingInfo: ObservableObject, Codable {
     
     var cancellables = Set<AnyCancellable>()
 //    static let defaultSize: CGSize = CGSize(width: 800, height: 300)
-    static let defaultSize: CGSize = CGSize(width: 800, height: 800)
+    static let defaultSize: CGSize = CGSize(width: 900, height: 600)
 //    static let defaultSize: CGSize = CGSize(width: 1000, height: 250)
 
     var imageAspectRatio: Float {
@@ -63,14 +63,14 @@ final class DrawingInfo: ObservableObject, Codable {
             self.backgroundColor = .white
         }
         self.texAspect = try container.decodeIfPresent(Float.self, forKey: .texAspect) ?? 1.0
-//        self.linePlacement = try container.decodeIfPresent(Float.self, forKey: .linePlacement) ?? 0
-        self.linePlacement =  0
+        self.linePlacement = try container.decodeIfPresent(Float.self, forKey: .linePlacement) ?? 0
         self.viewportSize = DrawingInfo.defaultSize
         doInitSetup()
     }
     
     // MARK: - Encode
     func encode(to encoder: Encoder) throws {
+        print("Encoding '\(text)'")
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(title, forKey: .title)
         try container.encode(text, forKey: .text)
