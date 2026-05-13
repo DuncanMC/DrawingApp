@@ -17,8 +17,15 @@ import UIKit
 
 class DrawingRenderer: NSObject, MTKViewDelegate {
     
-    var useVertexBuffers = false
+    var useVertexBuffers = true
     var maxVerticiesSize = 3840
+
+    // Ring buffer configuration
+    private let ringBufferSize: Int = 64 * 1024 // 64KB for transient vertices
+    private let ringBufferAlignment: Int = 256  // Metal requires 256-byte alignment for buffers bound with offsets
+    private var ringWriteOffset: Int = 0        // Current write position into the ring buffer
+    private var frameStride: Int { ringBufferSize / max(1, inFlightFrameCount) }
+    private let inFlightFrameCount: Int = 3
     
     let vertexBuffer: MTLBuffer
 
@@ -27,7 +34,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
     let blue: SIMD4<Float> = SIMD4<Float>(0, 0, 1, 1)
     let black: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 1)
     let white: SIMD4<Float> = SIMD4<Float>(1, 1, 1, 1)
-    let zeroPoint = simd_float2(0,0)
+    let zeroPoint: vector_float2 = simd_make_float2(0,0)
 
     
     var sampleCount: Int = 1
@@ -57,12 +64,13 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         self.drawingInfo = drawingInfo
         device = MTLCreateSystemDefaultDevice()
         guard let vertBuffer = device.makeBuffer(
-            length:  maxVerticiesSize,
+            length: ringBufferSize,
             options: .storageModeShared
         ) else {
             fatalError("Could not create vertex buffer")
         }
         vertexBuffer = vertBuffer
+        vertexBuffer.label = "TransientVertexRingBuffer"
         
         super.init()
         
@@ -149,6 +157,11 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 #endif
         let orthoMatrix = matrix_identity_float4x4
         
+        // Reset ring write offset at the start of a frame region
+        // Simple partitioning by frame without explicit GPU sync. For robust sync, use in-flight semaphores.
+        if ringWriteOffset >= ringBufferSize - ringBufferAlignment {
+            ringWriteOffset = 0
+        }
         
         let commandBuffer = commandQueue.makeCommandBuffer()!
         
@@ -165,7 +178,6 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 
         // Drawing code goes here:
         
-
         var uniforms = Uniforms(
             color: black,
             drawWithTetxure: false,
@@ -173,15 +185,16 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         )
 
         
+        // MARK: Test drawing code.
         let limit: Float = 0.9
-//        drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 30, lineThickness: 6)
-//        drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 20, lineThickness: 6)
-//        drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 10, lineThickness: 6)
-//        drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 2, lineThickness: 4)
         
         drawCircle(center: simd_float2(0, 0), color: blue, radius: 280, steps: 120, lineThickness: 6)
-        
-//        drawSquare(center: simd_float2(0.7, 0.7), color: red, width: 58, orthoMatrix: orthoMatrix)
+
+        drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 30, lineThickness: 6)
+        drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 20, lineThickness: 6)
+        drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 10, lineThickness: 6)
+        drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 2, lineThickness: 4)
+
         
         drawThickLine(
             p1: simd_float2(-limit,limit * drawingInfo.wrappedValue.linePlacement),
@@ -189,6 +202,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             color: black,
             thickness: 20,
         )
+
+        drawSquare(center: simd_float2(0.7, 0.7), color: red, width: 58, orthoMatrix: orthoMatrix)
 
         encoder.endEncoding()
         commandBuffer.present(drawable)
@@ -273,8 +288,10 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     print("maxVerticiesSize = \(maxVerticiesSize). verticies.count = \(verticies.count)")
                 }
                 if useVertexBuffers {
-                    vertexBuffer.contents().copyMemory(from: verticies, byteCount: verticiesSize)
-                    encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+                    let offset = allocateVerticesInRing(byteCount: verticiesSize)
+                    let dst = vertexBuffer.contents().advanced(by: offset)
+                    dst.copyMemory(from: verticies, byteCount: verticiesSize)
+                    encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
                 } else {
                     encoder.setVertexBytes(verticies, length: verticiesSize, index: 0)
                 }
@@ -328,8 +345,10 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 var verticiesSize = MemoryLayout<simd_float2>.stride * verts.count
 
                 if useVertexBuffers {
-                    vertexBuffer.contents().copyMemory(from: verts, byteCount: verticiesSize)
-                    encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+                    let offset = allocateVerticesInRing(byteCount: verticiesSize)
+                    let dst = vertexBuffer.contents().advanced(by: offset)
+                    dst.copyMemory(from: verts, byteCount: verticiesSize)
+                    encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
                 } else {
                     encoder.setVertexBytes(verts, length: MemoryLayout<simd_float2>.stride * 3, index: 0)
                 }
@@ -342,8 +361,10 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 verticiesSize = MemoryLayout<simd_float2>.stride * verts.count
 
                 if useVertexBuffers {
-                    vertexBuffer.contents().copyMemory(from: verts, byteCount: verticiesSize)
-                    encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+                    let offset2 = allocateVerticesInRing(byteCount: verticiesSize)
+                    let dst2 = vertexBuffer.contents().advanced(by: offset2)
+                    dst2.copyMemory(from: verts, byteCount: verticiesSize)
+                    encoder.setVertexBuffer(vertexBuffer, offset: offset2, index: 0)
                 } else {
                     encoder.setVertexBytes(verts, length: MemoryLayout<simd_float2>.stride * 3, index: 0)
                 }
@@ -417,10 +438,12 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 let verticiesSize = MemoryLayout<simd_float2>.stride * verticies.count
                 
                 if useVertexBuffers {
-                    vertexBuffer.contents().copyMemory(from: verticies, byteCount:verticiesSize)
-                    encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+                    let offset = allocateVerticesInRing(byteCount: verticiesSize)
+                    let dst = vertexBuffer.contents().advanced(by: offset)
+                    dst.copyMemory(from: verticies, byteCount: verticiesSize)
+                    encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
                 } else {
-                    encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                    encoder.setVertexBytes(verticies, length: verticiesSize, index: 0)
                 }
 
                 encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
@@ -455,8 +478,10 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             
             if useVertexBuffers {
                 let verticiesSize = MemoryLayout<simd_float2>.stride * 4
-                vertexBuffer.contents().copyMemory(from: vertices, byteCount: verticiesSize)
-                encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+                let offset = allocateVerticesInRing(byteCount: verticiesSize)
+                let dst = vertexBuffer.contents().advanced(by: offset)
+                dst.copyMemory(from: vertices, byteCount: verticiesSize)
+                encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
             } else {
                 encoder.setVertexBytes(vertices, length: MemoryLayout<simd_float2>.stride * 4, index: 0)
             }
@@ -470,8 +495,20 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                 encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
             }
+        
+        // MARK: Helper function for managing offsets into the ring buffer
+        
+        @inline(__always)
+        func allocateVerticesInRing(byteCount: Int) -> Int {
+            let alignedSize = ((byteCount + ringBufferAlignment - 1) / ringBufferAlignment) * ringBufferAlignment
+            if ringWriteOffset + alignedSize > ringBufferSize {
+                // Wrap to start if not enough space
+                ringWriteOffset = 0
+            }
+            let offset = ringWriteOffset
+            ringWriteOffset += alignedSize
+            return offset
+        }
     }
-    
-
 }
 
