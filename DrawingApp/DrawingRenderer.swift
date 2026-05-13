@@ -3,6 +3,7 @@
 //  DrawingApp
 //
 //  Created by Duncan Champney on 5/4/26.
+//  Copyright (c) 2026 Duncan Champney. All rights reserved.
 //
 
 import Foundation
@@ -16,12 +17,11 @@ import UIKit
 
 class DrawingRenderer: NSObject, MTKViewDelegate {
     
-    var useVertexBuffers = true
+    var useVertexBuffers = false
     var maxVerticiesSize = 3840
     
     let vertexBuffer: MTLBuffer
 
-    
     let red: SIMD4<Float> = SIMD4<Float>(0.7, 0, 0, 1)
     let yellow: SIMD4<Float> = SIMD4<Float>(1, 1, 0, 1)
     let blue: SIMD4<Float> = SIMD4<Float>(0, 0, 1, 1)
@@ -174,14 +174,14 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 
         
         let limit: Float = 0.9
-        drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 30, lineThickness: 6)
-        drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 20, lineThickness: 6)
-        drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 10, lineThickness: 6)
-        drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 2, lineThickness: 4)
+//        drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 30, lineThickness: 6)
+//        drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 20, lineThickness: 6)
+//        drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 10, lineThickness: 6)
+//        drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 2, lineThickness: 4)
         
         drawCircle(center: simd_float2(0, 0), color: blue, radius: 280, steps: 120, lineThickness: 6)
         
-        drawSquare(center: simd_float2(0.7, 0.7), color: red, width: 58, orthoMatrix: orthoMatrix)
+//        drawSquare(center: simd_float2(0.7, 0.7), color: red, width: 58, orthoMatrix: orthoMatrix)
         
         drawThickLine(
             p1: simd_float2(-limit,limit * drawingInfo.wrappedValue.linePlacement),
@@ -472,8 +472,6 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             }
     }
     
-    // Model-View-Projection matrix example
-    let orthoMatrix = matrix_identity_float4x4
 
 }
 

@@ -7,13 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		AE6A92F22FB39E75005ABC68 /* Snork.m in Sources */ = {isa = PBXBuildFile; fileRef = AE6A92F12FB39E75005ABC68 /* Snork.m */; };
 		AEA8DF6F2FA93FCE00DFF484 /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEA8DF6E2FA93FCE00DFF484 /* Utils.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		AE6A92F02FB39E75005ABC68 /* DrawingApp-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "DrawingApp-Bridging-Header.h"; sourceTree = "<group>"; };
-		AE6A92F12FB39E75005ABC68 /* Snork.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = Snork.m; sourceTree = "<group>"; };
 		AEA8DF522FA4DE0400DFF484 /* DrawingApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DrawingApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AEA8DF6E2FA93FCE00DFF484 /* Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utils.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -53,7 +51,6 @@
 		AEA8DF492FA4DE0400DFF484 = {
 			isa = PBXGroup;
 			children = (
-				AE6A92F12FB39E75005ABC68 /* Snork.m */,
 				AEA8DF6E2FA93FCE00DFF484 /* Utils.swift */,
 				AEA8DF542FA4DE0400DFF484 /* DrawingApp */,
 				AEA8DF532FA4DE0400DFF484 /* Products */,
@@ -145,7 +142,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				AEA8DF6F2FA93FCE00DFF484 /* Utils.swift in Sources */,
-				AE6A92F22FB39E75005ABC68 /* Snork.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

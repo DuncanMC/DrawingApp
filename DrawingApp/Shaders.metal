@@ -3,6 +3,7 @@
 //  DrawingApp
 //
 //  Created by Duncan Champney on 5/4/26.
+//  Copyright (c) 2026 Duncan Champney. All rights reserved.
 //
 
 #include <metal_stdlib>
