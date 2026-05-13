@@ -16,6 +16,12 @@ import UIKit
 
 class DrawingRenderer: NSObject, MTKViewDelegate {
     
+    var useVertexBuffers = true
+    var maxVerticiesSize = 3840
+    
+    let vertexBuffer: MTLBuffer
+
+    
     let red: SIMD4<Float> = SIMD4<Float>(0.7, 0, 0, 1)
     let yellow: SIMD4<Float> = SIMD4<Float>(1, 1, 0, 1)
     let blue: SIMD4<Float> = SIMD4<Float>(0, 0, 1, 1)
@@ -44,14 +50,23 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
     struct Uniforms {
         let color: simd_float4      //Only used when drawing outlines
         let drawWithTetxure: Bool   // Tells shader to draw with texture rather than color
-        let texAspect: Float
         let orthoMatrix: float4x4
     }
 
     init(drawingInfo: Binding<DrawingInfo>) {
         self.drawingInfo = drawingInfo
-        super.init()
         device = MTLCreateSystemDefaultDevice()
+        guard let vertBuffer = device.makeBuffer(
+            length:  maxVerticiesSize,
+            options: .storageModeShared
+        ) else {
+            fatalError("Could not create vertex buffer")
+        }
+        vertexBuffer = vertBuffer
+        
+        super.init()
+        
+
         //MARK: Oversampling
         if device.supportsTextureSampleCount(4) {
             sampleCount = 4
@@ -150,23 +165,15 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 
         // Drawing code goes here:
         
-        let texAspect: Float = drawingInfo.wrappedValue.texAspect
 
         var uniforms = Uniforms(
             color: black,
             drawWithTetxure: false,
-            texAspect: texAspect,
             orthoMatrix: orthoMatrix
         )
 
         
         let limit: Float = 0.9
-        drawThickLine(
-            p1: simd_float2(-limit,limit * drawingInfo.wrappedValue.linePlacement),
-            p2: simd_float2(limit, -limit * drawingInfo.wrappedValue.linePlacement),
-            color: black,
-            thickness: 20,
-        )
         drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 30, lineThickness: 6)
         drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 20, lineThickness: 6)
         drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 10, lineThickness: 6)
@@ -174,7 +181,14 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         
         drawCircle(center: simd_float2(0, 0), color: blue, radius: 280, steps: 120, lineThickness: 6)
         
-        drawSquare(center: simd_float2(0.7, 0.7), color: red, width: 58, orthoMatrix: orthoMatrix, texAspect: texAspect)
+        drawSquare(center: simd_float2(0.7, 0.7), color: red, width: 58, orthoMatrix: orthoMatrix)
+        
+        drawThickLine(
+            p1: simd_float2(-limit,limit * drawingInfo.wrappedValue.linePlacement),
+            p2: simd_float2(limit, -limit * drawingInfo.wrappedValue.linePlacement),
+            color: black,
+            thickness: 20,
+        )
 
         encoder.endEncoding()
         commandBuffer.present(drawable)
@@ -250,11 +264,20 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 uniforms = Uniforms(
                     color: color,
                     drawWithTetxure: false,
-                    texAspect: texAspect,
                     orthoMatrix: orthoMatrix
                 )
                 
-                encoder.setVertexBytes(verticies, length: MemoryLayout<simd_float2>.stride * verticies.count, index: 0)
+                let verticiesSize = MemoryLayout<simd_float2>.stride * verticies.count
+                if maxVerticiesSize < verticiesSize {
+                    maxVerticiesSize = verticiesSize
+                    print("maxVerticiesSize = \(maxVerticiesSize). verticies.count = \(verticies.count)")
+                }
+                if useVertexBuffers {
+                    vertexBuffer.contents().copyMemory(from: verticies, byteCount: verticiesSize)
+                    encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+                } else {
+                    encoder.setVertexBytes(verticies, length: verticiesSize, index: 0)
+                }
                 
                 encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                 encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
@@ -266,8 +289,6 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             color: SIMD4<Float>,
             width: Float,
             orthoMatrix: float4x4,
-            texAspect: Float,
-            
             asDiamond: Bool = false) {
                 
                 let aspect = drawingInfo.wrappedValue.imageAspectRatio
@@ -278,7 +299,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 let center: simd_float2 = simd_float2(x: center.x, y: center.y)
                 let widthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
                 let yOffset = (widthPerPixel * width) / adjustment.y
-                let xOffset = widthPerPixel * width / texAspect / adjustment.x
+                let xOffset = widthPerPixel * width  / adjustment.x
                 let p1: simd_float2
                 let p2: simd_float2
                 let p3: simd_float2
@@ -301,18 +322,32 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 var uniforms: Uniforms = Uniforms(
                     color: color,
                     drawWithTetxure: false,
-                    texAspect: texAspect,
                     orthoMatrix: orthoMatrix
                 )
                 
-                encoder.setVertexBytes(verts, length: MemoryLayout<simd_float2>.stride * 3, index: 0)
+                var verticiesSize = MemoryLayout<simd_float2>.stride * verts.count
+
+                if useVertexBuffers {
+                    vertexBuffer.contents().copyMemory(from: verts, byteCount: verticiesSize)
+                    encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+                } else {
+                    encoder.setVertexBytes(verts, length: MemoryLayout<simd_float2>.stride * 3, index: 0)
+                }
+
+                encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                 encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
-                
                 encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
                 
                 verts = [p1, p3, p4]
-                
-                encoder.setVertexBytes(verts, length: MemoryLayout<simd_float2>.stride * 3, index: 0)
+                verticiesSize = MemoryLayout<simd_float2>.stride * verts.count
+
+                if useVertexBuffers {
+                    vertexBuffer.contents().copyMemory(from: verts, byteCount: verticiesSize)
+                    encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+                } else {
+                    encoder.setVertexBytes(verts, length: MemoryLayout<simd_float2>.stride * 3, index: 0)
+                }
+                encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                 encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                 encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
                 
@@ -325,17 +360,17 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             direction: ArrowHeadDirection,
             color: SIMD4<Float>,
             thickness: Float,
-            orthoMatrix: float4x4,
-            texAspect: Float) {
+            orthoMatrix: float4x4
+        ) {
                 let thickness = thickness * scale
                 let widthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
 
-                let tipXOffset = (direction == .left ? -widthPerPixel * thickness / 2 : 0) / drawingInfo.wrappedValue.texAspect
+                let tipXOffset = (direction == .left ? -widthPerPixel * thickness / 2 : 0)
                 let tipYOffset = (direction == .down ? -widthPerPixel * thickness / 2 : 0)
                 
                 let point = simd_float2(point.x + (direction == .left ? tipXOffset / 2 : 0), point.y + (direction == .down ? tipYOffset / 2 : 0))
                 
-                let deltaX = Float(sqrt(2)) / 2 * size * scale * widthPerPixel / drawingInfo.wrappedValue.texAspect
+                let deltaX = Float(sqrt(2)) / 2 * size * scale * widthPerPixel
                 let deltaY = Float(sqrt(2)) / 2 * size * scale * widthPerPixel
                 let pointTip = simd_float2(
                     point.x + tipXOffset * (direction == .down ? 0 : 1),
@@ -363,7 +398,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     leadingInsidePoint.x + tipXOffset * 2 * (direction == .down ? 1 : -1),
                     leadingInsidePoint.y + tipYOffset * 2 * (direction == .down ? -1 : 1)
                 )
-                let verticies: [simd_float2] = [leadingOutsidePoint,
+                var verticies: [simd_float2] = [leadingOutsidePoint,
                                                 trailingOutsidePoint,
                                                 pointTip,
                                                 trailingPoint,
@@ -374,11 +409,20 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 var uniforms: Uniforms = Uniforms(
                     color: color,
                     drawWithTetxure: false,
-                    texAspect: texAspect,
                     orthoMatrix: orthoMatrix
                 )
-                encoder.setVertexBytes(verticies, length: MemoryLayout<simd_float2>.stride * verticies.count, index: 0)
                 
+//                encoder.setVertexBytes(verticies, length: MemoryLayout<simd_float2>.stride * verticies.count, index: 0)
+
+                let verticiesSize = MemoryLayout<simd_float2>.stride * verticies.count
+                
+                if useVertexBuffers {
+                    vertexBuffer.contents().copyMemory(from: verticies, byteCount:verticiesSize)
+                    encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+                } else {
+                    encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                }
+
                 encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                 encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                 encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: verticies.count)
@@ -407,13 +451,19 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 let v1 = (p1Tweaked - normal) / adjustment
                 let v2 = (p2Tweaked + normal) / adjustment
                 let v3 = (p2Tweaked - normal) / adjustment
-                let vertices = [v0, v1, v2, v3]
+                var vertices = [v0, v1, v2, v3]
+            
+            if useVertexBuffers {
+                let verticiesSize = MemoryLayout<simd_float2>.stride * 4
+                vertexBuffer.contents().copyMemory(from: vertices, byteCount: verticiesSize)
+                encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+            } else {
                 encoder.setVertexBytes(vertices, length: MemoryLayout<simd_float2>.stride * 4, index: 0)
+            }
                 
                  uniforms = Uniforms(
                     color: color,
                     drawWithTetxure: false,
-                    texAspect: texAspect,
                     orthoMatrix: orthoMatrix
                 )
                 encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
