@@ -13,7 +13,7 @@ import SwiftUI
 struct DrawingAppApp: App {
     var body: some Scene {
         DocumentGroup(newDocument: DrawingAppDocument()) { @MainActor file in
-            ContentView(drawingInfo: file.$document.drawingInfo)
+            ContentView(drawingInfo: file.document.drawingInfo)
         }
     }
 }

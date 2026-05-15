@@ -52,7 +52,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         }
     }
 
-    var drawingInfo: Binding<DrawingInfo>
+    let drawingInfo: DrawingInfo
 
     struct Uniforms {
         let color: simd_float4      //Only used when drawing outlines
@@ -60,7 +60,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         let orthoMatrix: float4x4
     }
 
-    init(drawingInfo: Binding<DrawingInfo>) {
+    init(drawingInfo: DrawingInfo) {
         self.drawingInfo = drawingInfo
         device = MTLCreateSystemDefaultDevice()
         guard let vertBuffer = device.makeBuffer(
@@ -126,7 +126,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             let scaledSize =   CGSize(width: size.width/newScale, height: size.height/newScale)
             //print("In SourceImageRenderer, scale = \(newScale). scaled image size = \(scaledSize)")
 
-            drawingInfo.wrappedValue.viewportSize = scaledSize
+            drawingInfo.viewportSize = scaledSize
         }
         // For example, you may want to adjust your projection or drawing to match portrait/landscape changes
     }
@@ -165,7 +165,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         
         let commandBuffer = commandQueue.makeCommandBuffer()!
         
-        let colorComponents = drawingInfo.wrappedValue.backgroundColor.components()
+        let colorComponents = drawingInfo.backgroundColor.components()
         descriptor.colorAttachments[0].clearColor = MTLClearColor(
             red: colorComponents[0],
             green: colorComponents[1],
@@ -197,13 +197,15 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 
         
         drawThickLine(
-            p1: simd_float2(-limit,limit * drawingInfo.wrappedValue.linePlacement),
-            p2: simd_float2(limit, -limit * drawingInfo.wrappedValue.linePlacement),
+            p1: simd_float2(-limit,limit * drawingInfo.linePlacement),
+            p2: simd_float2(limit, -limit * drawingInfo.linePlacement),
             color: black,
             thickness: 20,
         )
 
         drawSquare(center: simd_float2(0.7, 0.7), color: red, width: 58, orthoMatrix: orthoMatrix)
+        
+        drawCurves(drawingInfo.curves)
 
         encoder.endEncoding()
         commandBuffer.present(drawable)
@@ -211,6 +213,13 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 
 
         // MARK: - nested drawing functions
+        
+        func drawCurves(_ curves: [CatmullRomCurve]) {
+            for curve in curves {
+                print("curve = \(curve)")
+            }
+        }
+        
         func drawCircle(
             center: simd_float2,
             color: SIMD4<Float>,
@@ -236,7 +245,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             lineThickness: Float,
             asDiamond: Bool = false) {
                 
-                let aspect = drawingInfo.wrappedValue.imageAspectRatio
+                let aspect = drawingInfo.imageAspectRatio
                 let landscape = aspect > 1
                 let adjustment: simd_float2 = landscape ?  simd_float2(1, aspect) : simd_float2(1/aspect, 1)
 
@@ -308,7 +317,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             orthoMatrix: float4x4,
             asDiamond: Bool = false) {
                 
-                let aspect = drawingInfo.wrappedValue.imageAspectRatio
+                let aspect = drawingInfo.imageAspectRatio
                 let landscape = aspect > 1
                 let adjustment: simd_float2 = landscape ?  simd_float2(1, 1/aspect) : simd_float2(1*aspect, 1)
 
@@ -419,7 +428,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     leadingInsidePoint.x + tipXOffset * 2 * (direction == .down ? 1 : -1),
                     leadingInsidePoint.y + tipYOffset * 2 * (direction == .down ? -1 : 1)
                 )
-                var verticies: [simd_float2] = [leadingOutsidePoint,
+                let verticies: [simd_float2] = [leadingOutsidePoint,
                                                 trailingOutsidePoint,
                                                 pointTip,
                                                 trailingPoint,
@@ -459,7 +468,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             thickness: Float
         ) {
                 
-                let aspect = drawingInfo.wrappedValue.imageAspectRatio
+                let aspect = drawingInfo.imageAspectRatio
                 let landscape = aspect > 1
                 let adjustment: simd_float2 = landscape ?  simd_float2(1, 1/aspect) : simd_float2(1*aspect, 1)
                 let p1Tweaked = p1  * adjustment
@@ -474,7 +483,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 let v1 = (p1Tweaked - normal) / adjustment
                 let v2 = (p2Tweaked + normal) / adjustment
                 let v3 = (p2Tweaked - normal) / adjustment
-                var vertices = [v0, v1, v2, v3]
+                let vertices = [v0, v1, v2, v3]
             
             if useVertexBuffers {
                 let verticiesSize = MemoryLayout<simd_float2>.stride * 4

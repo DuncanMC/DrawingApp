@@ -15,10 +15,10 @@ typealias ViewType = MTKView
 
 #if os(macOS)
 struct DrawingView: NSViewRepresentable {
-    @Binding var drawingInfo: DrawingInfo
+    @StateObject var drawingInfo: DrawingInfo
     
     func makeCoordinator() -> DrawingRenderer {
-        DrawingRenderer(drawingInfo: $drawingInfo)
+        DrawingRenderer(drawingInfo: drawingInfo)
     }
     
     func updateNSView(_ nsView: MTKView, context: Context) {

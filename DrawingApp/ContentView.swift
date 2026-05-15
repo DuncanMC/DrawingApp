@@ -9,7 +9,7 @@
 import SwiftUI
 
 @MainActor struct ContentView: View {
-    @Binding var drawingInfo: DrawingInfo
+    @ObservedObject var drawingInfo: DrawingInfo
 
     var toggleAlignment: Alignment {
     #if os(macOS)
@@ -23,14 +23,14 @@ import SwiftUI
     var body: some View {
         VStack {
             VStack {
-                DrawingView(drawingInfo: $drawingInfo)
+                DrawingView(drawingInfo: drawingInfo)
                     .frame(width: DrawingInfo.defaultSize.width, height: DrawingInfo.defaultSize.height)
                     .border(Color.blue, width: 4)
                     .aspectRatio(drawingInfo.imageSize, contentMode: .fit)
                 TextEditor(text: $drawingInfo.text)
                     .frame(maxHeight: 50)
                 HStack {
-                    Button("Stuff") {
+                    Button("Test") {
                         drawingInfo.text += " Extra words."
                     }
 
@@ -50,5 +50,5 @@ import SwiftUI
 }
 
 #Preview {
-    ContentView(drawingInfo: .constant(DrawingInfo(title: "foo", text: "bar")))
+    ContentView(drawingInfo: DrawingInfo(title: "foo", text: "bar"))
 }
