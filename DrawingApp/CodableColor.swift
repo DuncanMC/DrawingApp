@@ -7,6 +7,8 @@
 //
 
 import SwiftUI
+import simd
+
 
 
 // MARK: - Codable support for Color
@@ -16,8 +18,14 @@ struct CodableColor: Codable {
     let blue: CGFloat
     let alpha: CGFloat
     
+    init(simdColor: simd_float4) {
+        self.red = CGFloat(simdColor[0])
+        self.green = CGFloat(simdColor[1])
+        self.blue = CGFloat(simdColor[2])
+        self.alpha = CGFloat(simdColor[3])
+    }
     init(color: Color) {
-        #if os(iOS)
+#if os(iOS)
         let uiColor = UIColor(color)
         var r: CGFloat = 0
         var g: CGFloat = 0
@@ -28,7 +36,7 @@ struct CodableColor: Codable {
         self.green = g
         self.blue = b
         self.alpha = a
-        #elseif os(macOS)
+#elseif os(macOS)
         let nsColor = NSColor(color)
         var r: CGFloat = 0
         var g: CGFloat = 0
@@ -39,15 +47,19 @@ struct CodableColor: Codable {
         self.green = g
         self.blue = b
         self.alpha = a
-        #else
+#else
         self.red = 1
         self.green = 1
         self.blue = 1
         self.alpha = 1
-        #endif
+#endif
     }
     
     func toColor() -> Color {
         Color(.sRGB, red: Double(red), green: Double(green), blue: Double(blue), opacity: Double(alpha))
     }
+    func toSimdColor() -> simd_float4 {
+        simd_float4(Float(red), Float(green),Float(blue), Float(alpha))
+    }
+
 }

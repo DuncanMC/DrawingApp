@@ -17,11 +17,12 @@ import UIKit
 
 class DrawingRenderer: NSObject, MTKViewDelegate {
     
+    var log = false
     var useVertexBuffers = true
     var maxVerticiesSize = 3840
 
     // Ring buffer configuration
-    private let ringBufferSize: Int = 64 * 1024 // 64KB for transient vertices
+    private let ringBufferSize: Int = 64 * 1024 // 64KB for transient verticies
     private let ringBufferAlignment: Int = 256  // Metal requires 256-byte alignment for buffers bound with offsets
     private var ringWriteOffset: Int = 0        // Current write position into the ring buffer
     private var frameStride: Int { ringBufferSize / max(1, inFlightFrameCount) }
@@ -32,6 +33,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
     let red: SIMD4<Float> = SIMD4<Float>(0.7, 0, 0, 1)
     let yellow: SIMD4<Float> = SIMD4<Float>(1, 1, 0, 1)
     let blue: SIMD4<Float> = SIMD4<Float>(0, 0, 1, 1)
+    let green: SIMD4<Float> = SIMD4<Float>(0, 1, 0, 1)
     let black: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 1)
     let white: SIMD4<Float> = SIMD4<Float>(1, 1, 1, 1)
     let zeroPoint: vector_float2 = simd_make_float2(0,0)
@@ -188,13 +190,13 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         // MARK: Test drawing code.
         let limit: Float = 0.9
         
-        drawCircle(center: simd_float2(0, 0), color: blue, radius: 280, steps: 120, lineThickness: 6)
 
-        drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 30, lineThickness: 6)
-        drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 20, lineThickness: 6)
-        drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 10, lineThickness: 6)
-        drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 2, lineThickness: 4)
-
+//        drawCircle(center: simd_float2(0, 0), color: blue, radius: 280, steps: 120, lineThickness: 6)
+//
+//        drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 30, lineThickness: 6)
+//        drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 20, lineThickness: 6)
+//        drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 10, lineThickness: 6)
+//        drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 2, lineThickness: 4)
         
         drawThickLine(
             p1: simd_float2(-limit,limit * drawingInfo.linePlacement),
@@ -203,9 +205,11 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             thickness: 20,
         )
 
-        drawSquare(center: simd_float2(0.7, 0.7), color: red, width: 58, orthoMatrix: orthoMatrix)
+        
+//        drawSquare(center: simd_float2(0.7, 0.7), color: red, width: 58, orthoMatrix: orthoMatrix)
         
         drawCurves(drawingInfo.curves)
+
 
         encoder.endEncoding()
         commandBuffer.present(drawable)
@@ -215,10 +219,109 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         // MARK: - nested drawing functions
         
         func drawCurves(_ curves: [CatmullRomCurve]) {
+            let aspect = drawingInfo.imageAspectRatio
+            let landscape = aspect > 1
+            let adjustment: simd_float2 = landscape ?  simd_float2(1, 1/aspect) : simd_float2(1*aspect, 1)
+            
+            let widthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
+            var vertexes = [simd_float2]()
+            
+            vertexes.reserveCapacity(curves.count * 2)
+            
             for curve in curves {
-                print("curve = \(curve)")
+                
+                let radius = curve.radius * widthPerPixel
+                for index in 1 ..< curve.points.count {
+                    let first = curve.points[index-1].coord * adjustment
+                    let middle = curve.points[index].coord * adjustment
+                    
+                    let dir1 = normalize(middle - first)
+                    let normal1 = simd_float2(-dir1.y, dir1.x) * radius
+                    
+                    let firstLeft = (first + normal1) / adjustment
+                    let firstRight = (first - normal1) / adjustment
+                    let secondLeftOne = (middle + normal1) / adjustment
+                    let secondRightOne = (middle - normal1) / adjustment
+                    if false {
+                        vertexes += [firstLeft, firstRight, secondLeftOne, secondRightOne]
+                        
+                    } else {
+                        
+                        if index == 1 {
+                            vertexes += [firstLeft, firstRight]
+                        } else if index == curve.points.count - 1 {
+                            vertexes += [secondLeftOne, secondRightOne]
+                        }
+                        if index < curve.points.count - 1 {
+                            
+                            //Calculate the intersection of "left" and right line segments and use them as the middle points.
+                            let last = curve.points[index+1].coord * adjustment
+                            
+                            let dir2 = normalize(last - middle)
+                            let normal2 = simd_float2(-dir2.y, dir2.x) * radius
+                            let secondLeftTwo = (middle + normal2) / adjustment
+                            let secondRightTwo = (middle - normal2) / adjustment
+                            let lastLeft = (last + normal2) / adjustment
+                            let lastRight = (last - normal2) / adjustment
+                            let firstLeftLine = equationForLine(from: firstLeft, to: secondLeftOne)
+                            let secondLeftLine = equationForLine(from: secondLeftTwo, to: lastLeft)
+                            
+                            let firstRightLine = equationForLine(from: firstRight, to: secondRightOne)
+                            let secondRightLine = equationForLine(from: secondRightTwo, to: lastRight)
+                            guard
+                                let leftIntersection = intersection(line1: firstLeftLine, line2: secondLeftLine),
+                                let rightIntersection = intersection(line1: firstRightLine, line2: secondRightLine) else {
+                                fatalError("Can't compute intersections!")
+                            }
+                            vertexes += [leftIntersection, rightIntersection]
+                            if index == 1 && log {
+                                print("index = 1")
+                                print("first = \(first/adjustment)")
+                                print("firstleft = \(firstLeft)")
+                                print("middle = \(middle/adjustment)")
+                                print("secondLeftOne = \(secondLeftOne)")
+                                print("lastLeft = \(lastLeft)")
+                                print("leftIntersection = \(leftIntersection)")
+                                print("----")
+                            }
+                        }
+                    }
+                }
+                if useVertexBuffers {
+                    let verticiesSize = MemoryLayout<simd_float2>.stride * vertexes.count
+                    let offset = allocateVerticiesInRing(byteCount: verticiesSize)
+                    let dst = vertexBuffer.contents().advanced(by: offset)
+                    dst.copyMemory(from: vertexes, byteCount: verticiesSize)
+                    encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
+                } else {
+                    encoder.setVertexBytes(vertexes, length: MemoryLayout<simd_float2>.stride * vertexes.count, index: 0)
+                }
+                
+                uniforms = Uniforms(
+                    color: curve.color,
+                    drawWithTetxure: false,
+                    orthoMatrix: orthoMatrix
+                )
+                
+                encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: vertexes.count)
+                
+                // Now draw outlined sqares for the corner points and circles for the smooth points.
+                for index in 0 ..< curve.points.count {
+                    let point = curve.points[index].coord
+                    if curve.points[index].pointType == .corner {
+                        drawCircle(center: point, color: white, radius: 8, lineThickness: 2)
+                        drawCircle(center: point, color: blue, radius: 6, lineThickness: 3)
+                    } else {
+                        drawSquare(center: point, color: white, width: 16, orthoMatrix: orthoMatrix)
+                        drawSquare(center: point, color: blue, width: 14, orthoMatrix: orthoMatrix)
+                    }
+                }
             }
+            
         }
+
         
         func drawCircle(
             center: simd_float2,
@@ -255,8 +358,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 let arcDelta = endAngle.degreesToRadians - startAngleRadians
                 let notFullCircle = startAngle != 0.0 || endAngle != 360.0
                 
-                var verticies = [simd_float2]()
-                verticies.reserveCapacity(steps * 2)
+                var vertexes = [simd_float2]()
+                vertexes.reserveCapacity(steps * 2)
                 let radius = 2 * radius + lineThickness / 8
                 
                 let loopSteps = notFullCircle ? steps - 1 : steps
@@ -282,7 +385,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     deltaY = sin(angle2) * widthPerPixel * (radius + lineThickness) * adjustment.y
                     let p2Outside = simd_float2(x: center.x + deltaX, y: center.y + deltaY)
                     
-                    verticies += [p1Inside, p1Outside, p2Inside, p2Outside]
+                    vertexes += [p1Inside, p1Outside, p2Inside, p2Outside]
                 }
                 
                 uniforms = Uniforms(
@@ -291,23 +394,23 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     orthoMatrix: orthoMatrix
                 )
                 
-                let verticiesSize = MemoryLayout<simd_float2>.stride * verticies.count
+                let verticiesSize = MemoryLayout<simd_float2>.stride * vertexes.count
                 if maxVerticiesSize < verticiesSize {
                     maxVerticiesSize = verticiesSize
-                    print("maxVerticiesSize = \(maxVerticiesSize). verticies.count = \(verticies.count)")
+                    print("maxVerticiesSize = \(maxVerticiesSize). verticies.count = \(vertexes.count)")
                 }
                 if useVertexBuffers {
-                    let offset = allocateVerticesInRing(byteCount: verticiesSize)
+                    let offset = allocateVerticiesInRing(byteCount: verticiesSize)
                     let dst = vertexBuffer.contents().advanced(by: offset)
-                    dst.copyMemory(from: verticies, byteCount: verticiesSize)
+                    dst.copyMemory(from: vertexes, byteCount: verticiesSize)
                     encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
                 } else {
-                    encoder.setVertexBytes(verticies, length: verticiesSize, index: 0)
+                    encoder.setVertexBytes(vertexes, length: verticiesSize, index: 0)
                 }
                 
                 encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                 encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
-                encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: verticies.count)
+                encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: vertexes.count)
             }
         
         func drawSquare(
@@ -343,7 +446,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     p4 = simd_float2(x: center.x - xOffset, y: center.y)
                 }
                 
-                var verts: [simd_float2] = [p1, p2, p3]
+                var vertexes: [simd_float2] = [p1, p2, p3]
                                 
                 var uniforms: Uniforms = Uniforms(
                     color: color,
@@ -351,31 +454,31 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     orthoMatrix: orthoMatrix
                 )
                 
-                var verticiesSize = MemoryLayout<simd_float2>.stride * verts.count
+                var verticiesSize = MemoryLayout<simd_float2>.stride * vertexes.count
 
                 if useVertexBuffers {
-                    let offset = allocateVerticesInRing(byteCount: verticiesSize)
+                    let offset = allocateVerticiesInRing(byteCount: verticiesSize)
                     let dst = vertexBuffer.contents().advanced(by: offset)
-                    dst.copyMemory(from: verts, byteCount: verticiesSize)
+                    dst.copyMemory(from: vertexes, byteCount: verticiesSize)
                     encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
                 } else {
-                    encoder.setVertexBytes(verts, length: MemoryLayout<simd_float2>.stride * 3, index: 0)
+                    encoder.setVertexBytes(vertexes, length: MemoryLayout<simd_float2>.stride * 3, index: 0)
                 }
 
                 encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                 encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                 encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
                 
-                verts = [p1, p3, p4]
-                verticiesSize = MemoryLayout<simd_float2>.stride * verts.count
+                vertexes = [p1, p3, p4]
+                verticiesSize = MemoryLayout<simd_float2>.stride * vertexes.count
 
                 if useVertexBuffers {
-                    let offset2 = allocateVerticesInRing(byteCount: verticiesSize)
+                    let offset2 = allocateVerticiesInRing(byteCount: verticiesSize)
                     let dst2 = vertexBuffer.contents().advanced(by: offset2)
-                    dst2.copyMemory(from: verts, byteCount: verticiesSize)
+                    dst2.copyMemory(from: vertexes, byteCount: verticiesSize)
                     encoder.setVertexBuffer(vertexBuffer, offset: offset2, index: 0)
                 } else {
-                    encoder.setVertexBytes(verts, length: MemoryLayout<simd_float2>.stride * 3, index: 0)
+                    encoder.setVertexBytes(vertexes, length: MemoryLayout<simd_float2>.stride * 3, index: 0)
                 }
                 encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                 encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
@@ -447,7 +550,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 let verticiesSize = MemoryLayout<simd_float2>.stride * verticies.count
                 
                 if useVertexBuffers {
-                    let offset = allocateVerticesInRing(byteCount: verticiesSize)
+                    let offset = allocateVerticiesInRing(byteCount: verticiesSize)
                     let dst = vertexBuffer.contents().advanced(by: offset)
                     dst.copyMemory(from: verticies, byteCount: verticiesSize)
                     encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
@@ -483,16 +586,16 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 let v1 = (p1Tweaked - normal) / adjustment
                 let v2 = (p2Tweaked + normal) / adjustment
                 let v3 = (p2Tweaked - normal) / adjustment
-                let vertices = [v0, v1, v2, v3]
+                let vertexes = [v0, v1, v2, v3]
             
             if useVertexBuffers {
                 let verticiesSize = MemoryLayout<simd_float2>.stride * 4
-                let offset = allocateVerticesInRing(byteCount: verticiesSize)
+                let offset = allocateVerticiesInRing(byteCount: verticiesSize)
                 let dst = vertexBuffer.contents().advanced(by: offset)
-                dst.copyMemory(from: vertices, byteCount: verticiesSize)
+                dst.copyMemory(from: vertexes, byteCount: verticiesSize)
                 encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
             } else {
-                encoder.setVertexBytes(vertices, length: MemoryLayout<simd_float2>.stride * 4, index: 0)
+                encoder.setVertexBytes(vertexes, length: MemoryLayout<simd_float2>.stride * 4, index: 0)
             }
                 
                  uniforms = Uniforms(
@@ -508,7 +611,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         // MARK: Helper function for managing offsets into the ring buffer
         
         @inline(__always)
-        func allocateVerticesInRing(byteCount: Int) -> Int {
+        func allocateVerticiesInRing(byteCount: Int) -> Int {
             let alignedSize = ((byteCount + ringBufferAlignment - 1) / ringBufferAlignment) * ringBufferAlignment
             if ringWriteOffset + alignedSize > ringBufferSize {
                 // Wrap to start if not enough space

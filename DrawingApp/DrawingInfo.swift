@@ -14,43 +14,85 @@ enum PointType: Int, Codable {
     case corner
 }
 
+func simdColorToColor(_ color: simd_float4) -> Color {
+        .init(red: Double(color.x),
+          green: Double(color.y),
+          blue: Double(color.z),
+          opacity: Double(color.w))
+}
+func colorToSimdColor(_ color:  Color) -> simd_float4 {
+    let codableColor = CodableColor(color: color)
+    return simd_float4(Float(codableColor.red), Float(codableColor.green), Float(codableColor.blue), Float(codableColor.alpha))
+}
+
 struct CatmullRomPoint: Codable {
     var coord: simd_float2
     var pointType: PointType
     var hardness: Float
-    var radius: Float
+    var pointRadius: Float?
 }
 
 
 struct CatmullRomCurve: Codable {
-    var color: Color
-    var outlineColor: Color?
+    var color: simd_float4
+    var radius: Float
+    var outlineColor: simd_float4?
     let points: [CatmullRomPoint]
 
     
     // MARK: - Codable Keys
     enum CodingKeys: String, CodingKey {
         case color
+        case radius
         case outlineColor
         case points
     }
+    init(
+        color: simd_float4,
+        radius: Float,
+        outlineColor: simd_float4? = nil,
+        points: [CatmullRomPoint]
+    ) {
+        self.color = color
+        self.radius = radius
+        self.outlineColor = outlineColor
+        self.points = points
+    }
+    
     init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        guard let codableColor = try container.decodeIfPresent(CodableColor.self, forKey: .color)  else {
-            fatalError("no background color found")
+        do {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            guard let codableColor = try container.decodeIfPresent(CodableColor.self, forKey: .color)  else {
+                fatalError("no background color found")
+            }
+            self.color = codableColor.toSimdColor()
+            if let codableOutlineColor = try container.decodeIfPresent(CodableColor.self, forKey: .outlineColor)   {
+                self.outlineColor = simd_float4( Float(codableOutlineColor.red), Float(codableOutlineColor.green), Float(codableOutlineColor.blue), Float(codableOutlineColor.alpha))
+            }
+            self.radius = try container.decode(Float.self, forKey: .radius)
+            
+            if let newPoints = try container.decodeIfPresent([CatmullRomPoint].self, forKey: .points) {
+                self.points = newPoints
+            } else {
+                    self.points = [CatmullRomPoint]()
+                [
+                        CatmullRomPoint(coord: simd_float2(-0.8,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 20.0),
+                        CatmullRomPoint(coord: simd_float2(-0.6, -0.8), pointType: .smooth, hardness: 1.0, pointRadius: 20.0),
+                        CatmullRomPoint(coord: simd_float2( 0  ,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 20.0),
+                        CatmullRomPoint(coord: simd_float2( 0.6, -0.8), pointType: .smooth, hardness: 1.0, pointRadius: 20.0),
+                        CatmullRomPoint(coord: simd_float2( 0.8,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 20.0),
+                    ]
+            }
+        } catch {
+            print("Error decoding CatmullRomCurve: \(error)")
+            throw(error)
         }
-        self.color = codableColor.toColor()
-        guard let codableOutlineColor = try container.decodeIfPresent(CodableColor.self, forKey: .outlineColor)  else {
-            fatalError("no background color found")
-        }
-        self.outlineColor = codableOutlineColor.toColor()
-
-        self.points = try container.decode([CatmullRomPoint].self, forKey: .points)
     }
     
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(CodableColor(color: self.color), forKey: .color)
+        try container.encode(CodableColor(simdColor: self.color), forKey: .color)
+        try container.encode(self.radius, forKey: .radius)
         try container.encode(self.points, forKey: .points)
     }
 }
@@ -141,6 +183,7 @@ final class DrawingInfo: ObservableObject, Codable {
         self.backgroundColor = .white
         self.viewportSize = DrawingInfo.defaultSize
         doInitSetup()
+        print(curves)
     }
     func doInitSetup() {
         objectWillChange.sink { _ in
@@ -152,5 +195,21 @@ final class DrawingInfo: ObservableObject, Codable {
         #endif
         }
         .store(in: &cancellables)
+        curves = [
+            CatmullRomCurve(
+                color: simd_float4(0, 0.75, 0, 1), // blue
+                radius: 10.0,
+                outlineColor: nil,
+                points: [
+                    CatmullRomPoint(coord: simd_float2(-0.8,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 20.0),
+                    CatmullRomPoint(coord: simd_float2(-0.6, -0.8), pointType: .smooth, hardness: 1.0, pointRadius: 20.0),
+                    CatmullRomPoint(coord: simd_float2(-0.5,    0), pointType: .smooth, hardness: 1.0, pointRadius: 20.0), //
+                    CatmullRomPoint(coord: simd_float2( 0  ,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 20.0),
+                    CatmullRomPoint(coord: simd_float2( 0.6, -0.8), pointType: .smooth, hardness: 1.0, pointRadius: 20.0),
+                    CatmullRomPoint(coord: simd_float2( 0.8,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 20.0),
+                ]
+            )
+            ]
+
     }
 }

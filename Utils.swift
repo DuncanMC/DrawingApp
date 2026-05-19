@@ -33,3 +33,50 @@ extension Float {
     }
 }
 
+// MARK: - Types and methods for managing lines and points in Metal coordinate space
+
+struct LineEquation {
+    let slope: Float
+    let yIntercept: Float
+    let isVeritical: Bool
+    let pointsAreTheSame: Bool
+}
+
+func equationForLine(from startPoint: simd_float2, to endPoint: simd_float2) -> (LineEquation) {
+    
+    if startPoint == endPoint {
+        return (LineEquation(slope: 0, yIntercept: 0, isVeritical: false, pointsAreTheSame: true))
+    } else if startPoint[0] == endPoint[0] {
+        return (LineEquation(slope: Float.infinity, yIntercept: 0, isVeritical: true, pointsAreTheSame: false))
+    } else {
+        let slope = (endPoint[1] - startPoint[1]) / (endPoint[0] - startPoint[0])
+        let intercept = startPoint[1] - slope * startPoint[0]
+        return (LineEquation(slope: slope,
+                             yIntercept: intercept,
+                             isVeritical: false,
+                             pointsAreTheSame: false))
+    }
+}
+    
+func intersection(line1: LineEquation, line2: LineEquation) -> simd_float2? {
+    if line1.slope == line2.slope || line1.isVeritical && line2.isVeritical {
+        return nil
+    } else {
+        if line1.isVeritical {
+            return simd_float2(
+                line1.yIntercept,
+                line2.slope * line1.yIntercept + line2.yIntercept)
+        } else if line2.isVeritical {
+            return simd_float2(
+                line2.yIntercept,
+                line1.slope * line2.yIntercept + line1.yIntercept)
+        } else {
+            let x = (line1.yIntercept - line2.yIntercept) / (line2.slope - line1.slope)
+            return simd_float2(
+                x,
+                x * line1.slope + line1.yIntercept
+            )
+        }
+    }
+}
+// MARK: -
