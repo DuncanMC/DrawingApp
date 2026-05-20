@@ -75,13 +75,6 @@ struct CatmullRomCurve: Codable {
                 self.points = newPoints
             } else {
                     self.points = [CatmullRomPoint]()
-                [
-                        CatmullRomPoint(coord: simd_float2(-0.8,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 20.0),
-                        CatmullRomPoint(coord: simd_float2(-0.6, -0.8), pointType: .smooth, hardness: 1.0, pointRadius: 20.0),
-                        CatmullRomPoint(coord: simd_float2( 0  ,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 20.0),
-                        CatmullRomPoint(coord: simd_float2( 0.6, -0.8), pointType: .smooth, hardness: 1.0, pointRadius: 20.0),
-                        CatmullRomPoint(coord: simd_float2( 0.8,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 20.0),
-                    ]
             }
         } catch {
             print("Error decoding CatmullRomCurve: \(error)")
@@ -197,16 +190,29 @@ final class DrawingInfo: ObservableObject, Codable {
         .store(in: &cancellables)
         curves = [
             CatmullRomCurve(
-                color: simd_float4(0, 0.75, 0, 1), // blue
+                color: simd_float4(0, 1.0, 0, 1), // green
                 radius: 10.0,
                 outlineColor: nil,
                 points: [
-                    CatmullRomPoint(coord: simd_float2(-0.8,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 20.0),
-                    CatmullRomPoint(coord: simd_float2(-0.6, -0.8), pointType: .smooth, hardness: 1.0, pointRadius: 20.0),
-                    CatmullRomPoint(coord: simd_float2(-0.5,    0), pointType: .smooth, hardness: 1.0, pointRadius: 20.0), //
-                    CatmullRomPoint(coord: simd_float2( 0  ,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 20.0),
-                    CatmullRomPoint(coord: simd_float2( 0.6, -0.8), pointType: .smooth, hardness: 1.0, pointRadius: 20.0),
-                    CatmullRomPoint(coord: simd_float2( 0.8,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 20.0),
+                    CatmullRomPoint(coord: simd_float2(-0.8,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
+                    CatmullRomPoint(coord: simd_float2(-0.6, -0.8), pointType: .smooth, hardness: 1.0, pointRadius: 10.0),
+                    CatmullRomPoint(coord: simd_float2(-0.55,   0), pointType: .smooth, hardness: 1.0, pointRadius: 10.0), //
+                    CatmullRomPoint(coord: simd_float2( 0  ,  0.6), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
+                    CatmullRomPoint(coord: simd_float2( 0  ,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
+                    CatmullRomPoint(coord: simd_float2( 0.6, -0.8), pointType: .smooth, hardness: 1.0, pointRadius: 10.0),
+                    CatmullRomPoint(coord: simd_float2( 0.8,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
+                ]
+            ),
+            CatmullRomCurve(
+                color: simd_float4(0.8, 0.0, 0, 1),
+                radius: 5,
+                outlineColor: nil,
+                points: [
+                    CatmullRomPoint(coord: simd_float2(-0.4, -0.7), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
+                    CatmullRomPoint(coord: simd_float2(-0.4, -0.2), pointType: .smooth, hardness: 1.0, pointRadius: 10.0),
+                    CatmullRomPoint(coord: simd_float2( 0.4, -0.7), pointType: .smooth, hardness: 1.0, pointRadius: 10.0),
+                    CatmullRomPoint(coord: simd_float2( 0.4, -0.2), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
+
                 ]
             )
             ]

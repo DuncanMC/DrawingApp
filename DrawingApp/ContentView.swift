@@ -10,7 +10,9 @@ import SwiftUI
 
 @MainActor struct ContentView: View {
     @ObservedObject var drawingInfo: DrawingInfo
-
+    
+    var viewModel: ViewModel
+    
     var toggleAlignment: Alignment {
     #if os(macOS)
             return .leading
@@ -46,6 +48,11 @@ import SwiftUI
                 }
             }
         }
+    }
+    
+    init(drawingInfo: DrawingInfo) {
+        self.drawingInfo = drawingInfo
+        self.viewModel = .init(drawingInfo: drawingInfo)
     }
 }
 

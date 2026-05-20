@@ -22,7 +22,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
     var maxVerticiesSize = 3840
 
     // Ring buffer configuration
-    private let ringBufferSize: Int = 64 * 1024 // 64KB for transient verticies
+    private let ringBufferSize: Int = 128 * 1024 // 128K for transient verticies
     private let ringBufferAlignment: Int = 256  // Metal requires 256-byte alignment for buffers bound with offsets
     private var ringWriteOffset: Int = 0        // Current write position into the ring buffer
     private var frameStride: Int { ringBufferSize / max(1, inFlightFrameCount) }
@@ -186,12 +186,11 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             orthoMatrix: orthoMatrix
         )
 
-        
         // MARK: Test drawing code.
         let limit: Float = 0.9
         
 
-//        drawCircle(center: simd_float2(0, 0), color: blue, radius: 280, steps: 120, lineThickness: 6)
+        drawCircle(center: simd_float2(0, 0), color: blue, radius: 280, steps: 120, lineThickness: 6)
 //
 //        drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 30, lineThickness: 6)
 //        drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 20, lineThickness: 6)
@@ -228,7 +227,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             
             vertexes.reserveCapacity(curves.count * 2)
             
-            for curve in curves {
+            for (index, curve) in curves.enumerated() {
                 
                 let radius = curve.radius * widthPerPixel
                 for index in 1 ..< curve.points.count {
@@ -286,7 +285,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                             }
                         }
                     }
-                }
+                } // For index
                 if useVertexBuffers {
                     let verticiesSize = MemoryLayout<simd_float2>.stride * vertexes.count
                     let offset = allocateVerticiesInRing(byteCount: verticiesSize)
@@ -306,11 +305,13 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                 encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                 encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: vertexes.count)
+                vertexes = []
+
                 
                 // Now draw outlined sqares for the corner points and circles for the smooth points.
                 for index in 0 ..< curve.points.count {
                     let point = curve.points[index].coord
-                    if curve.points[index].pointType == .corner {
+                    if curve.points[index].pointType == .smooth {
                         drawCircle(center: point, color: white, radius: 8, lineThickness: 2)
                         drawCircle(center: point, color: blue, radius: 6, lineThickness: 3)
                     } else {
@@ -318,7 +319,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                         drawSquare(center: point, color: blue, width: 14, orthoMatrix: orthoMatrix)
                     }
                 }
-            }
+            } // for curves
             
         }
 
