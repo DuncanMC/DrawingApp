@@ -17,42 +17,8 @@ typealias ViewType = MTKView
 struct DrawingView: NSViewRepresentable {
     @StateObject var drawingInfo: DrawingInfo
     
-    var isDragging: Bool = false
     
-    var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                var  flags: UInt = 0
-#if os(macOS)
-                flags = NSEvent.modifierFlags.rawValue
-#endif
 
-                if !isDragging {
-                    //print("Begin dragging in view.")
-//                    if let target = scopeState.getDragLocation( value.startLocation) {
-////                        print("\nUser tapped in \(target.dragLocation.rawValue)\n")
-//                        scopeState.draggingState = target.dragLocation
-//                        scopeState.lastDragLocation = value.startLocation
-//                        self.isDragging = true
-//                    } else {
-//                        //print("\nUser did not tap in a known location\n")
-//                    }
-
-                } else {
-                    //print("continuing drag.")
-//                    scopeState.handleDragging(value: value, flags: flags)
-                }
-            }
-            .onEnded { value in
-//                self.isDragging = false
-//                isRotating = false
-//                scopeState.lastDragLocation = nil
-////                let draggingStateString = scopeState.draggingState?.rawValue ?? "nil"
-//                //print("\ndragGesture ended. scopeState.draggingState = \(draggingStateString). texAspect = \(scopeState.texAspect).")
-//                //print("rotationCenter = \(scopeState.rotationCenter.myDescription)")
-//                //print("TrianglePoints = \n\(scopeState.trianglePoints)")
-            }
-    }
 
     func makeCoordinator() -> DrawingRenderer {
         DrawingRenderer(drawingInfo: drawingInfo)

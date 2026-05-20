@@ -37,7 +37,7 @@ struct CatmullRomCurve: Codable {
     var color: simd_float4
     var radius: Float
     var outlineColor: simd_float4?
-    let points: [CatmullRomPoint]
+    var points: [CatmullRomPoint]
 
     
     // MARK: - Codable Keys

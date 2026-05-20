@@ -13,6 +13,32 @@ import SwiftUI
     
     var viewModel: ViewModel
     
+    @State var isDragging: Bool = false
+
+    var dragGesture: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                var  flags: UInt = 0
+#if os(macOS)
+                flags = NSEvent.modifierFlags.rawValue
+#endif
+                
+                if !self.isDragging {
+                    //                    //print("Begin dragging in view.")
+                    if let target = viewModel.getGestureLocation(touchLocation: value.startLocation) {
+                        print("\nUser tapped in \(target.dragLocation.description)\n")
+                        self.isDragging = true
+                    } else {
+                        print("touch location not found")
+                    }
+                }
+            }
+            .onEnded { value in
+                print("Dragging complete.")
+                self.isDragging = false
+            }
+    }
+    
     var toggleAlignment: Alignment {
     #if os(macOS)
             return .leading
@@ -29,6 +55,23 @@ import SwiftUI
                     .frame(width: DrawingInfo.defaultSize.width, height: DrawingInfo.defaultSize.height)
                     .border(Color.blue, width: 4)
                     .aspectRatio(drawingInfo.imageSize, contentMode: .fit)
+                    .onTapGesture(count: 2) { location in
+                        if let target = viewModel.getGestureLocation(touchLocation: location) {
+                            print("Double-tap in \(target.dragLocation.description)\n")
+                            let dragLocation = target.dragLocation
+                            switch dragLocation {
+                            case .inControlPoint(let curveIndex, let pointIndex):
+                                var changed = drawingInfo.curves[curveIndex].points[pointIndex]
+                                changed.pointType = (changed.pointType == .corner) ? .smooth : .corner
+                                drawingInfo.curves[curveIndex].points[pointIndex] = changed
+                            default:
+                                break
+                            }
+                        } else {
+                            print("double-tap location not found")
+                        }
+                    }
+                    .gesture(dragGesture)
                 TextEditor(text: $drawingInfo.text)
                     .frame(maxHeight: 50)
                 HStack {
