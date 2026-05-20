@@ -190,19 +190,19 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         let limit: Float = 0.9
         
 
-        drawCircle(center: simd_float2(0, 0), color: blue, radius: 280, steps: 120, lineThickness: 6)
+//        drawCircle(center: simd_float2(0, 0), color: blue, radius: 280, steps: 120, lineThickness: 6)
 //
 //        drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 30, lineThickness: 6)
 //        drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 20, lineThickness: 6)
 //        drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 10, lineThickness: 6)
 //        drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 2, lineThickness: 4)
         
-        drawThickLine(
-            p1: simd_float2(-limit,limit * drawingInfo.linePlacement),
-            p2: simd_float2(limit, -limit * drawingInfo.linePlacement),
-            color: black,
-            thickness: 20,
-        )
+//        drawThickLine(
+//            p1: simd_float2(-limit,limit * drawingInfo.linePlacement),
+//            p2: simd_float2(limit, -limit * drawingInfo.linePlacement),
+//            color: black,
+//            thickness: 20,
+//        )
 
         
 //        drawSquare(center: simd_float2(0.7, 0.7), color: red, width: 58, orthoMatrix: orthoMatrix)

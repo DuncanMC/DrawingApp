@@ -13,29 +13,33 @@ import SwiftUI
     
     var viewModel: ViewModel
     
-    @State var isDragging: Bool = false
 
     var dragGesture: some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
-                var  flags: UInt = 0
-#if os(macOS)
-                flags = NSEvent.modifierFlags.rawValue
-#endif
+//                var  flags: UInt = 0
+//#if os(macOS)
+//                flags = NSEvent.modifierFlags.rawValue
+//#endif
                 
-                if !self.isDragging {
+                if !drawingInfo.isDragging {
                     //                    //print("Begin dragging in view.")
                     if let target = viewModel.getGestureLocation(touchLocation: value.startLocation) {
-                        print("\nUser tapped in \(target.dragLocation.description)\n")
-                        self.isDragging = true
+                        print("\nUser dragged \(target.dragLocation.description)\n")
+                        drawingInfo.isDragging = true
+                        drawingInfo.lastDragLocation = value.startLocation
+                        drawingInfo.draggingState = target.dragLocation
                     } else {
                         print("touch location not found")
                     }
+                } else {
+                    viewModel.handleDragging(value)
                 }
             }
             .onEnded { value in
                 print("Dragging complete.")
-                self.isDragging = false
+                drawingInfo.isDragging = false
+                drawingInfo.lastDragLocation = nil
             }
     }
     

@@ -38,6 +38,27 @@ struct ViewModel {
         return result
     }
     
+    func handleDragging(_ value: DragGesture.Value) {
+        guard let lastDragLocation = drawingInfo.lastDragLocation else { return }
+
+        let deltaX = -2.0 * Float((lastDragLocation.x - value.location.x) / drawingInfo.imageSize.width)
+        let deltaY = 2.0 * Float((lastDragLocation.y - value.location.y) / drawingInfo.imageSize.height)
+        
+        switch drawingInfo.draggingState {
+        case .inControlPoint(let curveIndex, let pointIndex):
+            let theCurve = drawingInfo.curves[curveIndex]
+            var thePoint = theCurve.points[pointIndex]
+            thePoint.coord.x += deltaX
+            thePoint.coord.y += deltaY
+            drawingInfo.curves[curveIndex].points[pointIndex] = thePoint
+            drawingInfo.lastDragLocation = value.location
+
+        default:
+            break
+        }
+
+        }
+
     func matchPoint(_  tapPoint: CGPoint, inPoints points: [DragPointTuple]) -> DragPointTuple? {
         let slop: CGFloat = 20
         for (aPoint, location) in points {

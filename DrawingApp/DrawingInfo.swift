@@ -120,6 +120,11 @@ final class DrawingInfo: ObservableObject, Codable {
         return Float(imageSize.width / imageSize.height)
     }
     
+    var lastDragLocation: CGPoint? = nil
+    var isDragging: Bool = false
+    var draggingState: DragLocations? = nil
+
+    
     // MARK: - Codable Keys
     enum CodingKeys: String, CodingKey {
         case title
@@ -152,7 +157,6 @@ final class DrawingInfo: ObservableObject, Codable {
 
         self.viewportSize = DrawingInfo.defaultSize
 
-        doInitSetup()
     }
     
     // MARK: - Encode
@@ -176,7 +180,6 @@ final class DrawingInfo: ObservableObject, Codable {
         self.backgroundColor = .white
         self.viewportSize = DrawingInfo.defaultSize
         doInitSetup()
-        print(curves)
     }
     func doInitSetup() {
         objectWillChange.sink { _ in
@@ -196,7 +199,7 @@ final class DrawingInfo: ObservableObject, Codable {
                 points: [
                     CatmullRomPoint(coord: simd_float2(-0.8,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
                     CatmullRomPoint(coord: simd_float2(-0.6, -0.8), pointType: .smooth, hardness: 1.0, pointRadius: 10.0),
-                    CatmullRomPoint(coord: simd_float2(-0.55,   0), pointType: .smooth, hardness: 1.0, pointRadius: 10.0), //
+                    CatmullRomPoint(coord: simd_float2(-0.6,   0), pointType: .smooth, hardness: 1.0, pointRadius: 10.0), //
                     CatmullRomPoint(coord: simd_float2( 0  ,  0.6), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
                     CatmullRomPoint(coord: simd_float2( 0  ,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
                     CatmullRomPoint(coord: simd_float2( 0.6, -0.8), pointType: .smooth, hardness: 1.0, pointRadius: 10.0),
