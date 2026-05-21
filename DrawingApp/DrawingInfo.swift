@@ -95,7 +95,7 @@ final class DrawingInfo: ObservableObject, Codable {
     // Items saved with Codable
     
     @Published var backgroundColor = Color.white
-    @Published var linePlacement: Float = 0
+    @Published var linePlacement: Float = 2
     let imageSize: CGSize
     
     // Test properties

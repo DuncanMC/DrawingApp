@@ -42,11 +42,11 @@ struct DrawingView: UIViewRepresentable {
     
     
     
-    @Binding var drawingInfo: DrawingInfo
+    @StateObject var drawingInfo: DrawingInfo
 
     
     func makeCoordinator() -> DrawingRenderer {
-        DrawingRenderer(drawingInfo: $drawingInfo)
+        DrawingRenderer(drawingInfo: drawingInfo)
     }
     
     func makeUIView(context: Context) -> MTKView {

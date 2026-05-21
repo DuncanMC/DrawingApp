@@ -88,7 +88,7 @@ import SwiftUI
                     }
                     .frame(maxWidth: 200, alignment: toggleAlignment)
 
-                    Slider(value: $drawingInfo.linePlacement, in: -1...1) {
+                    Slider(value: $drawingInfo.linePlacement, in: 2...20) {
                         
                     }
                     .frame(maxWidth: 200)

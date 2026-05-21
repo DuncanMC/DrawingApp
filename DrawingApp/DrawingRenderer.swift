@@ -229,7 +229,9 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             
             for (index, curve) in curves.enumerated() {
                 
-                let radius = curve.radius * widthPerPixel
+                let radius = drawingInfo.linePlacement * widthPerPixel
+
+//                let radius = curve.radius * widthPerPixel
                 for index in 1 ..< curve.points.count {
                     let first = curve.points[index-1].coord * adjustment
                     let middle = curve.points[index].coord * adjustment
