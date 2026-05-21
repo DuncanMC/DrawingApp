@@ -78,23 +78,34 @@ import SwiftUI
                     .gesture(dragGesture)
                 TextEditor(text: $drawingInfo.text)
                     .frame(maxHeight: 50)
-                HStack {
-                    Button("Test") {
-                        drawingInfo.text += " Extra words."
-                    }
+                HStack(spacing: 20) {
+//                    Button("Test") {
+//                        drawingInfo.text += " Extra words."
+//                    }
+//
+//                    Toggle(isOn: $drawingInfo.toggleIsOn) {
+//                        Text("Toggle is on")
+//                    }
+//                    .frame(maxWidth: 200, alignment: toggleAlignment)
 
-                    Toggle(isOn: $drawingInfo.toggleIsOn) {
-                        Text("Toggle is on")
-                    }
-                    .frame(maxWidth: 200, alignment: toggleAlignment)
-
-                    Slider(value: $drawingInfo.linePlacement, in: 2...20) {
-                        
+                    VStack(alignment: .center)   {
+                        Text("Thickness")
+                        Slider(value: $drawingInfo.lineThickness, in: 2...30)
                     }
                     .frame(maxWidth: 200)
-                    .onChange(of: drawingInfo.linePlacement) {
-                        //print("Line thickness = \(drawingInfo.linePlacement)")
+                    .onChange(of: drawingInfo.lineThickness) {
+                        print("Line thickness = \(drawingInfo.lineThickness)")
                     }
+
+                    VStack(alignment: .center)   {
+                        Text("Line hardness")
+                        Slider(value: $drawingInfo.lineHardness, in: 0...2)
+                    }
+                    .frame(maxWidth: 200)
+                    .onChange(of: drawingInfo.lineHardness) {
+                        print("lineHardness = \(drawingInfo.lineHardness). Computed hardness = \(drawingInfo.hardness)")
+                    }
+
                 }
             }
         }

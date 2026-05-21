@@ -10,9 +10,14 @@
 #include "MetalStructs.h"
 using namespace metal;
 
+struct VertexIn {
+    float2 position;
+    float alpha;
+};
 
 struct VertexOut {
     float4 position [[position]];
+    float alpha;
     float2 texCoord;
 };
 
@@ -21,15 +26,17 @@ struct Uniforms {
     float4 color;
     bool drawWithTexture;
     float4x4 orthoMatrix;
+    float hardness;
 };
 
-
-vertex VertexOut vertex_main(const device float2* position [[buffer(0)]],
+// ---- Vertex shader
+vertex VertexOut vertex_main(const device VertexIn* vert [[buffer(0)]],
                              constant Uniforms& uniforms [[buffer(1)]],
                              uint vid [[vertex_id]]) {
     VertexOut out;
-    float2 pos = position[vid];
-    out.position = uniforms.orthoMatrix * float4(pos, 0, 1);    
+    float2 pos = vert[vid].position;
+    out.position = uniforms.orthoMatrix * float4(pos, 0, 1);
+    out.alpha = vert[vid].alpha;
     out.texCoord =  pos * 0.5 + 0.5; // basic mapping
 
     return out;
@@ -43,6 +50,8 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         float2 coord = in.texCoord;
         return tex.sample(s, coord);
     } else {
-        return uniforms.color;
+        float4 color = uniforms.color;
+        color[3] = pow((in.alpha * 1.2), uniforms.hardness);
+        return color;
     }
 }

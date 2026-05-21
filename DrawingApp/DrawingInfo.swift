@@ -95,13 +95,20 @@ final class DrawingInfo: ObservableObject, Codable {
     // Items saved with Codable
     
     @Published var backgroundColor = Color.white
-    @Published var linePlacement: Float = 2
+    @Published var lineThickness: Float = 2
     let imageSize: CGSize
     
     // Test properties
     @Published var title: String
     @Published var text: String
     @Published var toggleIsOn: Bool = false
+    @Published var lineHardness: Float = 1 {
+        didSet {
+            hardness = pow(2,(2-lineHardness)) - 1
+        }
+    }
+    
+    var hardness: Float = 1
     
     var showControlPoints: Bool = true
     
@@ -131,7 +138,8 @@ final class DrawingInfo: ObservableObject, Codable {
         case text
         case toggleIsOn
         case backgroundColor
-        case linePlacement
+        case lineThickness
+        case lineHardness
         case curves
         case showControlPoints
     }
@@ -152,7 +160,8 @@ final class DrawingInfo: ObservableObject, Codable {
         } else {
             self.backgroundColor = .white
         }
-        self.linePlacement = try container.decodeIfPresent(Float.self, forKey: .linePlacement) ?? 0
+        self.lineThickness = try container.decodeIfPresent(Float.self, forKey: .lineThickness) ?? 5
+        self.lineHardness = try container.decodeIfPresent(Float.self, forKey: .lineHardness) ?? 2
         self.showControlPoints = try container.decode(Bool.self, forKey: .showControlPoints)
 
         self.viewportSize = DrawingInfo.defaultSize
@@ -167,7 +176,8 @@ final class DrawingInfo: ObservableObject, Codable {
         try container.encode(text, forKey: .text)
         try container.encode(toggleIsOn, forKey: .toggleIsOn)
         try container.encode(CodableColor(color: backgroundColor), forKey: .backgroundColor)
-        try container.encode(linePlacement, forKey: .linePlacement)
+        try container.encode(lineThickness, forKey: .lineThickness)
+        try container.encode(lineHardness, forKey: .lineHardness)
         try container.encode(curves, forKey: .curves)
         try container.encode(showControlPoints, forKey: .showControlPoints)
     }
