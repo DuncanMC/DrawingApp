@@ -25,7 +25,7 @@ import SwiftUI
                 if !drawingInfo.isDragging {
                     //                    //print("Begin dragging in view.")
                     if let target = viewModel.getGestureLocation(touchLocation: value.startLocation) {
-                        print("\nUser dragged \(target.dragLocation.description)\n")
+//                        print("\nUser dragged \(target.dragLocation.description)\n")
                         drawingInfo.isDragging = true
                         drawingInfo.lastDragLocation = value.startLocation
                         drawingInfo.draggingState = target.dragLocation
@@ -37,7 +37,7 @@ import SwiftUI
                 }
             }
             .onEnded { value in
-                print("Dragging complete.")
+//                print("Dragging complete.")
                 drawingInfo.isDragging = false
                 drawingInfo.lastDragLocation = nil
             }
@@ -92,6 +92,9 @@ import SwiftUI
                         
                     }
                     .frame(maxWidth: 200)
+                    .onChange(of: drawingInfo.linePlacement) {
+                        //print("Line thickness = \(drawingInfo.linePlacement)")
+                    }
                 }
             }
         }
