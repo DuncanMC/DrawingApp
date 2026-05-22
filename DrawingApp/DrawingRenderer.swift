@@ -436,6 +436,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     let p2Outside = simd_float2(x: center.x + deltaX, y: center.y + deltaY)
                     
                     vertexes += [
+                        Vertex(position: p1Inside, alpha: 1),
                         Vertex(position: p1Outside, alpha: 1),
                         Vertex(position: p2Inside, alpha: 1),
                         Vertex(position: p2Outside, alpha: 1)
