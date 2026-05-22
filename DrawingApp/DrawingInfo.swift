@@ -101,7 +101,7 @@ final class DrawingInfo: ObservableObject, Codable {
     // Test properties
     @Published var title: String
     @Published var text: String
-    @Published var toggleIsOn: Bool = false
+    @Published var showSmoothingPoints: Bool = false
     @Published var lineHardness: Float = 1 {
         didSet {
             hardness = pow(2,(2-lineHardness)) - 1
@@ -136,7 +136,7 @@ final class DrawingInfo: ObservableObject, Codable {
     enum CodingKeys: String, CodingKey {
         case title
         case text
-        case toggleIsOn
+        case showSmoothingPoints
         case backgroundColor
         case lineThickness
         case lineHardness
@@ -149,7 +149,7 @@ final class DrawingInfo: ObservableObject, Codable {
         self.imageSize = DrawingInfo.defaultSize
         self.title = try container.decode(String.self, forKey: .title)
         self.text = try container.decode(String.self, forKey: .text)
-        self.toggleIsOn = try container.decodeIfPresent(Bool.self, forKey: .toggleIsOn) ?? false
+        self.showSmoothingPoints = try container.decodeIfPresent(Bool.self, forKey: .showSmoothingPoints) ?? false
         if let curves = try container.decodeIfPresent([CatmullRomCurve].self, forKey: .curves) {
             self.curves = curves
         } else {
@@ -174,7 +174,7 @@ final class DrawingInfo: ObservableObject, Codable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(title, forKey: .title)
         try container.encode(text, forKey: .text)
-        try container.encode(toggleIsOn, forKey: .toggleIsOn)
+        try container.encode(showSmoothingPoints, forKey: .showSmoothingPoints)
         try container.encode(CodableColor(color: backgroundColor), forKey: .backgroundColor)
         try container.encode(lineThickness, forKey: .lineThickness)
         try container.encode(lineHardness, forKey: .lineHardness)
@@ -186,7 +186,7 @@ final class DrawingInfo: ObservableObject, Codable {
         self.imageSize = DrawingInfo.defaultSize
         self.title = title
         self.text = text
-        self.toggleIsOn = false
+        self.showSmoothingPoints = false
         self.backgroundColor = .white
         self.viewportSize = DrawingInfo.defaultSize
         doInitSetup()

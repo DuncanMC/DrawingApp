@@ -21,7 +21,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
     var maxVerticiesSize = 3840
 
     // Ring buffer configuration
-    private let ringBufferSize: Int = 128 * 1024 // 128K for transient verticies
+    private let ringBufferSize: Int = 512 * 1024 // 128K for transient verticies
     private let ringBufferAlignment: Int = 256  // Metal requires 256-byte alignment for buffers bound with offsets
     private var ringWriteOffset: Int = 0        // Current write position into the ring buffer
     private var frameStride: Int { ringBufferSize / max(1, inFlightFrameCount) }
@@ -394,11 +394,11 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     }
                 }
                 
-//                if true {
-//                    for aPoint in smoothedPoints {
-//                        drawSquare(center: aPoint, color: blue, width: 3,  orthoMatrix: orthoMatrix)
-//                    }
-//                }
+                if drawingInfo.showSmoothingPoints {
+                    for aPoint in smoothedPoints {
+                        drawSquare(center: aPoint, color: blue, width: 3,  orthoMatrix: orthoMatrix)
+                    }
+                }
             } // for curves
             
         }

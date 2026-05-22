@@ -83,10 +83,10 @@ import SwiftUI
 //                        drawingInfo.text += " Extra words."
 //                    }
 //
-//                    Toggle(isOn: $drawingInfo.toggleIsOn) {
-//                        Text("Toggle is on")
-//                    }
-//                    .frame(maxWidth: 200, alignment: toggleAlignment)
+                    Toggle(isOn: $drawingInfo.showSmoothingPoints) {
+                        Text("Show smoothing points")
+                    }
+                    .frame(maxWidth: 300, alignment: toggleAlignment)
 
                     VStack(alignment: .center)   {
                         Text("Thickness")
