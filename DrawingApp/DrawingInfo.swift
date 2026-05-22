@@ -101,6 +101,8 @@ final class DrawingInfo: ObservableObject, Codable {
     // Test properties
     @Published var title: String
     @Published var text: String
+    @Published var smoothCurves: Bool = true
+    
     @Published var showSmoothingPoints: Bool = false
     @Published var lineHardness: Float = 1 {
         didSet {

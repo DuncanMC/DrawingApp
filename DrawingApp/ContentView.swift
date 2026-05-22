@@ -83,6 +83,11 @@ import SwiftUI
 //                        drawingInfo.text += " Extra words."
 //                    }
 //
+                    Toggle(isOn: $drawingInfo.smoothCurves) {
+                        Text("Smooth")
+                    }
+                    .frame(maxWidth: 150, alignment: toggleAlignment)
+                    
                     Toggle(isOn: $drawingInfo.showSmoothingPoints) {
                         Text("Show smoothing points")
                     }

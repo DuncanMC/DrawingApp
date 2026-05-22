@@ -268,8 +268,12 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             for (_, curve) in curves.enumerated() {
                 
                 let radius = drawingInfo.lineThickness * widthPerPixel
-                
-                let smoothedPoints = curveToCatmullRomPoints(curve)
+                let smoothedPoints: [simd_float2]
+                if drawingInfo.smoothCurves == false {
+                    smoothedPoints = curve.points.map { $0.coord  }
+                } else {
+                    smoothedPoints = curveToCatmullRomPoints(curve)
+                }
 
                 for index in 1 ..< smoothedPoints.count {
                     let first = smoothedPoints[index-1] * adjustment
@@ -394,9 +398,9 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     }
                 }
                 
-                if drawingInfo.showSmoothingPoints {
+                if drawingInfo.smoothCurves && drawingInfo.showSmoothingPoints {
                     for aPoint in smoothedPoints {
-                        drawSquare(center: aPoint, color: blue, width: 3,  orthoMatrix: orthoMatrix)
+                        drawSquare(center: aPoint, color: blue, width: 2,  orthoMatrix: orthoMatrix)
                     }
                 }
             } // for curves
