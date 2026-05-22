@@ -50,6 +50,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
     private(set) var drawableSize: CGSize = .zero {
         didSet {
             aspectRatio = Float(drawableSize.width / drawableSize.height)
+            metalWidthPerPixel = scale / Float(max(drawableSize.width, drawableSize.height))
+
         }
     }
 
@@ -224,6 +226,31 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         let alpha: Float
         }
         
+        func curveToCatmullRomPoints(_ curve: CatmullRomCurve) -> [simd_float2] {
+            var controlPoints = [simd_float2]()
+            
+            for (index, point) in curve.points.enumerated() {
+                // Add each control point to the array of control points.
+                controlPoints.append(point.coord)
+                
+                // Add the first and last point and all corner points twice.
+                if index == 0 || index == curve.points.count - 1 || point.pointType == .corner {
+                    controlPoints.append(point.coord)
+                }
+            }
+            let (resultPoints, _) = smoothPointsInArray(controlPoints, granularity: 8, adjustGranularity: true)
+            
+            var filteredResultPoints: [simd_float2] = []
+            var last: simd_float2? = nil
+            for point in resultPoints {
+                if point != last {
+                    filteredResultPoints.append(point)
+                }
+                last = point
+            }
+            return filteredResultPoints
+        }
+        
         func drawCurves(_ curves: [CatmullRomCurve]) {
             let aspect = drawingInfo.imageAspectRatio
             let landscape = aspect > 1
@@ -241,10 +268,12 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             for (_, curve) in curves.enumerated() {
                 
                 let radius = drawingInfo.lineThickness * widthPerPixel
+                
+                let smoothedPoints = curveToCatmullRomPoints(curve)
 
-                for index in 1 ..< curve.points.count {
-                    let first = curve.points[index-1].coord * adjustment
-                    let middle = curve.points[index].coord * adjustment
+                for index in 1 ..< smoothedPoints.count {
+                    let first = smoothedPoints[index-1] * adjustment
+                    let middle = smoothedPoints[index] * adjustment
                     
                     let dir1 = normalize(middle - first)
                     let normal1 = simd_float2(-dir1.y, dir1.x) * radius
@@ -271,7 +300,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                                 Vertex(position: firstRight, alpha: 0),
                                 Vertex(position: first/adjustment, alpha: maxAlpha)
                             ]
-                        } else if index == curve.points.count - 1 {
+                        } else if index == smoothedPoints.count - 1 {
                             leftVertexes += [
                                 Vertex(position: secondLeftOne, alpha: 0),
                                 Vertex(position: middle/adjustment, alpha: maxAlpha)
@@ -282,10 +311,10 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                                 Vertex(position: middle/adjustment, alpha: maxAlpha)
                             ]
                         }
-                        if index < curve.points.count - 1 {
+                        if index < smoothedPoints.count - 1 {
                             
                             //Calculate the intersection of "left" and right line segments and use them as the middle points.
-                            let last = curve.points[index+1].coord * adjustment
+                            let last = smoothedPoints[index+1] * adjustment
                             
                             let dir2 = normalize(last - middle)
                             let normal2 = simd_float2(-dir2.y, dir2.x) * radius
@@ -298,20 +327,16 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                             
                             let firstRightLine = equationForLine(from: firstRight, to: secondRightOne)
                             let secondRightLine = equationForLine(from: secondRightTwo, to: lastRight)
-                            guard let leftIntersection = intersection(line1: firstLeftLine, line2: secondLeftLine),
-                                  let rightIntersection = intersection(line1: firstRightLine, line2: secondRightLine) else {
-                                fatalError("Can't compute intersections!")
-                            }
+                            let leftIntersection = intersection(line1: firstLeftLine, line2: secondLeftLine) ?? secondLeftOne
+                            let rightIntersection = intersection(line1: firstRightLine, line2: secondRightLine) ?? secondRightOne
 
                             let adjustedFirst = first/adjustment
                             let adjustedMiddle = middle/adjustment
                             let adjustedLast = last/adjustment
                             let firstCenterLine = equationForLine(from: adjustedFirst, to: adjustedMiddle)
                             let secondCenterLine = equationForLine(from: adjustedMiddle, to: adjustedLast)
-                            guard
-                                let centerIntersection = intersection(line1: firstCenterLine, line2: secondCenterLine) else {
-                                fatalError("Can't compute intersections!")
-                            }
+                            let centerIntersection = intersection(line1: firstCenterLine, line2: secondCenterLine) ?? adjustedMiddle
+                            
                             /*
                             Vertex(position: xxx, alpha: 0)
                            Vertex(position: xxx, alpha: maxAlpha)
@@ -368,6 +393,12 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                         drawSquare(center: point, color: blue, width: circleRadius * 2, orthoMatrix: orthoMatrix)
                     }
                 }
+                
+//                if true {
+//                    for aPoint in smoothedPoints {
+//                        drawSquare(center: aPoint, color: blue, width: 3,  orthoMatrix: orthoMatrix)
+//                    }
+//                }
             } // for curves
             
         }

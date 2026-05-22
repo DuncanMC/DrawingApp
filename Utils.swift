@@ -42,6 +42,41 @@ struct LineEquation {
     let pointsAreTheSame: Bool
 }
 
+
+extension simd_float2 {
+    static let zero = simd_float2(0,0)
+    
+    var x: Float {
+        get { return self[0] }
+        set { self[0] = newValue }
+    }
+    
+    var y: Float {
+        get { return self[1] }
+        set { self[1] = newValue }
+    }
+}
+
+extension simd_float3 {
+    static let zero = simd_float2(0,0)
+    
+    var x: Float {
+        get { return self[0] }
+        set { self[0] = newValue }
+    }
+    
+    var y: Float {
+        get { return self[1] }
+        set { self[1] = newValue }
+    }
+    
+    var z: Float {
+        get { return self[2] }
+        set { self[2] = newValue }
+    }
+}
+
+
 func equationForLine(from startPoint: simd_float2, to endPoint: simd_float2) -> (LineEquation) {
     
     if startPoint == endPoint {
