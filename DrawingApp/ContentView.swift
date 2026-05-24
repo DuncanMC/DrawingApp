@@ -79,23 +79,26 @@ import SwiftUI
                 TextEditor(text: $drawingInfo.text)
                     .frame(maxHeight: 50)
                 HStack(spacing: 20) {
-//                    Button("Test") {
-//                        drawingInfo.text += " Extra words."
-//                    }
-//
+                    Spacer()
+
+                    Toggle(isOn: $drawingInfo.showQuads) {
+                        Text("Show quads")
+                    }
+                    .frame(maxWidth: 150, alignment: toggleAlignment)
+
                     Toggle(isOn: $drawingInfo.smoothCurves) {
                         Text("Smooth")
                     }
-                    .frame(maxWidth: 150, alignment: toggleAlignment)
+                    .frame(maxWidth: 140, alignment: toggleAlignment)
                     
                     Toggle(isOn: $drawingInfo.showSmoothingPoints) {
-                        Text("Show smoothing points")
+                        Text("Show points")
                     }
-                    .frame(maxWidth: 300, alignment: toggleAlignment)
+                    .frame(maxWidth: 150, alignment: toggleAlignment)
 
                     VStack(alignment: .center)   {
                         Text("Thickness")
-                        Slider(value: $drawingInfo.lineThickness, in: 2...30)
+                        Slider(value: $drawingInfo.lineThickness, in: 2...70)
                     }
                     .frame(maxWidth: 200)
                     .onChange(of: drawingInfo.lineThickness) {
@@ -110,7 +113,7 @@ import SwiftUI
                     .onChange(of: drawingInfo.lineHardness) {
                         print("lineHardness = \(drawingInfo.lineHardness). Computed hardness = \(drawingInfo.hardness)")
                     }
-
+                    Spacer()
                 }
             }
         }

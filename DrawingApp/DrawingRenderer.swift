@@ -264,6 +264,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             var rightVertexes = [Vertex]()
             rightVertexes.reserveCapacity(curves.count * 2)
 
+            var leftLines = [Vertex]()
+            var rightLines = [Vertex]()
 
             for (_, curve) in curves.enumerated() {
                 
@@ -286,74 +288,98 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     let firstRight = (first - normal1) / adjustment
                     let secondLeftOne = (middle + normal1) / adjustment
                     let secondRightOne = (middle - normal1) / adjustment
-                    if false {
-                        leftVertexes += [Vertex(position: firstLeft, alpha: maxAlpha),
-                                         Vertex(position: firstRight, alpha: maxAlpha),
-                                         Vertex(position: secondLeftOne, alpha: maxAlpha),
-                                         Vertex(position: secondRightOne, alpha: maxAlpha)
+                    if drawingInfo.showQuads {
+                        let adjustedMiddle = middle / adjustment
+                        let adjustedFirst = first / adjustment
+                        leftLines += [
+                            Vertex(position: secondLeftOne, alpha: 1),
+                            Vertex(position: adjustedMiddle, alpha: 1),
+                            
+                            Vertex(position: adjustedMiddle, alpha: 1),
+                            Vertex(position: adjustedFirst, alpha: 1),
+                            
+                            Vertex(position: adjustedFirst, alpha: 1),
+                            Vertex(position: firstLeft, alpha: 1),
+                            
+                            Vertex(position: firstLeft, alpha: 1),
+                            Vertex(position: secondLeftOne, alpha: 1)
+                        ]
+                        rightLines += [
+                            Vertex(position: secondRightOne, alpha: 1),
+                            Vertex(position: adjustedMiddle, alpha: 1),
+                            
+                            Vertex(position: adjustedMiddle, alpha: 1),
+                            Vertex(position: adjustedFirst, alpha: 1),
+                            
+                            Vertex(position: adjustedFirst, alpha: 1),
+                            Vertex(position: firstRight, alpha: 1),
+                            
+                            Vertex(position: firstRight, alpha: 1),
+                            Vertex(position: secondRightOne, alpha: 1)
+                        ]
+                    }
+                    if index == 1 {
+                        leftVertexes += [Vertex(position: firstLeft, alpha: 0),
+                                         Vertex(position: first/adjustment, alpha: maxAlpha)
+                                         
+                        ]
+                        rightVertexes += [
+                            Vertex(position: firstRight, alpha: 0),
+                            Vertex(position: first/adjustment, alpha: maxAlpha)
+                        ]
+                    } else if index == smoothedPoints.count - 1 {
+                        leftVertexes += [
+                            Vertex(position: secondLeftOne, alpha: 0),
+                            Vertex(position: middle/adjustment, alpha: maxAlpha)
                         ]
                         
-                    } else {
+                        rightVertexes += [
+                            Vertex(position: secondRightOne, alpha: 0),
+                            Vertex(position: middle/adjustment, alpha: maxAlpha)
+                        ]
+                    }
+                    if index < smoothedPoints.count - 1 {
                         
-                        if index == 1 {
-                            leftVertexes += [Vertex(position: firstLeft, alpha: 0),
-                                             Vertex(position: first/adjustment, alpha: maxAlpha)
-
-                            ]
-                            rightVertexes += [
-                                Vertex(position: firstRight, alpha: 0),
-                                Vertex(position: first/adjustment, alpha: maxAlpha)
-                            ]
-                        } else if index == smoothedPoints.count - 1 {
-                            leftVertexes += [
-                                Vertex(position: secondLeftOne, alpha: 0),
-                                Vertex(position: middle/adjustment, alpha: maxAlpha)
-                            ]
-                            
-                            rightVertexes += [
-                                Vertex(position: secondRightOne, alpha: 0),
-                                Vertex(position: middle/adjustment, alpha: maxAlpha)
-                            ]
+                        //Calculate the intersection of "left" and right line segments and use them as the middle points.
+                        let last = smoothedPoints[index+1] * adjustment
+                        
+                        let dir2 = normalize(last - middle)
+                        let normal2 = simd_float2(-dir2.y, dir2.x) * radius
+                        let secondLeftTwo = (middle + normal2) / adjustment
+                        let secondRightTwo = (middle - normal2) / adjustment
+                        let lastLeft = (last + normal2) / adjustment
+                        let lastRight = (last - normal2) / adjustment
+                        let firstLeftLine = equationForLine(from: firstLeft, to: secondLeftOne)
+                        let secondLeftLine = equationForLine(from: secondLeftTwo, to: lastLeft)
+                        
+                        let firstRightLine = equationForLine(from: firstRight, to: secondRightOne)
+                        let secondRightLine = equationForLine(from: secondRightTwo, to: lastRight)
+                        let leftIntersection = intersection(line1: firstLeftLine, line2: secondLeftLine) ?? secondLeftOne
+                        let rightIntersection = intersection(line1: firstRightLine, line2: secondRightLine) ?? secondRightOne
+                        
+                        if drawingInfo.showQuads {
+                            leftLines += [Vertex(position: leftIntersection, alpha: 1),
+                                          Vertex(position: rightIntersection, alpha: 1)]
                         }
-                        if index < smoothedPoints.count - 1 {
-                            
-                            //Calculate the intersection of "left" and right line segments and use them as the middle points.
-                            let last = smoothedPoints[index+1] * adjustment
-                            
-                            let dir2 = normalize(last - middle)
-                            let normal2 = simd_float2(-dir2.y, dir2.x) * radius
-                            let secondLeftTwo = (middle + normal2) / adjustment
-                            let secondRightTwo = (middle - normal2) / adjustment
-                            let lastLeft = (last + normal2) / adjustment
-                            let lastRight = (last - normal2) / adjustment
-                            let firstLeftLine = equationForLine(from: firstLeft, to: secondLeftOne)
-                            let secondLeftLine = equationForLine(from: secondLeftTwo, to: lastLeft)
-                            
-                            let firstRightLine = equationForLine(from: firstRight, to: secondRightOne)
-                            let secondRightLine = equationForLine(from: secondRightTwo, to: lastRight)
-                            let leftIntersection = intersection(line1: firstLeftLine, line2: secondLeftLine) ?? secondLeftOne
-                            let rightIntersection = intersection(line1: firstRightLine, line2: secondRightLine) ?? secondRightOne
-
-                            let adjustedFirst = first/adjustment
-                            let adjustedMiddle = middle/adjustment
-                            let adjustedLast = last/adjustment
-                            let firstCenterLine = equationForLine(from: adjustedFirst, to: adjustedMiddle)
-                            let secondCenterLine = equationForLine(from: adjustedMiddle, to: adjustedLast)
-                            let centerIntersection = intersection(line1: firstCenterLine, line2: secondCenterLine) ?? adjustedMiddle
-                            
-                            /*
-                            Vertex(position: xxx, alpha: 0)
-                           Vertex(position: xxx, alpha: maxAlpha)
-                             */
-                            leftVertexes += [
-                                Vertex(position: leftIntersection, alpha: 0),
-                                Vertex(position: centerIntersection, alpha: maxAlpha)
-                            ]
-                            rightVertexes += [
-                                Vertex(position: rightIntersection, alpha: 0),
-                                Vertex(position: centerIntersection, alpha: maxAlpha)
-                            ]
-                        }
+                        let adjustedFirst = first/adjustment
+                        let adjustedMiddle = middle/adjustment
+                        let adjustedLast = last/adjustment
+                        let firstCenterLine = equationForLine(from: adjustedFirst, to: adjustedMiddle)
+                        let secondCenterLine = equationForLine(from: adjustedMiddle, to: adjustedLast)
+                        let centerIntersection = intersection(line1: firstCenterLine, line2: secondCenterLine) ?? adjustedMiddle
+                        
+                        /*
+                         Vertex(position: xxx, alpha: 0)
+                         Vertex(position: xxx, alpha: maxAlpha)
+                         */
+                        leftVertexes += [
+                            Vertex(position: leftIntersection, alpha: 0),
+                            Vertex(position: centerIntersection, alpha: maxAlpha)
+                        ]
+                        rightVertexes += [
+                            Vertex(position: rightIntersection, alpha: 0),
+                            Vertex(position: centerIntersection, alpha: maxAlpha)
+                        ]
                     }
                 } // For index
                 
@@ -374,15 +400,71 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                 encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                 encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: leftVertexes.count)
+                
                 leftVertexes = []
+                
+                uniforms = Uniforms(
+                    color: curve.color,
+                    drawWithTetxure: false,
+                    orthoMatrix: orthoMatrix,
+                    hardness: drawingInfo.hardness
+                )
+
                 
                 // Draw the right side triangle strips
                 verticiesSize = MemoryLayout<Vertex>.stride * rightVertexes.count
                 offset = allocateVerticiesInRing(byteCount: verticiesSize)
                 dst = vertexBuffer.contents().advanced(by: offset)
                 dst.copyMemory(from: rightVertexes, byteCount: verticiesSize)
+                encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                
                 encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
                 encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: rightVertexes.count)
+                
+                if drawingInfo.showQuads {
+                    uniforms = Uniforms(
+                        color: black,
+                        drawWithTetxure: false,
+                        orthoMatrix: orthoMatrix,
+                        hardness: 1.0
+                    )
+                    verticiesSize = MemoryLayout<Vertex>.stride * leftLines.count
+                    let offset = allocateVerticiesInRing(byteCount: verticiesSize)
+                    let dst = vertexBuffer.contents().advanced(by: offset)
+                    dst.copyMemory(from: leftLines, byteCount: verticiesSize)
+                    encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
+
+                    encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                    encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                    encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: leftLines.count)
+                    
+                    leftLines = []
+
+                }
+
+                if drawingInfo.showQuads {
+                    uniforms = Uniforms(
+                        color: black,
+                        drawWithTetxure: false,
+                        orthoMatrix: orthoMatrix,
+                        hardness: 1.0
+                    )
+                    verticiesSize = MemoryLayout<Vertex>.stride * rightLines.count
+                    let offset = allocateVerticiesInRing(byteCount: verticiesSize)
+                    let dst = vertexBuffer.contents().advanced(by: offset)
+                    dst.copyMemory(from: rightLines, byteCount: verticiesSize)
+                    encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
+
+                    encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                    encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                    encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: rightLines.count)
+                    
+                    rightLines = []
+
+                }
+
+
                 rightVertexes = []
 
                 // Now draw outlined sqares for the corner points and circles for the smooth points.
