@@ -111,7 +111,7 @@ import SwiftUI
                     }
                     .frame(maxWidth: 200)
                     .onChange(of: drawingInfo.lineHardness) {
-                        print("lineHardness = \(drawingInfo.lineHardness). Computed hardness = \(drawingInfo.hardness)")
+                        //print("lineHardness = \(drawingInfo.lineHardness). Computed hardness = \(drawingInfo.hardness)")
                     }
                     Spacer()
                 }

@@ -111,6 +111,8 @@ func intersection(line1: LineEquation, line2: LineEquation) -> simd_float2? {
             let b = line1.yIntercept
             let m = line1.slope
             return simd_float2(x, m * x + b)
+        } else if line2.slope ==  line1.slope{
+            fatalError("Slopes are identical, cannot find intersection")
         } else {
             let x = (line1.yIntercept - line2.yIntercept) / (line2.slope - line1.slope)
             return simd_float2(
@@ -149,6 +151,11 @@ public func distanceBetween(p1:  CGPoint, p2: CGPoint) -> CGFloat {
     return sqrt(deltaX * deltaX + deltaY * deltaY)
 }
 
+public func distanceSquaredBetween(p1:  SIMD2<Float>, p2: SIMD2<Float>) -> Float {
+    let deltaX = p1.x - p2.x
+    let deltaY = p1.y - p2.y
+    return deltaX * deltaX + deltaY * deltaY
+}
 
 public func distanceBetween(p1:  SIMD2<Float>, p2: SIMD2<Float>) -> Float {
     let deltaX = p1.x - p2.x

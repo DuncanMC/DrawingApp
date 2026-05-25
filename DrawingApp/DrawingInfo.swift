@@ -220,8 +220,9 @@ final class DrawingInfo: ObservableObject, Codable {
 //                    CatmullRomPoint(coord: simd_float2( 0.8 ,  0.8 ), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
 //                ]
 //            ),
+            /*
             CatmullRomCurve(
-                color: simd_float4(0.8, 1.0, 0, 1),
+                color: simd_float4(0.0, 0, 0.8, 1),
                 radius: 5,
                 outlineColor: nil,
                 points: [
@@ -234,6 +235,18 @@ final class DrawingInfo: ObservableObject, Codable {
 //                    CatmullRomPoint(coord: simd_float2(-0.5, -0.5), pointType: .smooth, hardness: 1.0, pointRadius: 10.0),
                     CatmullRomPoint(coord: simd_float2( 0.4, -0.7), pointType: .smooth, hardness: 1.0, pointRadius: 10.0),
                     CatmullRomPoint(coord: simd_float2( 0.4, -0.2), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
+
+                ]
+            )
+             */
+            CatmullRomCurve(
+                color: simd_float4(0.0, 1.0, 0, 1),
+                radius: 5,
+                outlineColor: nil,
+                points: [
+                    CatmullRomPoint(coord: simd_float2(-0.8,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
+                    CatmullRomPoint(coord: simd_float2( 0.0 , -0.8), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
+                    CatmullRomPoint(coord: simd_float2( 0.8,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
 
                 ]
             )

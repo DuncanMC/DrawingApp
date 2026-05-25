@@ -21,7 +21,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
     var maxVerticiesSize = 3840
 
     // Ring buffer configuration
-    private let ringBufferSize: Int = 512 * 1024 // 128K for transient verticies
+    private let ringBufferSize: Int = 1024 * 1024 // 128K for transient verticies
     private let ringBufferAlignment: Int = 256  // Metal requires 256-byte alignment for buffers bound with offsets
     private var ringWriteOffset: Int = 0        // Current write position into the ring buffer
     private var frameStride: Int { ringBufferSize / max(1, inFlightFrameCount) }
@@ -221,9 +221,13 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 
 
         // MARK: - nested drawing functions
-        struct Vertex {
+        struct Vertex: CustomStringConvertible {
         let position: SIMD2<Float>
         let alpha: Float
+            
+            var description: String {
+                "\(position.x)\t\(position.y)\t\(alpha)"
+            }
         }
         
         func curveToCatmullRomPoints(_ curve: CatmullRomCurve) -> [simd_float2] {
@@ -258,6 +262,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             
             let widthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
             
+            var leftIntersections: [simd_float2] = []
+            var rightIntersections: [simd_float2] = []
             var leftVertexes = [Vertex]()
             leftVertexes.reserveCapacity(curves.count * 2)
             
@@ -266,8 +272,9 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 
             var leftLines = [Vertex]()
             var rightLines = [Vertex]()
+            var cornerTriangles = [Vertex]()
 
-            for (_, curve) in curves.enumerated() {
+            for (curveIndex, curve) in curves.enumerated() {
                 
                 let radius = drawingInfo.lineThickness * widthPerPixel
                 let smoothedPoints: [simd_float2]
@@ -354,31 +361,45 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                         
                         let firstRightLine = equationForLine(from: firstRight, to: secondRightOne)
                         let secondRightLine = equationForLine(from: secondRightTwo, to: lastRight)
-                        let leftIntersection = intersection(line1: firstLeftLine, line2: secondLeftLine) ?? secondLeftOne
-                        let rightIntersection = intersection(line1: firstRightLine, line2: secondRightLine) ?? secondRightOne
-                        
-                        if drawingInfo.showQuads {
-                            leftLines += [Vertex(position: leftIntersection, alpha: 1),
-                                          Vertex(position: rightIntersection, alpha: 1)]
+                        let leftIntersection: simd_float2
+                        let rightIntersection: simd_float2
+                        if distanceSquaredBetween(p1: secondLeftOne, p2: secondLeftTwo) < widthPerPixel * widthPerPixel * 0.04 {
+                            leftIntersection = midpoint(p1: secondLeftOne, p2: secondLeftTwo)
+                        } else {
+                            leftIntersection = intersection(line1: firstLeftLine, line2: secondLeftLine) ?? midpoint(p1: secondLeftOne, p2: secondLeftTwo)
                         }
-                        let adjustedFirst = first/adjustment
-                        let adjustedMiddle = middle/adjustment
-                        let adjustedLast = last/adjustment
-                        let firstCenterLine = equationForLine(from: adjustedFirst, to: adjustedMiddle)
-                        let secondCenterLine = equationForLine(from: adjustedMiddle, to: adjustedLast)
-                        let centerIntersection = intersection(line1: firstCenterLine, line2: secondCenterLine) ?? adjustedMiddle
+                        leftIntersections.append(leftIntersection)
+                        if distanceSquaredBetween(p1: secondRightOne, p2: secondRightTwo) < widthPerPixel * widthPerPixel * 0.04 {
+                            rightIntersection = midpoint(p1: secondRightOne, p2: secondRightTwo)
+                        } else {
+                            rightIntersection = intersection(line1: firstRightLine, line2: secondRightLine) ?? midpoint(p1: secondRightOne, p2: secondRightTwo)
+                        }
                         
-                        /*
-                         Vertex(position: xxx, alpha: 0)
-                         Vertex(position: xxx, alpha: maxAlpha)
-                         */
+                        //Testing
+                        rightIntersections.append(rightIntersection)
+
+                        let adjustedMiddle = middle/adjustment
+
+                        // Add triangles to show the adjustment between the normals and the left and right line intersections
+                        if drawingInfo.showQuads {
+                            cornerTriangles += [
+                                Vertex(position: leftIntersection, alpha: 0.25),
+                                Vertex(position: secondLeftOne, alpha: 0.25),
+                                Vertex(position: secondLeftTwo, alpha: 0.25),
+                                                
+                                Vertex(position: rightIntersection, alpha: 0.25),
+                                Vertex(position: secondRightOne, alpha: 0.25),
+                                Vertex(position: secondRightTwo, alpha: 0.25),
+                            ]
+
+                        }
                         leftVertexes += [
                             Vertex(position: leftIntersection, alpha: 0),
-                            Vertex(position: centerIntersection, alpha: maxAlpha)
+                            Vertex(position: adjustedMiddle, alpha: maxAlpha)
                         ]
                         rightVertexes += [
                             Vertex(position: rightIntersection, alpha: 0),
-                            Vertex(position: centerIntersection, alpha: maxAlpha)
+                            Vertex(position: adjustedMiddle, alpha: maxAlpha)
                         ]
                     }
                 } // For index
@@ -423,6 +444,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: rightVertexes.count)
                 
                 if drawingInfo.showQuads {
+                    
+                    //Draw the left side quad outlines
                     uniforms = Uniforms(
                         color: black,
                         drawWithTetxure: false,
@@ -430,8 +453,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                         hardness: 1.0
                     )
                     verticiesSize = MemoryLayout<Vertex>.stride * leftLines.count
-                    let offset = allocateVerticiesInRing(byteCount: verticiesSize)
-                    let dst = vertexBuffer.contents().advanced(by: offset)
+                    var offset = allocateVerticiesInRing(byteCount: verticiesSize)
+                    var dst = vertexBuffer.contents().advanced(by: offset)
                     dst.copyMemory(from: leftLines, byteCount: verticiesSize)
                     encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
 
@@ -441,9 +464,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     
                     leftLines = []
 
-                }
-
-                if drawingInfo.showQuads {
+                    // Draw the right side quad outlines
                     uniforms = Uniforms(
                         color: black,
                         drawWithTetxure: false,
@@ -451,8 +472,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                         hardness: 1.0
                     )
                     verticiesSize = MemoryLayout<Vertex>.stride * rightLines.count
-                    let offset = allocateVerticiesInRing(byteCount: verticiesSize)
-                    let dst = vertexBuffer.contents().advanced(by: offset)
+                    offset = allocateVerticiesInRing(byteCount: verticiesSize)
+                    dst = vertexBuffer.contents().advanced(by: offset)
                     dst.copyMemory(from: rightLines, byteCount: verticiesSize)
                     encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
 
@@ -461,13 +482,30 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: rightLines.count)
                     
                     rightLines = []
+                    
+                    // Draw the filled corner triangles
+                    uniforms = Uniforms(
+                        color: simd_float4(1, 0.0, 0.0, 0.6),  // 75% opaque darkish red.
+                        drawWithTetxure: false,
+                        orthoMatrix: orthoMatrix,
+                        hardness: 1.0
+                    )
+                    verticiesSize = MemoryLayout<Vertex>.stride * cornerTriangles.count
+                    offset = allocateVerticiesInRing(byteCount: verticiesSize)
+                    dst = vertexBuffer.contents().advanced(by: offset)
+                    dst.copyMemory(from: cornerTriangles, byteCount: verticiesSize)
+                    encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
 
+                    encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                    encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                    encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: cornerTriangles.count)
+                    cornerTriangles = []
                 }
 
 
                 rightVertexes = []
 
-                // Now draw outlined sqares for the corner points and circles for the smooth points.
+                // Now draw outlined squares for the corner points and circles for the smooth points.
                 let circleRadius: Float = 5
                 for index in 0 ..< curve.points.count {
                     let point = curve.points[index].coord
@@ -480,6 +518,17 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     }
                 }
                 
+                // Show the intersection points.
+                if drawingInfo.smoothCurves && drawingInfo.showQuads {
+                    for aPoint in leftIntersections {
+                        drawSquare(center: aPoint, color: blue, width: 2,  orthoMatrix: orthoMatrix)
+                    }
+                    for aPoint in rightIntersections {
+                        drawSquare(center: aPoint, color: blue, width: 2,  orthoMatrix: orthoMatrix)
+                    }
+                    leftIntersections = []
+                    rightIntersections = []
+                }
                 if drawingInfo.smoothCurves && drawingInfo.showSmoothingPoints {
                     for aPoint in smoothedPoints {
                         drawSquare(center: aPoint, color: blue, width: 2,  orthoMatrix: orthoMatrix)
