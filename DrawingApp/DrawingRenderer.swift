@@ -446,22 +446,22 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                         // Add triangles to show the adjustment between the normals and the left and right line intersections
                         if drawingInfo.showQuads {
                             
-                            if crossProduct < 0 { //right intersection is the miter.
-                                cornerTriangles += [
-                                    Vertex(position: rightIntersection, alpha: 0.25),
-                                    Vertex(position: secondRightOne, alpha: 0.25),
-                                    Vertex(position: secondRightTwo, alpha: 0.25),
-                                ]
-                            }
-                            if crossProduct > 0 {
-                                
-                                cornerTriangles += [
-                                    Vertex(position: leftIntersection, alpha: 0.25),
-                                    Vertex(position: secondLeftOne, alpha: 0.25),
-                                    Vertex(position: secondLeftTwo, alpha: 0.25),
-                                ]
-                            }
-                                                
+//                            if crossProduct < 0 { //right intersection is the miter.
+//                                cornerTriangles += [
+//                                    Vertex(position: rightIntersection, alpha: 0.25),
+//                                    Vertex(position: secondRightOne, alpha: 0.25),
+//                                    Vertex(position: secondRightTwo, alpha: 0.25),
+//                                ]
+//                            }
+//                            if crossProduct > 0 {
+//                                
+//                                cornerTriangles += [
+//                                    Vertex(position: leftIntersection, alpha: 0.25),
+//                                    Vertex(position: secondLeftOne, alpha: 0.25),
+//                                    Vertex(position: secondLeftTwo, alpha: 0.25),
+//                                ]
+//                            }
+//                                                
 
                         }
                         leftVertexes += [
@@ -537,58 +537,51 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 
                     
                     // Draw the right side quad outlines
-                    uniforms = Uniforms(
-                        color: black,
-                        drawWithTetxure: false,
-                        orthoMatrix: orthoMatrix,
-                        hardness: 1.0
-                    )
-                    verticiesSize = MemoryLayout<Vertex>.stride * rightLines.count
-                    offset = allocateVerticiesInRing(byteCount: verticiesSize)
-                    dst = vertexBuffer.contents().advanced(by: offset)
-                    dst.copyMemory(from: rightLines, byteCount: verticiesSize)
-                    encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
-                    
-                    encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
-                    encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
-                    encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: rightLines.count)
-                    
-                    rightLines = []
+                    if !rightLines.isEmpty {
+                        uniforms = Uniforms(
+                            color: black,
+                            drawWithTetxure: false,
+                            orthoMatrix: orthoMatrix,
+                            hardness: 1.0
+                        )
+                        verticiesSize = MemoryLayout<Vertex>.stride * rightLines.count
+                        offset = allocateVerticiesInRing(byteCount: verticiesSize)
+                        dst = vertexBuffer.contents().advanced(by: offset)
+                        dst.copyMemory(from: rightLines, byteCount: verticiesSize)
+                        encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
+                        
+                        encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                        encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                        encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: rightLines.count)
+                        
+                        rightLines = []
+                    }
                     
                     // Draw the filled corner triangles
-                    uniforms = Uniforms(
-                        color: simd_float4(1, 0.0, 0.0, 0.6),  // 75% opaque darkish red.
-                        drawWithTetxure: false,
-                        orthoMatrix: orthoMatrix,
-                        hardness: 1.0
-                    )
-                    verticiesSize = MemoryLayout<Vertex>.stride * cornerTriangles.count
-                    offset = allocateVerticiesInRing(byteCount: verticiesSize)
-                    dst = vertexBuffer.contents().advanced(by: offset)
-                    dst.copyMemory(from: cornerTriangles, byteCount: verticiesSize)
-                    encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
-
-                    encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
-                    encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
-                    encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: cornerTriangles.count)
-                    cornerTriangles = []
+                    if !cornerTriangles.isEmpty {
+                        uniforms = Uniforms(
+                            color: simd_float4(1, 0.0, 0.0, 0.6),  // 75% opaque darkish red.
+                            drawWithTetxure: false,
+                            orthoMatrix: orthoMatrix,
+                            hardness: 1.0
+                        )
+                        
+                        verticiesSize = MemoryLayout<Vertex>.stride * cornerTriangles.count
+                        offset = allocateVerticiesInRing(byteCount: verticiesSize)
+                        dst = vertexBuffer.contents().advanced(by: offset)
+                        dst.copyMemory(from: cornerTriangles, byteCount: verticiesSize)
+                        encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
+                        
+                        encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                        encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: cornerTriangles.count)
+                        cornerTriangles = []
+                    }
                 }
 
 
                 rightVertexes = []
 
-                // Now draw outlined squares for the corner points and circles for the smooth points.
-                let circleRadius: Float = 5
-                for index in 0 ..< curve.points.count {
-                    let point = curve.points[index].coord
-                    if curve.points[index].pointType == .smooth {
-                        drawCircle(center: point, color: white, radius: circleRadius + 2, lineThickness: 2)
-                        drawCircle(center: point, color: blue, radius: circleRadius, lineThickness: 3)
-                    } else {
-                        drawSquare(center: point, color: white, width: (circleRadius * 2) + 2, orthoMatrix: orthoMatrix)
-                        drawSquare(center: point, color: blue, width: circleRadius * 2, orthoMatrix: orthoMatrix)
-                    }
-                }
                 
                 // Show the left and right intersection points.
                 if drawingInfo.smoothCurves && drawingInfo.showQuads {
@@ -607,7 +600,21 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     }
                 }
             } // for curves
-            
+            // Now loop through all the curves and draw outlined squares for the corner points and circles for the smooth points.
+            for curve in curves {
+                let circleRadius: Float = 5
+                for index in 0 ..< curve.points.count {
+                    let point = curve.points[index].coord
+                    if curve.points[index].pointType == .smooth {
+                        drawCircle(center: point, color: white, radius: circleRadius + 2, lineThickness: 2)
+                        drawCircle(center: point, color: blue, radius: circleRadius, lineThickness: 3)
+                    } else {
+                        drawSquare(center: point, color: white, width: (circleRadius * 2) + 2, orthoMatrix: orthoMatrix)
+                        drawSquare(center: point, color: blue, width: circleRadius * 2, orthoMatrix: orthoMatrix)
+                    }
+                }
+            }
+
         }
 
         
