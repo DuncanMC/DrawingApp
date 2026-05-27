@@ -43,7 +43,7 @@ struct LineEquation {
 }
 
 
-extension simd_float2 {
+extension simd_float2: CustomStringConvertible {
     static let zero = simd_float2(0,0)
     
     var x: Float {
@@ -54,6 +54,10 @@ extension simd_float2 {
     var y: Float {
         get { return self[1] }
         set { self[1] = newValue }
+    }
+    
+    public var description: String {
+        return "(\(x), \(y))"
     }
 }
 

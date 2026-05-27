@@ -19,6 +19,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
     
     var maxAlpha: Float = 1
     var maxVerticiesSize = 3840
+    
+    var miterLimit: Float = 5
 
     // Ring buffer configuration
     private let ringBufferSize: Int = 1024 * 1024 // 128K for transient verticies
@@ -136,6 +138,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
     }
     
     func draw(in view: MTKView) {
+        
         
         enum ArrowHeadDirection {
             case down
@@ -295,9 +298,9 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     let firstRight = (first - normal1) / adjustment
                     let secondLeftOne = (middle + normal1) / adjustment
                     let secondRightOne = (middle - normal1) / adjustment
+                    let adjustedFirst = first / adjustment
                     if drawingInfo.showQuads {
                         let adjustedMiddle = middle / adjustment
-                        let adjustedFirst = first / adjustment
                         leftLines += [
                             Vertex(position: secondLeftOne, alpha: 1),
                             Vertex(position: adjustedMiddle, alpha: 1),
@@ -349,7 +352,20 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                         
                         //Calculate the intersection of "left" and right line segments and use them as the middle points.
                         let last = smoothedPoints[index+1] * adjustment
+
+                        let adjustedMiddle = middle/adjustment
+                        let adjustedLast = last/adjustment
+
+                        let vectorAB = middle - first
+                        let vectorBC = last - middle
                         
+                        let crossProduct = vectorAB.x * vectorBC.y - vectorAB.y * vectorBC.x
+                        
+//                        if abs(crossProduct) < 2e-9 {
+//                            print("Skipping point at index \(index)")
+//                            continue
+//                        }
+
                         let dir2 = normalize(last - middle)
                         let normal2 = simd_float2(-dir2.y, dir2.x) * radius
                         let secondLeftTwo = (middle + normal2) / adjustment
@@ -361,36 +377,91 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                         
                         let firstRightLine = equationForLine(from: firstRight, to: secondRightOne)
                         let secondRightLine = equationForLine(from: secondRightTwo, to: lastRight)
-                        let leftIntersection: simd_float2
-                        let rightIntersection: simd_float2
+                        var leftIntersection: simd_float2
+                        var rightIntersection: simd_float2
+                        
+
+
                         if distanceSquaredBetween(p1: secondLeftOne, p2: secondLeftTwo) < widthPerPixel * widthPerPixel * 0.04 {
                             leftIntersection = midpoint(p1: secondLeftOne, p2: secondLeftTwo)
                         } else {
                             leftIntersection = intersection(line1: firstLeftLine, line2: secondLeftLine) ?? midpoint(p1: secondLeftOne, p2: secondLeftTwo)
+                            // If this is a right-hand turn
+                            if crossProduct < 0 {
+                                let squaredDistance = distanceSquaredBetween(p1: leftIntersection, p2: secondLeftOne)
+                                if squaredDistance > (radius * radius) * (miterLimit * miterLimit) / 4.0 {
+                                    leftVertexes += [
+                                        Vertex(position: secondLeftOne, alpha: 0),
+                                        Vertex(position: adjustedMiddle, alpha: maxAlpha)
+                                    ]
+                                    leftIntersection = secondLeftTwo
+                                }
+                                leftIntersections.append(leftIntersection)
+                            }
+                            else if crossProduct > 0 {
+                                // Lefthand turn, so left side is inside
+                                let distanceToIntersection = distanceBetween(p1: secondLeftOne, p2: leftIntersection)
+                                let distanceFirstToMiddle = distanceBetween(p1: adjustedFirst, p2: adjustedMiddle)
+                                if distanceToIntersection > distanceFirstToMiddle {
+                                    leftIntersection = firstLeft
+                                }
+                            }
                         }
-                        leftIntersections.append(leftIntersection)
+                        
+                        
                         if distanceSquaredBetween(p1: secondRightOne, p2: secondRightTwo) < widthPerPixel * widthPerPixel * 0.04 {
+                            // don't use the right intersection
                             rightIntersection = midpoint(p1: secondRightOne, p2: secondRightTwo)
                         } else {
                             rightIntersection = intersection(line1: firstRightLine, line2: secondRightLine) ?? midpoint(p1: secondRightOne, p2: secondRightTwo)
+                            if crossProduct > 0
+                            {
+                                let squaredDistance = distanceSquaredBetween(p1: rightIntersection, p2: secondRightOne)
+                                if squaredDistance > (radius * radius) * (miterLimit * miterLimit) / 4.0 {
+                                    rightVertexes += [
+                                        Vertex(position: secondRightOne, alpha: 0),
+                                        Vertex(position: adjustedMiddle, alpha: maxAlpha)
+                                    ]
+                                    rightIntersection = secondRightTwo
+                                }
+                            } else if crossProduct < 0 {
+                                // righthand turn, so right side is inside
+                                let distanceToIntersection = distanceBetween(p1: secondRightOne, p2: rightIntersection)
+                                let distanceFirstToMiddle = distanceBetween(p1: adjustedFirst, p2: adjustedMiddle)
+                                if distanceToIntersection > distanceFirstToMiddle {
+                                    rightIntersection = firstRight
+                                }
+                            }
+
+//                        if squaredDistance > (radius * radius) * (miterLimit * miterLimit) / 4.0 {
+                            //                                rightIntersection = midpoint(p1: firstLeft, p2: secondLeftTwo)
                         }
+                        //                        }
                         
                         //Testing
                         rightIntersections.append(rightIntersection)
 
-                        let adjustedMiddle = middle/adjustment
-
+                        
+                        
                         // Add triangles to show the adjustment between the normals and the left and right line intersections
                         if drawingInfo.showQuads {
-                            cornerTriangles += [
-                                Vertex(position: leftIntersection, alpha: 0.25),
-                                Vertex(position: secondLeftOne, alpha: 0.25),
-                                Vertex(position: secondLeftTwo, alpha: 0.25),
+                            
+                            if crossProduct < 0 { //right intersection is the miter.
+                                cornerTriangles += [
+                                    Vertex(position: rightIntersection, alpha: 0.25),
+                                    Vertex(position: secondRightOne, alpha: 0.25),
+                                    Vertex(position: secondRightTwo, alpha: 0.25),
+                                ]
+                            }
+                            if crossProduct > 0 {
+                                
+                                cornerTriangles += [
+                                    Vertex(position: leftIntersection, alpha: 0.25),
+                                    Vertex(position: secondLeftOne, alpha: 0.25),
+                                    Vertex(position: secondLeftTwo, alpha: 0.25),
+                                ]
+                            }
                                                 
-                                Vertex(position: rightIntersection, alpha: 0.25),
-                                Vertex(position: secondRightOne, alpha: 0.25),
-                                Vertex(position: secondRightTwo, alpha: 0.25),
-                            ]
 
                         }
                         leftVertexes += [
@@ -464,6 +535,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     
                     leftLines = []
 
+                    
                     // Draw the right side quad outlines
                     uniforms = Uniforms(
                         color: black,
@@ -476,7 +548,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     dst = vertexBuffer.contents().advanced(by: offset)
                     dst.copyMemory(from: rightLines, byteCount: verticiesSize)
                     encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
-
+                    
                     encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                     encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                     encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: rightLines.count)
@@ -518,7 +590,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     }
                 }
                 
-                // Show the intersection points.
+                // Show the left and right intersection points.
                 if drawingInfo.smoothCurves && drawingInfo.showQuads {
                     for aPoint in leftIntersections {
                         drawSquare(center: aPoint, color: blue, width: 2,  orthoMatrix: orthoMatrix)

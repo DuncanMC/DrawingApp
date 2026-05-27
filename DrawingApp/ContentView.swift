@@ -116,6 +116,7 @@ import SwiftUI
                     Spacer()
                 }
             }
+            Spacer()
         }
     }
     
