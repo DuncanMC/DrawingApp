@@ -17,9 +17,6 @@ typealias ViewType = MTKView
 struct DrawingView: NSViewRepresentable {
     @StateObject var drawingInfo: DrawingInfo
     
-    
-
-
     func makeCoordinator() -> DrawingRenderer {
         DrawingRenderer(drawingInfo: drawingInfo)
     }

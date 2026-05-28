@@ -25,19 +25,48 @@ import SwiftUI
                 if !drawingInfo.isDragging {
                     //                    //print("Begin dragging in view.")
                     if let target = viewModel.getGestureLocation(touchLocation: value.startLocation) {
-//                        print("\nUser dragged \(target.dragLocation.description)\n")
-                        drawingInfo.isDragging = true
-                        drawingInfo.lastDragLocation = value.startLocation
-                        drawingInfo.draggingState = target.dragLocation
+                        drawingInfo.drawingMode = .editingCurve
+                        switch target.gestureLocation {
+                        case .inControlPoint(let curveIndex, let pointIndex):
+                            print("\nUser dragged \(target.gestureLocation.description)\n")
+                            drawingInfo.isDragging = true
+                            drawingInfo.lastDragLocation = value.startLocation
+                            drawingInfo.draggingState = target.gestureLocation
+                            drawingInfo.activeCurveIndex = curveIndex
+                            drawingInfo.activePointIndex = pointIndex
+                        default:
+                            break
+                        }
                     } else {
-                        print("touch location not found")
+                        let coords = viewModel.viewPointToMetal(value.startLocation)
+                        let point =  CatmullRomPoint(coord: coords, pointType: .corner, hardness: 1.0, pointRadius: 10.0)
+
+                        let newCurve = CatmullRomCurve(color: drawingInfo.brushSettings.color,
+                                                       radius: drawingInfo.brushSettings.size,
+                                                       outlineColor: nil,
+                                                       points: [point])
+                        drawingInfo.activeCurveIndex = drawingInfo.curves.count
+                        drawingInfo.curves.append(newCurve)
+                        drawingInfo.drawingMode = .creatingCurve
+                        drawingInfo.activePointIndex = nil
+                        drawingInfo.lastDragLocation = value.startLocation
+                        drawingInfo.isDragging = true
                     }
                 } else {
                     viewModel.handleDragging(value)
                 }
             }
             .onEnded { value in
-//                print("Dragging complete.")
+                if drawingInfo.drawingMode == .creatingCurve,
+                let activeCurveIndex = drawingInfo.activeCurveIndex {
+                    drawingInfo.drawingMode = .editingCurve
+                    let curvePointsCount = drawingInfo.curves[activeCurveIndex].points.count
+                    if curvePointsCount > 0 {
+                        drawingInfo.activePointIndex = curvePointsCount - 1
+                    }
+                } else {
+                    // Decide what to do about ending dragging of a point.
+                }
                 drawingInfo.isDragging = false
                 drawingInfo.lastDragLocation = nil
             }
@@ -59,40 +88,40 @@ import SwiftUI
                     .frame(width: DrawingInfo.defaultSize.width, height: DrawingInfo.defaultSize.height)
                     .border(Color.blue, width: 4)
                     .aspectRatio(drawingInfo.imageSize, contentMode: .fit)
-                    .onTapGesture(count: 2) { location in
-                        if let target = viewModel.getGestureLocation(touchLocation: location) {
-                            print("Double-tap in \(target.dragLocation.description)\n")
-                            let dragLocation = target.dragLocation
-                            switch dragLocation {
-                            case .inControlPoint(let curveIndex, let pointIndex):
-                                var changed = drawingInfo.curves[curveIndex].points[pointIndex]
-                                changed.pointType = (changed.pointType == .corner) ? .smooth : .corner
-                                drawingInfo.curves[curveIndex].points[pointIndex] = changed
-                            default:
-                                break
-                            }
-                        } else {
-                            print("double-tap location not found")
-                        }
+                    .onTapGesture(count: 1) { location in
+                        viewModel.handleTap(location: location)
                     }
+                    .onTapGesture(count: 2) { location in
+                        viewModel.handleDoubleTap(location: location)                    }
                     .gesture(dragGesture)
                 TextEditor(text: $drawingInfo.text)
                     .frame(maxHeight: 50)
                 HStack(spacing: 20) {
                     Spacer()
 
-                    Toggle(isOn: $drawingInfo.showQuads) {
-                        Text("Show quads")
+                    Button("Delete point") {
+                        viewModel.handleDeletePoint()
                     }
-                    .frame(maxWidth: 150, alignment: toggleAlignment)
+                    .disabled(!drawingInfo.enableDeletePointButton)
+                    
+                    VStack(spacing: 10) {
+                        Toggle(isOn: $drawingInfo.showQuads) {
+                            Text("Show quads")
+                        }
+                        .frame(maxWidth: 130, alignment: toggleAlignment)
+                        Toggle(isOn: $drawingInfo.showControlPoints) {
+                            Text("Show control points")
+                        }
+                        .frame(maxWidth: 180, alignment: toggleAlignment)
+                    }
 
                     Toggle(isOn: $drawingInfo.smoothCurves) {
                         Text("Smooth")
                     }
-                    .frame(maxWidth: 140, alignment: toggleAlignment)
+                    .frame(maxWidth: 100, alignment: toggleAlignment)
                     
                     Toggle(isOn: $drawingInfo.showSmoothingPoints) {
-                        Text("Show points")
+                        Text("Show smoothing")
                     }
                     .frame(maxWidth: 150, alignment: toggleAlignment)
 

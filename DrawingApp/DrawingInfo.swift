@@ -9,6 +9,22 @@ import Foundation
 import SwiftUI
 import Combine
 
+struct MetalColors {
+    static let red: SIMD4<Float> = SIMD4<Float>(0.7, 0, 0, 1)
+    static let yellow: SIMD4<Float> = SIMD4<Float>(1, 1, 0, 1)
+    static let blue: SIMD4<Float> = SIMD4<Float>(0, 0, 1, 1)
+    static let green: SIMD4<Float> = SIMD4<Float>(0, 1, 0, 1)
+    static let darkGreen: SIMD4<Float> = SIMD4<Float>(0, 0.5, 0, 1)
+    static let black: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 1)
+    static let white: SIMD4<Float> = SIMD4<Float>(1, 1, 1, 1)
+}
+
+enum Mode: Int, Codable {
+    case idle
+    case creatingCurve
+    case editingCurve
+}
+
 enum PointType: Int, Codable {
     case smooth
     case corner
@@ -111,6 +127,14 @@ final class DrawingInfo: ObservableObject, Codable {
         }
     }
     
+    struct BrushSettings: Codable {
+        var color: SIMD4<Float>
+        var size: Float
+        var hardness: Float
+    }
+    
+    @Published var brushSettings: BrushSettings = .init(color: MetalColors.green, size: 10, hardness: 10)
+    
     var hardness: Float = 1
     
     var showControlPoints: Bool = true
@@ -118,6 +142,32 @@ final class DrawingInfo: ObservableObject, Codable {
     var curves = [CatmullRomCurve]()
     
     // Items not saved with Codable
+    
+    @Published var enableDeletePointButton: Bool = false
+    
+    func setEnableDeletePointButtonState() {
+        enableDeletePointButton = drawingMode == .editingCurve &&
+        activePointIndex != nil &&
+        activeCurveIndex != nil
+
+        
+    }
+    var drawingMode: Mode = .idle {
+        didSet {
+            setEnableDeletePointButtonState()
+        }
+    }
+    var activeCurveIndex: Int? = nil
+    {
+        didSet {
+            setEnableDeletePointButtonState()
+        }
+    }
+    var activePointIndex: Int? = nil{
+        didSet {
+            setEnableDeletePointButtonState()
+        }
+    }
     
     @Published var viewportSize: CGSize = DrawingInfo.defaultSize // The size of the viewport
     
@@ -132,7 +182,7 @@ final class DrawingInfo: ObservableObject, Codable {
     
     var lastDragLocation: CGPoint? = nil
     var isDragging: Bool = false
-    var draggingState: DragLocations? = nil
+    var draggingState: GestureLocation? = nil
 
     
     // MARK: - Codable Keys
@@ -239,17 +289,17 @@ final class DrawingInfo: ObservableObject, Codable {
                 ]
             )
              */
-            CatmullRomCurve(
-                color: simd_float4(0.0, 1.0, 0, 1),
-                radius: 5,
-                outlineColor: nil,
-                points: [
-                    CatmullRomPoint(coord: simd_float2(-0.8,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
-                    CatmullRomPoint(coord: simd_float2( 0.0 , -0.8), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
-                    CatmullRomPoint(coord: simd_float2( 0.8,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
-
-                ]
-            )
+//            CatmullRomCurve(
+//                color: simd_float4(0.0, 1.0, 0, 1),
+//                radius: 5,
+//                outlineColor: nil,
+//                points: [
+//                    CatmullRomPoint(coord: simd_float2(-0.8,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
+//                    CatmullRomPoint(coord: simd_float2( 0.0 , -0.8), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
+//                    CatmullRomPoint(coord: simd_float2( 0.8,  0.8), pointType: .corner, hardness: 1.0, pointRadius: 10.0),
+//
+//                ]
+//            )
             ]
 
     }

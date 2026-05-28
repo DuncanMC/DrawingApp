@@ -150,9 +150,13 @@ extension FloatingPoint {
 }
 
 public func distanceBetween(p1:  CGPoint, p2: CGPoint) -> CGFloat {
+    return sqrt(distanceSquardBetween(p1: p1, p2: p2))
+}
+
+public func distanceSquardBetween(p1:  CGPoint, p2: CGPoint) -> CGFloat {
     let deltaX = p1.x - p2.x
     let deltaY = p1.y - p2.y
-    return sqrt(deltaX * deltaX + deltaY * deltaY)
+    return deltaX * deltaX + deltaY * deltaY
 }
 
 public func distanceSquaredBetween(p1:  SIMD2<Float>, p2: SIMD2<Float>) -> Float {

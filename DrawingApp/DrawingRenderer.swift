@@ -23,7 +23,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
     var miterLimit: Float = 5
 
     // Ring buffer configuration
-    private let ringBufferSize: Int = 1024 * 1024 // 128K for transient verticies
+    private let ringBufferSize: Int = 4 * 1024 * 1024 // 4 MB for transient verticies
     private let ringBufferAlignment: Int = 256  // Metal requires 256-byte alignment for buffers bound with offsets
     private var ringWriteOffset: Int = 0        // Current write position into the ring buffer
     private var frameStride: Int { ringBufferSize / max(1, inFlightFrameCount) }
@@ -31,12 +31,6 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
     
     let vertexBuffer: MTLBuffer
 
-    let red: SIMD4<Float> = SIMD4<Float>(0.7, 0, 0, 1)
-    let yellow: SIMD4<Float> = SIMD4<Float>(1, 1, 0, 1)
-    let blue: SIMD4<Float> = SIMD4<Float>(0, 0, 1, 1)
-    let green: SIMD4<Float> = SIMD4<Float>(0, 1, 0, 1)
-    let black: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 1)
-    let white: SIMD4<Float> = SIMD4<Float>(1, 1, 1, 1)
     let zeroPoint: vector_float2 = simd_make_float2(0,0)
 
     
@@ -186,33 +180,32 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         // Drawing code goes here:
         
         var uniforms = Uniforms(
-            color: black,
+            color: MetalColors.black,
             drawWithTetxure: false,
             orthoMatrix: orthoMatrix,
             hardness: drawingInfo.hardness
         )
 
-        // MARK: Test drawing code.
         
         
         if false {
             let limit: Float = 0.9
-            drawCircle(center: simd_float2(0, 0), color: blue, radius: 280, steps: 120, lineThickness: 6)
+            drawRing(center: simd_float2(0, 0), color: MetalColors.blue, radius: 280, steps: 120, lineThickness: 6)
             
-            drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 30, lineThickness: 6)
-            drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 20, lineThickness: 6)
-            drawCircle(center: simd_float2(-0.75, -0.75), color: blue, radius: 10, lineThickness: 6)
-            drawCircle(center: simd_float2(-0.75, -0.75), color: black, radius: 2, lineThickness: 4)
+            drawRing(center: simd_float2(-0.75, -0.75), color: MetalColors.blue, radius: 30, lineThickness: 6)
+            drawRing(center: simd_float2(-0.75, -0.75), color: MetalColors.black, radius: 20, lineThickness: 6)
+            drawRing(center: simd_float2(-0.75, -0.75), color: MetalColors.blue, radius: 10, lineThickness: 6)
+            drawRing(center: simd_float2(-0.75, -0.75), color: MetalColors.black, radius: 2, lineThickness: 4)
             
             drawThickLine(
                 p1: simd_float2(-limit,limit * drawingInfo.lineThickness),
                 p2: simd_float2(limit, -limit * drawingInfo.lineThickness),
-                color: black,
+                color: MetalColors.black,
                 thickness: 20,
             )
             
             
-            drawSquare(center: simd_float2(0.7, 0.7), color: red, width: 58, orthoMatrix: orthoMatrix)
+            drawSquare(center: simd_float2(0.7, 0.7), color: MetalColors.red, width: 58, orthoMatrix: orthoMatrix)
         }
         
         drawCurves(drawingInfo.curves)
@@ -277,7 +270,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             var rightLines = [Vertex]()
             var cornerTriangles = [Vertex]()
 
-            for (curveIndex, curve) in curves.enumerated() {
+            for (_, curve) in curves.enumerated() {
                 
                 let radius = drawingInfo.lineThickness * widthPerPixel
                 let smoothedPoints: [simd_float2]
@@ -286,194 +279,199 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 } else {
                     smoothedPoints = curveToCatmullRomPoints(curve)
                 }
-
-                for index in 1 ..< smoothedPoints.count {
-                    let first = smoothedPoints[index-1] * adjustment
-                    let middle = smoothedPoints[index] * adjustment
-                    
-                    let dir1 = normalize(middle - first)
-                    let normal1 = simd_float2(-dir1.y, dir1.x) * radius
-                    
-                    let firstLeft = (first + normal1) / adjustment
-                    let firstRight = (first - normal1) / adjustment
-                    let secondLeftOne = (middle + normal1) / adjustment
-                    let secondRightOne = (middle - normal1) / adjustment
-                    let adjustedFirst = first / adjustment
-                    if drawingInfo.showQuads {
-                        let adjustedMiddle = middle / adjustment
-                        leftLines += [
-                            Vertex(position: secondLeftOne, alpha: 1),
-                            Vertex(position: adjustedMiddle, alpha: 1),
-                            
-                            Vertex(position: adjustedMiddle, alpha: 1),
-                            Vertex(position: adjustedFirst, alpha: 1),
-                            
-                            Vertex(position: adjustedFirst, alpha: 1),
-                            Vertex(position: firstLeft, alpha: 1),
-                            
-                            Vertex(position: firstLeft, alpha: 1),
-                            Vertex(position: secondLeftOne, alpha: 1)
-                        ]
-                        rightLines += [
-                            Vertex(position: secondRightOne, alpha: 1),
-                            Vertex(position: adjustedMiddle, alpha: 1),
-                            
-                            Vertex(position: adjustedMiddle, alpha: 1),
-                            Vertex(position: adjustedFirst, alpha: 1),
-                            
-                            Vertex(position: adjustedFirst, alpha: 1),
-                            Vertex(position: firstRight, alpha: 1),
-                            
-                            Vertex(position: firstRight, alpha: 1),
-                            Vertex(position: secondRightOne, alpha: 1)
-                        ]
-                    }
-                    if index == 1 {
-                        leftVertexes += [Vertex(position: firstLeft, alpha: 0),
-                                         Vertex(position: first/adjustment, alpha: maxAlpha)
-                                         
-                        ]
-                        rightVertexes += [
-                            Vertex(position: firstRight, alpha: 0),
-                            Vertex(position: first/adjustment, alpha: maxAlpha)
-                        ]
-                    } else if index == smoothedPoints.count - 1 {
-                        leftVertexes += [
-                            Vertex(position: secondLeftOne, alpha: 0),
-                            Vertex(position: middle/adjustment, alpha: maxAlpha)
-                        ]
+                
+                if smoothedPoints.count == 1  {
+                    drawCircle(center: smoothedPoints[0], color: curve.color, radius: drawingInfo.lineThickness * 0.5, hardness: drawingInfo.hardness)
+                } else {
+                    for index in 1 ..< smoothedPoints.count {
+                        let first = smoothedPoints[index-1] * adjustment
+                        let middle = smoothedPoints[index] * adjustment
                         
-                        rightVertexes += [
-                            Vertex(position: secondRightOne, alpha: 0),
-                            Vertex(position: middle/adjustment, alpha: maxAlpha)
-                        ]
-                    }
-                    if index < smoothedPoints.count - 1 {
+                        let dir1 = normalize(middle - first)
+                        let normal1 = simd_float2(-dir1.y, dir1.x) * radius
                         
-                        //Calculate the intersection of "left" and right line segments and use them as the middle points.
-                        let last = smoothedPoints[index+1] * adjustment
-
-                        let adjustedMiddle = middle/adjustment
-                        let adjustedLast = last/adjustment
-
-                        let vectorAB = middle - first
-                        let vectorBC = last - middle
-                        
-                        let crossProduct = vectorAB.x * vectorBC.y - vectorAB.y * vectorBC.x
-                        
-//                        if abs(crossProduct) < 2e-9 {
-//                            print("Skipping point at index \(index)")
-//                            continue
-//                        }
-
-                        let dir2 = normalize(last - middle)
-                        let normal2 = simd_float2(-dir2.y, dir2.x) * radius
-                        let secondLeftTwo = (middle + normal2) / adjustment
-                        let secondRightTwo = (middle - normal2) / adjustment
-                        let lastLeft = (last + normal2) / adjustment
-                        let lastRight = (last - normal2) / adjustment
-                        let firstLeftLine = equationForLine(from: firstLeft, to: secondLeftOne)
-                        let secondLeftLine = equationForLine(from: secondLeftTwo, to: lastLeft)
-                        
-                        let firstRightLine = equationForLine(from: firstRight, to: secondRightOne)
-                        let secondRightLine = equationForLine(from: secondRightTwo, to: lastRight)
-                        var leftIntersection: simd_float2
-                        var rightIntersection: simd_float2
-                        
-
-
-                        if distanceSquaredBetween(p1: secondLeftOne, p2: secondLeftTwo) < widthPerPixel * widthPerPixel * 0.04 {
-                            leftIntersection = midpoint(p1: secondLeftOne, p2: secondLeftTwo)
-                        } else {
-                            leftIntersection = intersection(line1: firstLeftLine, line2: secondLeftLine) ?? midpoint(p1: secondLeftOne, p2: secondLeftTwo)
-                            // If this is a right-hand turn
-                            if crossProduct < 0 {
-                                let squaredDistance = distanceSquaredBetween(p1: leftIntersection, p2: secondLeftOne)
-                                if squaredDistance > (radius * radius) * (miterLimit * miterLimit) / 4.0 {
-                                    leftVertexes += [
-                                        Vertex(position: secondLeftOne, alpha: 0),
-                                        Vertex(position: adjustedMiddle, alpha: maxAlpha)
-                                    ]
-                                    leftIntersection = secondLeftTwo
-                                }
-                                leftIntersections.append(leftIntersection)
-                            }
-                            else if crossProduct > 0 {
-                                // Lefthand turn, so left side is inside
-                                let distanceToIntersection = distanceBetween(p1: secondLeftOne, p2: leftIntersection)
-                                let distanceFirstToMiddle = distanceBetween(p1: adjustedFirst, p2: adjustedMiddle)
-                                if distanceToIntersection > distanceFirstToMiddle {
-                                    leftIntersection = firstLeft
-                                }
-                            }
-                        }
-                        
-                        
-                        if distanceSquaredBetween(p1: secondRightOne, p2: secondRightTwo) < widthPerPixel * widthPerPixel * 0.04 {
-                            // don't use the right intersection
-                            rightIntersection = midpoint(p1: secondRightOne, p2: secondRightTwo)
-                        } else {
-                            rightIntersection = intersection(line1: firstRightLine, line2: secondRightLine) ?? midpoint(p1: secondRightOne, p2: secondRightTwo)
-                            if crossProduct > 0
-                            {
-                                let squaredDistance = distanceSquaredBetween(p1: rightIntersection, p2: secondRightOne)
-                                if squaredDistance > (radius * radius) * (miterLimit * miterLimit) / 4.0 {
-                                    rightVertexes += [
-                                        Vertex(position: secondRightOne, alpha: 0),
-                                        Vertex(position: adjustedMiddle, alpha: maxAlpha)
-                                    ]
-                                    rightIntersection = secondRightTwo
-                                }
-                            } else if crossProduct < 0 {
-                                // righthand turn, so right side is inside
-                                let distanceToIntersection = distanceBetween(p1: secondRightOne, p2: rightIntersection)
-                                let distanceFirstToMiddle = distanceBetween(p1: adjustedFirst, p2: adjustedMiddle)
-                                if distanceToIntersection > distanceFirstToMiddle {
-                                    rightIntersection = firstRight
-                                }
-                            }
-
-//                        if squaredDistance > (radius * radius) * (miterLimit * miterLimit) / 4.0 {
-                            //                                rightIntersection = midpoint(p1: firstLeft, p2: secondLeftTwo)
-                        }
-                        //                        }
-                        
-                        //Testing
-                        rightIntersections.append(rightIntersection)
-
-                        
-                        
-                        // Add triangles to show the adjustment between the normals and the left and right line intersections
+                        let firstLeft = (first + normal1) / adjustment
+                        let firstRight = (first - normal1) / adjustment
+                        let secondLeftOne = (middle + normal1) / adjustment
+                        let secondRightOne = (middle - normal1) / adjustment
+                        let adjustedFirst = first / adjustment
                         if drawingInfo.showQuads {
-                            
-//                            if crossProduct < 0 { //right intersection is the miter.
-//                                cornerTriangles += [
-//                                    Vertex(position: rightIntersection, alpha: 0.25),
-//                                    Vertex(position: secondRightOne, alpha: 0.25),
-//                                    Vertex(position: secondRightTwo, alpha: 0.25),
-//                                ]
-//                            }
-//                            if crossProduct > 0 {
-//                                
-//                                cornerTriangles += [
-//                                    Vertex(position: leftIntersection, alpha: 0.25),
-//                                    Vertex(position: secondLeftOne, alpha: 0.25),
-//                                    Vertex(position: secondLeftTwo, alpha: 0.25),
-//                                ]
-//                            }
-//                                                
-
+                            let adjustedMiddle = middle / adjustment
+                            leftLines += [
+                                Vertex(position: secondLeftOne, alpha: 1),
+                                Vertex(position: adjustedMiddle, alpha: 1),
+                                
+                                Vertex(position: adjustedMiddle, alpha: 1),
+                                Vertex(position: adjustedFirst, alpha: 1),
+                                
+                                Vertex(position: adjustedFirst, alpha: 1),
+                                Vertex(position: firstLeft, alpha: 1),
+                                
+                                Vertex(position: firstLeft, alpha: 1),
+                                Vertex(position: secondLeftOne, alpha: 1)
+                            ]
+                            rightLines += [
+                                Vertex(position: secondRightOne, alpha: 1),
+                                Vertex(position: adjustedMiddle, alpha: 1),
+                                
+                                Vertex(position: adjustedMiddle, alpha: 1),
+                                Vertex(position: adjustedFirst, alpha: 1),
+                                
+                                Vertex(position: adjustedFirst, alpha: 1),
+                                Vertex(position: firstRight, alpha: 1),
+                                
+                                Vertex(position: firstRight, alpha: 1),
+                                Vertex(position: secondRightOne, alpha: 1)
+                            ]
                         }
-                        leftVertexes += [
-                            Vertex(position: leftIntersection, alpha: 0),
-                            Vertex(position: adjustedMiddle, alpha: maxAlpha)
-                        ]
-                        rightVertexes += [
-                            Vertex(position: rightIntersection, alpha: 0),
-                            Vertex(position: adjustedMiddle, alpha: maxAlpha)
-                        ]
-                    }
-                } // For index
+                        if index == 1 {
+                            leftVertexes += [Vertex(position: firstLeft, alpha: 0),
+                                             Vertex(position: first/adjustment, alpha: maxAlpha)
+                                             
+                            ]
+                            rightVertexes += [
+                                Vertex(position: firstRight, alpha: 0),
+                                Vertex(position: first/adjustment, alpha: maxAlpha)
+                            ]
+                        }
+                        if index == smoothedPoints.count - 1 {
+                            leftVertexes += [
+                                Vertex(position: secondLeftOne, alpha: 0),
+                                Vertex(position: middle/adjustment, alpha: maxAlpha)
+                            ]
+                            
+                            rightVertexes += [
+                                Vertex(position: secondRightOne, alpha: 0),
+                                Vertex(position: middle/adjustment, alpha: maxAlpha)
+                            ]
+                        }
+                        if index < smoothedPoints.count - 1 {
+                            
+                            //Calculate the intersection of "left" and right line segments and use them as the middle points.
+                            let last = smoothedPoints[index+1] * adjustment
+                            
+                            let adjustedMiddle = middle/adjustment
+                            let adjustedLast = last/adjustment
+                            
+                            let vectorAB = middle - first
+                            let vectorBC = last - middle
+                            
+                            let crossProduct = vectorAB.x * vectorBC.y - vectorAB.y * vectorBC.x
+                            
+                            //                        if abs(crossProduct) < 2e-9 {
+                            //                            print("Skipping point at index \(index)")
+                            //                            continue
+                            //                        }
+                            
+                            let dir2 = normalize(last - middle)
+                            let normal2 = simd_float2(-dir2.y, dir2.x) * radius
+                            let secondLeftTwo = (middle + normal2) / adjustment
+                            let secondRightTwo = (middle - normal2) / adjustment
+                            let lastLeft = (last + normal2) / adjustment
+                            let lastRight = (last - normal2) / adjustment
+                            let firstLeftLine = equationForLine(from: firstLeft, to: secondLeftOne)
+                            let secondLeftLine = equationForLine(from: secondLeftTwo, to: lastLeft)
+                            
+                            let firstRightLine = equationForLine(from: firstRight, to: secondRightOne)
+                            let secondRightLine = equationForLine(from: secondRightTwo, to: lastRight)
+                            var leftIntersection: simd_float2
+                            var rightIntersection: simd_float2
+                            
+                            
+                            
+                            if distanceSquaredBetween(p1: secondLeftOne, p2: secondLeftTwo) < widthPerPixel * widthPerPixel * 0.04 {
+                                leftIntersection = midpoint(p1: secondLeftOne, p2: secondLeftTwo)
+                            } else {
+                                leftIntersection = intersection(line1: firstLeftLine, line2: secondLeftLine) ?? midpoint(p1: secondLeftOne, p2: secondLeftTwo)
+                                // If this is a right-hand turn
+                                if crossProduct < 0 {
+                                    let squaredDistance = distanceSquaredBetween(p1: leftIntersection, p2: secondLeftOne)
+                                    if squaredDistance > (radius * radius) * (miterLimit * miterLimit) / 4.0 {
+                                        leftVertexes += [
+                                            Vertex(position: secondLeftOne, alpha: 0),
+                                            Vertex(position: adjustedMiddle, alpha: maxAlpha)
+                                        ]
+                                        leftIntersection = secondLeftTwo
+                                    }
+                                    leftIntersections.append(leftIntersection)
+                                }
+                                else if crossProduct > 0 {
+                                    // Lefthand turn, so left side is inside
+                                    let distanceToIntersection = distanceBetween(p1: secondLeftOne, p2: leftIntersection)
+                                    let distanceFirstToMiddle = distanceBetween(p1: adjustedFirst, p2: adjustedMiddle)
+                                    if distanceToIntersection > distanceFirstToMiddle {
+                                        leftIntersection = firstLeft
+                                    }
+                                }
+                            }
+                            
+                            
+                            if distanceSquaredBetween(p1: secondRightOne, p2: secondRightTwo) < widthPerPixel * widthPerPixel * 0.04 {
+                                // don't use the right intersection
+                                rightIntersection = midpoint(p1: secondRightOne, p2: secondRightTwo)
+                            } else {
+                                rightIntersection = intersection(line1: firstRightLine, line2: secondRightLine) ?? midpoint(p1: secondRightOne, p2: secondRightTwo)
+                                if crossProduct > 0
+                                {
+                                    let squaredDistance = distanceSquaredBetween(p1: rightIntersection, p2: secondRightOne)
+                                    if squaredDistance > (radius * radius) * (miterLimit * miterLimit) / 4.0 {
+                                        rightVertexes += [
+                                            Vertex(position: secondRightOne, alpha: 0),
+                                            Vertex(position: adjustedMiddle, alpha: maxAlpha)
+                                        ]
+                                        rightIntersection = secondRightTwo
+                                    }
+                                } else if crossProduct < 0 {
+                                    // righthand turn, so right side is inside
+                                    let distanceToIntersection = distanceBetween(p1: secondRightOne, p2: rightIntersection)
+                                    let distanceFirstToMiddle = distanceBetween(p1: adjustedFirst, p2: adjustedMiddle)
+                                    if distanceToIntersection > distanceFirstToMiddle {
+                                        rightIntersection = firstRight
+                                    }
+                                }
+                                
+                                //                        if squaredDistance > (radius * radius) * (miterLimit * miterLimit) / 4.0 {
+                                //                                rightIntersection = midpoint(p1: firstLeft, p2: secondLeftTwo)
+                            }
+                            //                        }
+                            
+                            //Testing
+                            rightIntersections.append(rightIntersection)
+                            
+                            
+                            
+                            // Add triangles to show the adjustment between the normals and the left and right line intersections
+                            if drawingInfo.showQuads {
+                                
+                                //                            if crossProduct < 0 { //right intersection is the miter.
+                                //                                cornerTriangles += [
+                                //                                    Vertex(position: rightIntersection, alpha: 0.25),
+                                //                                    Vertex(position: secondRightOne, alpha: 0.25),
+                                //                                    Vertex(position: secondRightTwo, alpha: 0.25),
+                                //                                ]
+                                //                            }
+                                //                            if crossProduct > 0 {
+                                //
+                                //                                cornerTriangles += [
+                                //                                    Vertex(position: leftIntersection, alpha: 0.25),
+                                //                                    Vertex(position: secondLeftOne, alpha: 0.25),
+                                //                                    Vertex(position: secondLeftTwo, alpha: 0.25),
+                                //                                ]
+                                //                            }
+                                //
+                                
+                            }
+                            leftVertexes += [
+                                Vertex(position: leftIntersection, alpha: 0),
+                                Vertex(position: adjustedMiddle, alpha: maxAlpha)
+                            ]
+                            rightVertexes += [
+                                Vertex(position: rightIntersection, alpha: 0),
+                                Vertex(position: adjustedMiddle, alpha: maxAlpha)
+                            ]
+                        }
+                    } // For index
+                }
                 
                 uniforms = Uniforms(
                     color: curve.color,
@@ -482,17 +480,18 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     hardness: drawingInfo.hardness
                 )
                 
-                // Draw the left side triangle strips
-                var verticiesSize = MemoryLayout<Vertex>.stride * leftVertexes.count
-                var offset = allocateVerticiesInRing(byteCount: verticiesSize)
-                var dst = vertexBuffer.contents().advanced(by: offset)
-                dst.copyMemory(from: leftVertexes, byteCount: verticiesSize)
-                encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
-                
-                encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
-                encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
-                encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: leftVertexes.count)
-                
+                if leftVertexes.count >= 3 {
+                    // Draw the left side triangle strips
+                    let verticiesSize = MemoryLayout<Vertex>.stride * leftVertexes.count
+                    var offset = allocateVerticiesInRing(byteCount: verticiesSize)
+                    var dst = vertexBuffer.contents().advanced(by: offset)
+                    dst.copyMemory(from: leftVertexes, byteCount: verticiesSize)
+                    encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
+                    
+                    encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                    encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: leftVertexes.count)
+                }
                 leftVertexes = []
                 
                 uniforms = Uniforms(
@@ -502,51 +501,56 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     hardness: drawingInfo.hardness
                 )
 
+                if rightVertexes.count >= 3 {
+                    // Draw the right side triangle strips
+                    let verticiesSize = MemoryLayout<Vertex>.stride * rightVertexes.count
+                    let offset = allocateVerticiesInRing(byteCount: verticiesSize)
+                    let dst = vertexBuffer.contents().advanced(by: offset)
+                    dst.copyMemory(from: rightVertexes, byteCount: verticiesSize)
+                    encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                    encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                    
+                    encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
+                    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: rightVertexes.count)
+                }
                 
-                // Draw the right side triangle strips
-                verticiesSize = MemoryLayout<Vertex>.stride * rightVertexes.count
-                offset = allocateVerticiesInRing(byteCount: verticiesSize)
-                dst = vertexBuffer.contents().advanced(by: offset)
-                dst.copyMemory(from: rightVertexes, byteCount: verticiesSize)
-                encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
-                encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
-                
-                encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
-                encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: rightVertexes.count)
-                
+                rightVertexes = []
                 if drawingInfo.showQuads {
                     
                     //Draw the left side quad outlines
                     uniforms = Uniforms(
-                        color: black,
+                        color: MetalColors.black,
                         drawWithTetxure: false,
                         orthoMatrix: orthoMatrix,
                         hardness: 1.0
                     )
-                    verticiesSize = MemoryLayout<Vertex>.stride * leftLines.count
-                    var offset = allocateVerticiesInRing(byteCount: verticiesSize)
-                    var dst = vertexBuffer.contents().advanced(by: offset)
-                    dst.copyMemory(from: leftLines, byteCount: verticiesSize)
-                    encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
-
-                    encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
-                    encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
-                    encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: leftLines.count)
-                    
-                    leftLines = []
+                    if !leftLines.isEmpty {
+                        
+                        var verticiesSize = MemoryLayout<Vertex>.stride * leftLines.count
+                        var offset = allocateVerticiesInRing(byteCount: verticiesSize)
+                        var dst = vertexBuffer.contents().advanced(by: offset)
+                        dst.copyMemory(from: leftLines, byteCount: verticiesSize)
+                        encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
+                        
+                        encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                        encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                        encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: leftLines.count)
+                        
+                        leftLines = []
+                    }
 
                     
                     // Draw the right side quad outlines
                     if !rightLines.isEmpty {
                         uniforms = Uniforms(
-                            color: black,
+                            color: MetalColors.black,
                             drawWithTetxure: false,
                             orthoMatrix: orthoMatrix,
                             hardness: 1.0
                         )
-                        verticiesSize = MemoryLayout<Vertex>.stride * rightLines.count
-                        offset = allocateVerticiesInRing(byteCount: verticiesSize)
-                        dst = vertexBuffer.contents().advanced(by: offset)
+                        let verticiesSize = MemoryLayout<Vertex>.stride * rightLines.count
+                        let offset = allocateVerticiesInRing(byteCount: verticiesSize)
+                        let dst = vertexBuffer.contents().advanced(by: offset)
                         dst.copyMemory(from: rightLines, byteCount: verticiesSize)
                         encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
                         
@@ -566,9 +570,9 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                             hardness: 1.0
                         )
                         
-                        verticiesSize = MemoryLayout<Vertex>.stride * cornerTriangles.count
-                        offset = allocateVerticiesInRing(byteCount: verticiesSize)
-                        dst = vertexBuffer.contents().advanced(by: offset)
+                        let verticiesSize = MemoryLayout<Vertex>.stride * cornerTriangles.count
+                        let offset = allocateVerticiesInRing(byteCount: verticiesSize)
+                        let dst = vertexBuffer.contents().advanced(by: offset)
                         dst.copyMemory(from: cornerTriangles, byteCount: verticiesSize)
                         encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
                         
@@ -580,45 +584,145 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 }
 
 
-                rightVertexes = []
 
                 
                 // Show the left and right intersection points.
                 if drawingInfo.smoothCurves && drawingInfo.showQuads {
                     for aPoint in leftIntersections {
-                        drawSquare(center: aPoint, color: blue, width: 2,  orthoMatrix: orthoMatrix)
+                        drawSquare(center: aPoint, color: MetalColors.blue, width: 2,  orthoMatrix: orthoMatrix)
                     }
                     for aPoint in rightIntersections {
-                        drawSquare(center: aPoint, color: blue, width: 2,  orthoMatrix: orthoMatrix)
+                        drawSquare(center: aPoint, color: MetalColors.blue, width: 2,  orthoMatrix: orthoMatrix)
                     }
                     leftIntersections = []
                     rightIntersections = []
                 }
                 if drawingInfo.smoothCurves && drawingInfo.showSmoothingPoints {
                     for aPoint in smoothedPoints {
-                        drawSquare(center: aPoint, color: blue, width: 2,  orthoMatrix: orthoMatrix)
+                        drawSquare(center: aPoint, color: MetalColors.blue, width: 2,  orthoMatrix: orthoMatrix)
                     }
                 }
             } // for curves
             // Now loop through all the curves and draw outlined squares for the corner points and circles for the smooth points.
-            for curve in curves {
-                let circleRadius: Float = 5
-                for index in 0 ..< curve.points.count {
-                    let point = curve.points[index].coord
-                    if curve.points[index].pointType == .smooth {
-                        drawCircle(center: point, color: white, radius: circleRadius + 2, lineThickness: 2)
-                        drawCircle(center: point, color: blue, radius: circleRadius, lineThickness: 3)
-                    } else {
-                        drawSquare(center: point, color: white, width: (circleRadius * 2) + 2, orthoMatrix: orthoMatrix)
-                        drawSquare(center: point, color: blue, width: circleRadius * 2, orthoMatrix: orthoMatrix)
+            if drawingInfo.showControlPoints {
+                
+                for curve in curves {
+                    let circleRadius: Float = 3
+                    for index in 0 ..< curve.points.count {
+                        let point = curve.points[index].coord
+                        if curve.points[index].pointType == .smooth {
+                            drawRing(center: point, color: MetalColors.white, radius: circleRadius, lineThickness: 2)
+                            drawRing(center: point, color: MetalColors.blue, radius: circleRadius-2, lineThickness: 3)
+                        } else {
+                            drawSquare(center: point, color: MetalColors.white, width: (circleRadius + 2) * 2 , orthoMatrix: orthoMatrix, asDiamond: true)
+                            drawSquare(
+                                center: point,
+                                color: MetalColors.darkGreen,
+                                width: (circleRadius + 1) * 2,
+                                orthoMatrix: orthoMatrix,
+                                asDiamond: true)
+                        }
                     }
                 }
             }
+            if drawingInfo.drawingMode == .editingCurve,
+               let activeCurveIndex = drawingInfo.activeCurveIndex,
+               let activePointIndex = drawingInfo.activePointIndex {
+                let curve = curves[activeCurveIndex]
+                let point = curve.points[activePointIndex].coord
+                drawRing(center: point, color: MetalColors.white, radius: 10, lineThickness: 4)
+                drawRing(center: point, color: MetalColors.black, radius: 10, lineThickness: 2)
 
+            }
         }
 
-        
         func drawCircle(
+            center: simd_float2,
+            color: SIMD4<Float>,
+            radius: Float,
+            steps: Int = 24,
+            hardness: Float = 1.0
+        ) {
+            drawWedge(                center: center,
+                                      color: color,
+                                      radius: radius,
+                                      steps: steps,
+                                      hardness: hardness
+                                      )
+        }
+        
+        func drawWedge(
+            center: simd_float2,
+            color: SIMD4<Float>,
+            radius: Float,
+            startAngle: Float = 0,
+            endAngle: Float = 360.0,
+            steps: Int = 24,
+            hardness: Float = 1.0
+) {
+            let aspect = drawingInfo.imageAspectRatio
+            let landscape = aspect > 1
+            let adjustment: simd_float2 = landscape ?  simd_float2(1, aspect) : simd_float2(1/aspect, 1)
+
+            let widthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
+
+            let startAngleRadians = startAngle.degreesToRadians
+            let arcDelta = endAngle.degreesToRadians - startAngleRadians
+            let notFullCircle = startAngle != 0.0 || endAngle != 360.0
+            
+            var vertexes = [Vertex]()
+            vertexes.reserveCapacity(steps * 2 + 2)
+            
+            let radius = 2 * radius
+            let loopSteps = notFullCircle ? steps - 1 : steps
+            for step in 0 ..< loopSteps {
+                let angle: Float = startAngleRadians + Float(step) / Float(steps) * arcDelta
+                let angle2 = startAngleRadians + Float((step+1) % steps) / Float(loopSteps) * arcDelta
+                
+                var deltaX = cos(angle) * widthPerPixel * (radius) * adjustment.x
+                var deltaY = sin(angle) * widthPerPixel * (radius) * adjustment.y
+                
+                let p1 = simd_float2(x: center.x + deltaX, y: center.y + deltaY)
+                
+                
+                deltaX = cos(angle2) * widthPerPixel * (radius) * adjustment.x
+                deltaY = sin(angle2) * widthPerPixel * (radius) * adjustment.y
+                let p2 = simd_float2(x: center.x + deltaX, y: center.y + deltaY)
+
+                vertexes += [
+                    Vertex(position: center, alpha: 1),
+                    Vertex(position: p1, alpha: 0),
+                    Vertex(position: p2, alpha: 0),
+                    Vertex(position: center, alpha: 1),
+                    ]
+            }
+            
+            uniforms = Uniforms(
+                color: color,
+                drawWithTetxure: false,
+                orthoMatrix: orthoMatrix,
+                hardness: hardness
+            )
+            
+            let verticiesSize = MemoryLayout<Vertex>.stride * vertexes.count
+            if maxVerticiesSize < verticiesSize {
+                maxVerticiesSize = verticiesSize
+                print("maxVerticiesSize = \(maxVerticiesSize). verticies.count = \(vertexes.count)")
+            }
+            let offset = allocateVerticiesInRing(byteCount: verticiesSize)
+            let dst = vertexBuffer.contents().advanced(by: offset)
+            dst.copyMemory(from: vertexes, byteCount: verticiesSize)
+            encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
+            
+            encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+            encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+            encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: vertexes.count)
+
+
+        }
+    
+        
+        func drawRing(
             center: simd_float2,
             color: SIMD4<Float>,
             radius: Float,
@@ -640,8 +744,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             startAngle: Float = 0,
             endAngle: Float = 360.0,
             steps: Int = 24,
-            lineThickness: Float,
-            asDiamond: Bool = false) {
+            lineThickness: Float
+            ) {
                 
                 let aspect = drawingInfo.imageAspectRatio
                 let landscape = aspect > 1
