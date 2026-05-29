@@ -30,9 +30,11 @@ struct ViewModel {
     
     var points: [GesturePointTuple]  {
         var result: [GesturePointTuple] = []
-        for (curveIndex, aCurve) in drawingInfo.curves.enumerated() {
+        let curvesCount = drawingInfo.curves.count - 1
+        
+        for (curveIndex, aCurve) in drawingInfo.curves.reversed().enumerated() {
             for (pointIndex, aPoint) in aCurve.points.enumerated() {
-                result.append((metalPointToView(aPoint.coord), .inControlPoint(curveIndex: curveIndex, pointIndex: pointIndex)))
+                result.append((metalPointToView(aPoint.coord), .inControlPoint(curveIndex: curvesCount - curveIndex, pointIndex: pointIndex)))
             }
         }
         return result
@@ -59,6 +61,7 @@ struct ViewModel {
             if drawingInfo.drawingMode == .editingCurve,
                let activeCurveIndex = drawingInfo.activeCurveIndex,
                let pointIndex = drawingInfo.activePointIndex {
+                
                 var thisCurve = drawingInfo.curves[activeCurveIndex]
                 let newlocation = viewPointToMetal(location)
                 let newPoint = CatmullRomPoint(
@@ -72,10 +75,16 @@ struct ViewModel {
                     thisCurve.points.append(newPoint)
                     drawingInfo.activePointIndex = thisCurve.points.count - 1
                     drawingInfo.curves[activeCurveIndex] = thisCurve
-                } else {
+                } else if pointIndex == 0 {
+                    thisCurve.points.insert(newPoint, at: 0)
+                    drawingInfo.curves[activeCurveIndex] = thisCurve
+                } else
+                {
                     let coords = thisCurve.points[pointIndex].coord
-                    let firstPoint =  CatmullRomPoint(coord: coords, pointType: .corner, hardness: 1.0, pointRadius: 10.0)
-                    let newCurve = CatmullRomCurve(color: drawingInfo.brushSettings.color,
+                    let firstPoint = thisCurve.points[pointIndex]
+
+//                    let firstPoint =  CatmullRomPoint(coord: coords, pointType: .corner, hardness: 1.0, pointRadius: 10.0)
+                    let newCurve = CatmullRomCurve(color: thisCurve.color,
                                                    radius: drawingInfo.brushSettings.size,
                                                    outlineColor: nil,
                                                    points: [firstPoint, newPoint])
@@ -89,7 +98,7 @@ struct ViewModel {
                 print("Single-tap not on a known location.")
                 
                 let coords = viewPointToMetal(location)
-                let point =  CatmullRomPoint(coord: coords, pointType: .corner, hardness: 1.0, pointRadius: 10.0)
+                let point =  CatmullRomPoint(coord: coords, pointType: .smooth, hardness: 1.0, pointRadius: 10.0)
 
                 let newCurve = CatmullRomCurve(color: drawingInfo.brushSettings.color,
                                                radius: drawingInfo.brushSettings.size,
@@ -125,18 +134,18 @@ struct ViewModel {
         guard let lastDragLocation = drawingInfo.lastDragLocation else { return }
 
         switch drawingInfo.drawingMode {
-
-            case .creatingCurve:
+            
+        case .creatingCurve:
             
             let deltaX = Float(lastDragLocation.x - value.location.x)
             let deltaY = Float(lastDragLocation.y - value.location.y)
-
+            
             guard let curveIndex = drawingInfo.activeCurveIndex else {
                 print("No active curve")
                 return
             }
             guard  distanceSquardBetween(p1: lastDragLocation, p2: value.location) > 900 else {
-                print("deltaX = \(deltaX), deltaY = \(deltaY). Exiting")
+                //print("deltaX = \(deltaX), deltaY = \(deltaY). Exiting")
                 return
             }
             
@@ -154,7 +163,7 @@ struct ViewModel {
             
             let deltaX = -2.0 * Float((lastDragLocation.x - value.location.x) / drawingInfo.imageSize.width)
             let deltaY = 2.0 * Float((lastDragLocation.y - value.location.y) / drawingInfo.imageSize.height)
-
+            
             switch drawingInfo.draggingState {
             case .inControlPoint(let curveIndex, let pointIndex):
                 let theCurve = drawingInfo.curves[curveIndex]
@@ -163,19 +172,16 @@ struct ViewModel {
                 thePoint.coord.y += deltaY
                 drawingInfo.curves[curveIndex].points[pointIndex] = thePoint
                 drawingInfo.lastDragLocation = value.location
-
+                
             default:
                 break
             }
-        default:
-            break
         }
 
 
         }
 
     func handleDeletePoint() {
-        print("In \(#function)")
         guard let curveIndex = drawingInfo.activeCurveIndex,
         var pointIndex = drawingInfo.activePointIndex else { return }
         var curve = drawingInfo.curves[curveIndex]

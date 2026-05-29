@@ -39,7 +39,53 @@ import SwiftUI
                         }
                     } else {
                         let coords = viewModel.viewPointToMetal(value.startLocation)
-                        let point =  CatmullRomPoint(coord: coords, pointType: .corner)
+                        
+                        // If we are currently in editing mode with a point selected,
+                        // we want to add points from the selected point.
+
+                        if drawingInfo.drawingMode == .editingCurve,
+                            let activeCurveIndex = drawingInfo.activeCurveIndex,
+                           let activePointIndex = drawingInfo.activePointIndex {
+                            print("Begin dragging while in editing mode.")
+                            let point =  CatmullRomPoint(coord: coords, pointType: .smooth)
+
+                            switch activePointIndex {
+                            case 0:
+                                // The first point of an existing curve is selected.
+                                // Reverse the point order and start adding at the end.
+                                drawingInfo.curves[activeCurveIndex].points.reverse()
+                                fallthrough
+                                
+                            case drawingInfo.curves[activeCurveIndex].points.count - 1:
+                                // The last point of a curve is selected.
+                                // Go back to creating mode and start adding points at the end.
+                                drawingInfo.drawingMode = .creatingCurve
+                                drawingInfo.curves[activeCurveIndex].points.append(point)
+                                drawingInfo.activePointIndex = nil
+                                drawingInfo.isDragging = true
+                                drawingInfo.lastDragLocation = value.startLocation
+                                return
+                            default:
+                                // A point in the middle of a curve is selected. Create a new curve starting from
+                                // the selected point.
+                                let point =  CatmullRomPoint(coord: coords, pointType: .smooth)
+
+                                let activePoint = drawingInfo.curves[activeCurveIndex].points[activePointIndex]
+                                let newCurve = CatmullRomCurve(color: drawingInfo.brushSettings.color,
+                                                               radius: drawingInfo.brushSettings.size,
+                                                               outlineColor: nil,
+                                                               points: [activePoint, point])
+                                drawingInfo.activeCurveIndex = drawingInfo.curves.count
+                                drawingInfo.curves.append(newCurve)
+                                drawingInfo.drawingMode = .creatingCurve
+                                drawingInfo.activePointIndex = nil
+                                drawingInfo.lastDragLocation = value.startLocation
+                                drawingInfo.isDragging = true
+                                return
+                            }
+                        }
+                        
+                        let point =  CatmullRomPoint(coord: coords, pointType: .smooth)
 
                         let newCurve = CatmullRomCurve(color: drawingInfo.brushSettings.color,
                                                        radius: drawingInfo.brushSettings.size,
@@ -96,7 +142,7 @@ import SwiftUI
             HStack {
                 //                    Spacer()
                 
-                Button("Delete point") {
+                Button("Delete") {
                     viewModel.handleDeletePoint()
                 }
                 .disabled(!drawingInfo.enableDeletePointButton)
@@ -129,8 +175,9 @@ import SwiftUI
                     Slider(value: $drawingInfo.lineThickness, in: 2...70)
                 }
                 .frame(maxWidth: 150)
+                .padding(.trailing, 10)
                 .onChange(of: drawingInfo.lineThickness) {
-                    print("Line thickness = \(drawingInfo.lineThickness)")
+                    //print("Line thickness = \(drawingInfo.lineThickness)")
                 }
                 
                 VStack(alignment: .center)   {
@@ -144,8 +191,7 @@ import SwiftUI
                 //                    Spacer()
             }
             .frame(maxWidth: .infinity)
-            .border(Color.black)
-
+            .padding([.top, .bottom], 10)
         }
     }
     
