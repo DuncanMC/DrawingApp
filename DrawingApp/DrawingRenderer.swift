@@ -599,6 +599,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 }
                 if drawingInfo.smoothCurves && drawingInfo.showSmoothingPoints {
                     for aPoint in smoothedPoints {
+                        drawSquare(center: aPoint, color: MetalColors.white, width: 4,  orthoMatrix: orthoMatrix)
                         drawSquare(center: aPoint, color: MetalColors.blue, width: 2,  orthoMatrix: orthoMatrix)
                     }
                 }

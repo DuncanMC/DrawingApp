@@ -15,19 +15,19 @@ typealias ViewType = MTKView
 
 #if os(macOS)
 struct DrawingView: NSViewRepresentable {
-    @StateObject var drawingInfo: DrawingInfo
-    
+    @ObservedObject var drawingInfo: DrawingInfo
+
     func makeCoordinator() -> DrawingRenderer {
         DrawingRenderer(drawingInfo: drawingInfo)
     }
-    
+
     func updateNSView(_ nsView: MTKView, context: Context) {
     }
-    
+
     func makeNSView(context: Context) -> MTKView {
         let mtkView = MTKView()
         mtkView.sampleCount = context.coordinator.sampleCount
-        mtkView.device = MTLCreateSystemDefaultDevice()
+        mtkView.device = context.coordinator.device
         mtkView.delegate = context.coordinator
         mtkView.colorPixelFormat = .bgra8Unorm
         context.coordinator.mtkView = mtkView
@@ -36,22 +36,17 @@ struct DrawingView: NSViewRepresentable {
 }
 #else
 struct DrawingView: UIViewRepresentable {
-    
-    
-    
-    @StateObject var drawingInfo: DrawingInfo
+    @ObservedObject var drawingInfo: DrawingInfo
 
-    
     func makeCoordinator() -> DrawingRenderer {
         DrawingRenderer(drawingInfo: drawingInfo)
     }
-    
+
     func makeUIView(context: Context) -> MTKView {
         let mtkView = MTKView()
-        mtkView.sampleCount = 4
-        
+        mtkView.sampleCount = context.coordinator.sampleCount
         mtkView.isOpaque = true
-        mtkView.device = MTLCreateSystemDefaultDevice()
+        mtkView.device = context.coordinator.device
         mtkView.delegate = context.coordinator
         mtkView.colorPixelFormat = .bgra8Unorm
         context.coordinator.mtkView = mtkView

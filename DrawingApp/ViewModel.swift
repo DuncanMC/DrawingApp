@@ -137,14 +137,14 @@ struct ViewModel {
             
         case .creatingCurve:
             
-            let deltaX = Float(lastDragLocation.x - value.location.x)
-            let deltaY = Float(lastDragLocation.y - value.location.y)
+//            let deltaX = Float(lastDragLocation.x - value.location.x)
+//            let deltaY = Float(lastDragLocation.y - value.location.y)
             
             guard let curveIndex = drawingInfo.activeCurveIndex else {
                 print("No active curve")
                 return
             }
-            guard  distanceSquardBetween(p1: lastDragLocation, p2: value.location) > 900 else {
+            guard  distanceSquardBetween(p1: lastDragLocation, p2: value.location) > 25 else {
                 //print("deltaX = \(deltaX), deltaY = \(deltaY). Exiting")
                 return
             }

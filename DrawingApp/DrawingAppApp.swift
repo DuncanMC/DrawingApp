@@ -12,9 +12,11 @@ import SwiftUI
 @MainActor
 struct DrawingAppApp: App {
     var body: some Scene {
-        DocumentGroup(newDocument: DrawingAppDocument()) { @MainActor file in
-            ContentView(drawingInfo: file.document.drawingInfo)
+        DocumentGroup(newDocument: { DrawingAppDocument() }) { config in
+            ContentView(drawingInfo: config.document.drawingInfo)
+        }
+        .commands {
+            DrawingCommands()
         }
     }
 }
-

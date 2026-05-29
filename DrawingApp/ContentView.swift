@@ -7,10 +7,12 @@
 //
 
 import SwiftUI
+import Combine
 
 @MainActor struct ContentView: View {
     @ObservedObject var drawingInfo: DrawingInfo
-    
+    @Environment(\.undoManager) var undoManager
+
     var viewModel: ViewModel
     
 
@@ -107,11 +109,12 @@ import SwiftUI
                 let activeCurveIndex = drawingInfo.activeCurveIndex {
                     drawingInfo.drawingMode = .editingCurve
                     let curvePointsCount = drawingInfo.curves[activeCurveIndex].points.count
-                    if curvePointsCount > 0 {
-                        drawingInfo.activePointIndex = curvePointsCount - 1
+                    if curvePointsCount == 1  {
+                        drawingInfo.activePointIndex = 0
                     }
                 } else {
                     // Decide what to do about ending dragging of a point.
+                    drawingInfo.activePointIndex = nil
                 }
                 drawingInfo.isDragging = false
                 drawingInfo.lastDragLocation = nil
@@ -139,36 +142,39 @@ import SwiftUI
                 .onTapGesture(count: 2) { location in
                     viewModel.handleDoubleTap(location: location)                    }
                 .gesture(dragGesture)
-            HStack {
+            HStack(spacing: 20) {
                 //                    Spacer()
                 
-                Button("Delete") {
+                ColorPicker("Curve color", selection: $drawingInfo.currentColor)
+                    .frame(maxWidth: 150)
+
+                Button("Delete point") {
                     viewModel.handleDeletePoint()
                 }
                 .disabled(!drawingInfo.enableDeletePointButton)
                 
-                VStack(alignment: .leading, spacing: 10) {
-                    Toggle(isOn: $drawingInfo.showControlPoints) {
-                        Text("Show control points")
-                    }
-                    .frame(maxWidth: 180, alignment: toggleAlignment)
-
-                    Toggle(isOn: $drawingInfo.showQuads) {
-                        Text("Show quads")
-                    }
-                    .frame(maxWidth: 130, alignment: toggleAlignment)
-                    
-                }
-                
-                Toggle(isOn: $drawingInfo.smoothCurves) {
-                    Text("Smooth")
-                }
-                .frame(maxWidth: 100, alignment: toggleAlignment)
-                
-                Toggle(isOn: $drawingInfo.showSmoothingPoints) {
-                    Text("Show smoothing")
-                }
-                .frame(maxWidth: 150, alignment: toggleAlignment)
+//                VStack(alignment: .leading, spacing: 10) {
+//                    Toggle(isOn: $drawingInfo.showControlPoints) {
+//                        Text("Show control points")
+//                    }
+//                    .frame(maxWidth: 180, alignment: toggleAlignment)
+//
+//                    Toggle(isOn: $drawingInfo.showQuads) {
+//                        Text("Show quads")
+//                    }
+//                    .frame(maxWidth: 130, alignment: toggleAlignment)
+//                    
+//                }
+//                
+//                Toggle(isOn: $drawingInfo.smoothCurves) {
+//                    Text("Smooth")
+//                }
+//                .frame(maxWidth: 100, alignment: toggleAlignment)
+//                
+//                Toggle(isOn: $drawingInfo.showSmoothingPoints) {
+//                    Text("Show smoothing")
+//                }
+//                .frame(maxWidth: 150, alignment: toggleAlignment)
                 
                 VStack(alignment: .center)   {
                     Text("Thickness")
@@ -193,6 +199,22 @@ import SwiftUI
             .frame(maxWidth: .infinity)
             .padding([.top, .bottom], 10)
         }
+        .focusedSceneObject(drawingInfo)
+        .onReceive(drawingInfo.objectWillChange) { _ in
+            drawingInfo.registerUndo(with: undoManager)
+        }
+        #if os(iOS)
+        .toolbar {
+            ToolbarItem(placement: .secondaryAction) {
+                Menu("View Options", systemImage: "eye") {
+                    Toggle("Smooth Curves", isOn: $drawingInfo.smoothCurves)
+                    Toggle("Show Smoothing Points", isOn: $drawingInfo.showSmoothingPoints)
+                    Toggle("Show Control Points", isOn: $drawingInfo.showControlPoints)
+                    Toggle("Show Quads", isOn: $drawingInfo.showQuads)
+                }
+            }
+        }
+        #endif
     }
     
     init(drawingInfo: DrawingInfo) {

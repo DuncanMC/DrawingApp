@@ -115,8 +115,6 @@ final class DrawingInfo: ObservableObject, Codable {
     let imageSize: CGSize
     
     // Test properties
-    @Published var title: String
-    @Published var text: String
     @Published var smoothCurves: Bool = true
     
     @Published var showSmoothingPoints: Bool = false
@@ -137,7 +135,7 @@ final class DrawingInfo: ObservableObject, Codable {
     
     var hardness: Float = 1
     
-    var showControlPoints: Bool = true
+    @Published var showControlPoints: Bool = true
     
     var curves = [CatmullRomCurve]()
     
@@ -149,7 +147,7 @@ final class DrawingInfo: ObservableObject, Codable {
         enableDeletePointButton = drawingMode == .editingCurve &&
         activePointIndex != nil &&
         activeCurveIndex != nil
-
+        
         
     }
     var drawingMode: Mode = .idle {
@@ -171,7 +169,6 @@ final class DrawingInfo: ObservableObject, Codable {
     
     @Published var viewportSize: CGSize = DrawingInfo.defaultSize // The size of the viewport
     
-    var cancellables = Set<AnyCancellable>()
     //    static let defaultSize: CGSize = CGSize(width: 800, height: 300)
     static let defaultSize: CGSize = CGSize(width: 900, height: 600)
     //    static let defaultSize: CGSize = CGSize(width: 1000, height: 250)
@@ -183,6 +180,70 @@ final class DrawingInfo: ObservableObject, Codable {
     var lastDragLocation: CGPoint? = nil
     var isDragging: Bool = false
     var draggingState: GestureLocation? = nil
+    
+    /*
+     public typealias  pointsArraysTuple = (
+       points: [simd_float2],
+       tempSmoothedPoints: [simd_float2],
+       smoothedPoints: [simd_float2]
+     )
+
+     */
+    public typealias  metalColorComponents = (
+      red: Float,
+      green: Float,
+      blue: Float,
+      alpha : Float)
+
+    var currentColor: Color {
+        get {
+            let metalColor = currentMetalColor
+            return Color(
+                red: Double(metalColor[0]),
+                green:  Double(metalColor[1]),
+                blue:  Double(metalColor[2]),
+                opacity: Double(metalColor[3]))
+        }
+        set {
+            var newValueComponents: metalColorComponents
+            #if os(macOS)
+                let color = NSColor(newValue)
+                newValueComponents = (red: Float(color.redComponent),
+                                      green: Float(color.greenComponent),
+                                      blue: Float(color.blueComponent),
+                                      alpha: Float(color.alphaComponent))
+            #else
+                let uiColor = UIColor(newValue)
+                var red: CGFloat = 0
+                var green: CGFloat = 0
+                var blue: CGFloat = 0
+                var alpha: CGFloat = 0
+                uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+                newValueComponents = (red: Float(red),
+                                      green: Float(green),
+                                      blue: Float(blue),
+                                      alpha: Float(alpha))
+            #endif
+            currentMetalColor = [newValueComponents.red, newValueComponents.green, newValueComponents.blue, newValueComponents.alpha]
+        }
+    }
+    var currentMetalColor: SIMD4<Float>  {
+        get {
+            if drawingMode == .idle || activeCurveIndex == nil {
+                return brushSettings.color
+            } else {
+                return curves[activeCurveIndex!].color
+            }
+        }
+        set {
+            if drawingMode == .idle || activeCurveIndex == nil {
+                brushSettings.color = newValue
+            } else {
+                curves[activeCurveIndex!].color = newValue
+            }
+        }
+    }
+
 
     
     // MARK: - Codable Keys
@@ -190,6 +251,7 @@ final class DrawingInfo: ObservableObject, Codable {
         case title
         case text
         case showSmoothingPoints
+        case smoothCurves
         case backgroundColor
         case lineThickness
         case lineHardness
@@ -200,9 +262,8 @@ final class DrawingInfo: ObservableObject, Codable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.imageSize = DrawingInfo.defaultSize
-        self.title = try container.decode(String.self, forKey: .title)
-        self.text = try container.decode(String.self, forKey: .text)
         self.showSmoothingPoints = try container.decodeIfPresent(Bool.self, forKey: .showSmoothingPoints) ?? false
+        self.smoothCurves = try container.decodeIfPresent(Bool.self, forKey: .smoothCurves) ?? true
         if let curves = try container.decodeIfPresent([CatmullRomCurve].self, forKey: .curves) {
             self.curves = curves
         } else {
@@ -223,11 +284,9 @@ final class DrawingInfo: ObservableObject, Codable {
     
     // MARK: - Encode
     func encode(to encoder: Encoder) throws {
-        print("Encoding '\(text)'")
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(title, forKey: .title)
-        try container.encode(text, forKey: .text)
         try container.encode(showSmoothingPoints, forKey: .showSmoothingPoints)
+        try container.encode(smoothCurves, forKey: .smoothCurves)
         try container.encode(CodableColor(color: backgroundColor), forKey: .backgroundColor)
         try container.encode(lineThickness, forKey: .lineThickness)
         try container.encode(lineHardness, forKey: .lineHardness)
@@ -237,70 +296,35 @@ final class DrawingInfo: ObservableObject, Codable {
     
     init(title: String, text: String) {
         self.imageSize = DrawingInfo.defaultSize
-        self.title = title
-        self.text = text
         self.showSmoothingPoints = false
         self.backgroundColor = .white
         self.viewportSize = DrawingInfo.defaultSize
-        doInitSetup()
     }
-    func doInitSetup() {
-        objectWillChange.sink { _ in
-        #if os(macOS)
-            let documentController: NSDocumentController = .shared
-            if let document = documentController.currentDocument {
-                document.updateChangeCount(.changeDone)
-            }
-        #endif
+
+    // MARK: - Undo
+
+    func registerUndo(with undoManager: UndoManager?) {
+        guard let undoManager else { return }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let snapshot = try? encoder.encode(self) else { return }
+        undoManager.registerUndo(withTarget: self) { target in
+            target.registerUndo(with: undoManager)
+            target.restore(from: snapshot)
         }
-        .store(in: &cancellables)
-        curves = [
-//            CatmullRomCurve(
-//                color: simd_float4(1.0, 0.8, 0, 1), // green
-//                radius: 20.0,
-//                outlineColor: nil,
-//                points: [
-//                    CatmullRomPoint(coord: simd_float2(-0.85, 0.85), pointType: .corner, pointRadius: 10.0),
-//                    CatmullRomPoint(coord: simd_float2(-0.7 ,  0.4 ), pointType: .smooth, pointRadius: 10.0),
-//                    CatmullRomPoint(coord: simd_float2(-0.6 , -0.8 ), pointType: .smooth, pointRadius: 10.0),
-//                    CatmullRomPoint(coord: simd_float2(-0.4 ,  0   ), pointType: .smooth, pointRadius: 10.0), //
-//                    CatmullRomPoint(coord: simd_float2(-0.2 ,  0.6 ), pointType: .smooth, pointRadius: 10.0),
-//                    CatmullRomPoint(coord: simd_float2( 0   ,  0.8 ), pointType: .smooth, pointRadius: 10.0),
-//                    CatmullRomPoint(coord: simd_float2( 0.6 , -0.8 ), pointType: .smooth, pointRadius: 10.0),
-//                    CatmullRomPoint(coord: simd_float2( 0.8 ,  0.8 ), pointType: .corner, pointRadius: 10.0),
-//                ]
-//            ),
-            /*
-            CatmullRomCurve(
-                color: simd_float4(0.0, 0, 0.8, 1),
-                radius: 5,
-                outlineColor: nil,
-                points: [
-                    CatmullRomPoint(coord: simd_float2(-0.4, -0.8), pointType: .corner, pointRadius: 10.0),
-//                    CatmullRomPoint(coord: simd_float2(-0.5,  0.5), pointType: .smooth, pointRadius: 10.0),
-                    CatmullRomPoint(coord: simd_float2(-0.3, -0.2), pointType: .smooth, pointRadius: 10.0),
-                    
-                    CatmullRomPoint(coord: simd_float2(-0.05, -0.35), pointType: .smooth, pointRadius: 10.0),
-                    
-//                    CatmullRomPoint(coord: simd_float2(-0.5, -0.5), pointType: .smooth, pointRadius: 10.0),
-                    CatmullRomPoint(coord: simd_float2( 0.4, -0.7), pointType: .smooth, pointRadius: 10.0),
-                    CatmullRomPoint(coord: simd_float2( 0.4, -0.2), pointType: .corner, pointRadius: 10.0),
+    }
 
-                ]
-            )
-             */
-//            CatmullRomCurve(
-//                color: simd_float4(0.0, 1.0, 0, 1),
-//                radius: 5,
-//                outlineColor: nil,
-//                points: [
-//                    CatmullRomPoint(coord: simd_float2(-0.8,  0.8), pointType: .corner, pointRadius: 10.0),
-//                    CatmullRomPoint(coord: simd_float2( 0.0 , -0.8), pointType: .corner, pointRadius: 10.0),
-//                    CatmullRomPoint(coord: simd_float2( 0.8,  0.8), pointType: .corner, pointRadius: 10.0),
-//
-//                ]
-//            )
-            ]
-
+    func restore(from data: Data) {
+        guard let restored = try? JSONDecoder().decode(DrawingInfo.self, from: data) else { return }
+        self.showSmoothingPoints = restored.showSmoothingPoints
+        self.smoothCurves = restored.smoothCurves
+        self.backgroundColor = restored.backgroundColor
+        self.lineThickness = restored.lineThickness
+        self.lineHardness = restored.lineHardness
+        self.curves = restored.curves
+        self.showControlPoints = restored.showControlPoints
+        self.drawingMode = .idle
+        self.activeCurveIndex = nil
+        self.activePointIndex = nil
     }
 }

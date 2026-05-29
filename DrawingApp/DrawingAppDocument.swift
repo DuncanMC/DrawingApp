@@ -14,37 +14,31 @@ extension UTType {
     static let drawingDocument: UTType = UTType(exportedAs: "com.wareto.drawingDocument")
 }
 
-
-
-struct DrawingAppDocument {
+final class DrawingAppDocument: ReferenceFileDocument {
+    typealias Snapshot = Data
 
     var drawingInfo: DrawingInfo
-    
-    init(drawingInfo: DrawingInfo = DrawingInfo(title: "Untitled", text: "")) {
-        self.drawingInfo = drawingInfo
+
+    static var readableContentTypes: [UTType] = [.drawingDocument]
+
+    init() {
+        self.drawingInfo = DrawingInfo(title: "Untitled", text: "")
     }
-}
 
-extension DrawingAppDocument: FileDocument {
-    
-    static let writableContentTypes: [UTType] = [.drawingDocument]
-    
-    nonisolated static var readableContentTypes: [UTType] { [.drawingDocument] }
-
-    nonisolated init(configuration: ReadConfiguration) throws {
-        guard let data = configuration.file.regularFileContents
-        else {
+    required init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        let info = try JSONDecoder().decode(DrawingInfo.self, from: data)
-        self.drawingInfo = info
+        self.drawingInfo = try JSONDecoder().decode(DrawingInfo.self, from: data)
     }
-    
-    nonisolated func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+
+    func snapshot(contentType: UTType) throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(drawingInfo)
-        return .init(regularFileWithContents: data)
+        return try encoder.encode(drawingInfo)
+    }
+
+    func fileWrapper(snapshot: Data, configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: snapshot)
     }
 }
-
