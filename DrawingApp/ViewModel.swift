@@ -58,15 +58,32 @@ struct ViewModel {
         } else {
             if drawingInfo.drawingMode == .editingCurve,
                let activeCurveIndex = drawingInfo.activeCurveIndex,
-               let _ = drawingInfo.activePointIndex {
+               let pointIndex = drawingInfo.activePointIndex {
+                var thisCurve = drawingInfo.curves[activeCurveIndex]
                 let newlocation = viewPointToMetal(location)
                 let newPoint = CatmullRomPoint(
                     coord: newlocation,
                                                pointType: .smooth,
                     hardness: drawingInfo.brushSettings.hardness,
                     pointRadius: drawingInfo.brushSettings.size)
-                drawingInfo.curves[activeCurveIndex].points.append(newPoint)
-                drawingInfo.activePointIndex = drawingInfo.curves[activeCurveIndex].points.count - 1
+
+                if pointIndex == thisCurve.points.count - 1 {
+                    //append point to end of curve.
+                    thisCurve.points.append(newPoint)
+                    drawingInfo.activePointIndex = thisCurve.points.count - 1
+                    drawingInfo.curves[activeCurveIndex] = thisCurve
+                } else {
+                    let coords = thisCurve.points[pointIndex].coord
+                    let firstPoint =  CatmullRomPoint(coord: coords, pointType: .corner, hardness: 1.0, pointRadius: 10.0)
+                    let newCurve = CatmullRomCurve(color: drawingInfo.brushSettings.color,
+                                                   radius: drawingInfo.brushSettings.size,
+                                                   outlineColor: nil,
+                                                   points: [firstPoint, newPoint])
+                    drawingInfo.activeCurveIndex = drawingInfo.curves.count
+                    drawingInfo.curves.append(newCurve)
+                    drawingInfo.drawingMode = .editingCurve
+                    drawingInfo.activePointIndex = 1
+                }
 
             } else {
                 print("Single-tap not on a known location.")
@@ -175,16 +192,20 @@ struct ViewModel {
         }
         
     }
-    func matchPoint(_  tapPoint: CGPoint, inPoints points: [GesturePointTuple]) -> GesturePointTuple? {
-        let slop: CGFloat = 20
-        for (aPoint, location) in points {
-            if tapPoint.x > aPoint.x - slop && tapPoint.x < aPoint.x + slop &&
-                tapPoint.y > aPoint.y - slop && tapPoint.y < aPoint.y + slop
-            {
-                    return (aPoint, location)
+    func matchPoint(_  tapPoint: CGPoint, inPoints points: [GesturePointTuple], slopDistance: CGFloat = 20) -> GesturePointTuple? {
+        let matches = points
+        // find all the points that are inside the "slop distance"
+            .filter {
+                tapPoint.x > $0.point.x - slopDistance && tapPoint.x < $0.point.x + slopDistance &&
+                tapPoint.y > $0.point.y - slopDistance && tapPoint.y < $0.point.y + slopDistance
             }
-        }
-        return nil
+        
+        //Calculate the distance of each matching point from the tap point
+            .map { ($0, distanceSquardBetween(p1: tapPoint, p2: $0.point)) }
+        
+        // Sort the points closest-to-farthest
+            .sorted(by: { $0.1 < $1.1 })
+        return matches.first?.0
     }
 
     func metalPointToView(_ metalPoint: SIMD2<Float>) -> CGPoint {

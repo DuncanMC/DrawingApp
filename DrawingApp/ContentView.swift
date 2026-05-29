@@ -39,7 +39,7 @@ import SwiftUI
                         }
                     } else {
                         let coords = viewModel.viewPointToMetal(value.startLocation)
-                        let point =  CatmullRomPoint(coord: coords, pointType: .corner, hardness: 1.0, pointRadius: 10.0)
+                        let point =  CatmullRomPoint(coord: coords, pointType: .corner)
 
                         let newCurve = CatmullRomCurve(color: drawingInfo.brushSettings.color,
                                                        radius: drawingInfo.brushSettings.size,
@@ -83,69 +83,69 @@ import SwiftUI
 
     var body: some View {
         VStack {
-            VStack {
-                DrawingView(drawingInfo: drawingInfo)
-                    .frame(width: DrawingInfo.defaultSize.width, height: DrawingInfo.defaultSize.height)
-                    .border(Color.blue, width: 4)
-                    .aspectRatio(drawingInfo.imageSize, contentMode: .fit)
-                    .onTapGesture(count: 1) { location in
-                        viewModel.handleTap(location: location)
-                    }
-                    .onTapGesture(count: 2) { location in
-                        viewModel.handleDoubleTap(location: location)                    }
-                    .gesture(dragGesture)
-                TextEditor(text: $drawingInfo.text)
-                    .frame(maxHeight: 50)
-                HStack(spacing: 20) {
-                    Spacer()
-
-                    Button("Delete point") {
-                        viewModel.handleDeletePoint()
-                    }
-                    .disabled(!drawingInfo.enableDeletePointButton)
-                    
-                    VStack(spacing: 10) {
-                        Toggle(isOn: $drawingInfo.showQuads) {
-                            Text("Show quads")
-                        }
-                        .frame(maxWidth: 130, alignment: toggleAlignment)
-                        Toggle(isOn: $drawingInfo.showControlPoints) {
-                            Text("Show control points")
-                        }
-                        .frame(maxWidth: 180, alignment: toggleAlignment)
-                    }
-
-                    Toggle(isOn: $drawingInfo.smoothCurves) {
-                        Text("Smooth")
-                    }
-                    .frame(maxWidth: 100, alignment: toggleAlignment)
-                    
-                    Toggle(isOn: $drawingInfo.showSmoothingPoints) {
-                        Text("Show smoothing")
-                    }
-                    .frame(maxWidth: 150, alignment: toggleAlignment)
-
-                    VStack(alignment: .center)   {
-                        Text("Thickness")
-                        Slider(value: $drawingInfo.lineThickness, in: 2...70)
-                    }
-                    .frame(maxWidth: 200)
-                    .onChange(of: drawingInfo.lineThickness) {
-                        print("Line thickness = \(drawingInfo.lineThickness)")
-                    }
-
-                    VStack(alignment: .center)   {
-                        Text("Line hardness")
-                        Slider(value: $drawingInfo.lineHardness, in: 0...2)
-                    }
-                    .frame(maxWidth: 200)
-                    .onChange(of: drawingInfo.lineHardness) {
-                        //print("lineHardness = \(drawingInfo.lineHardness). Computed hardness = \(drawingInfo.hardness)")
-                    }
-                    Spacer()
+            DrawingView(drawingInfo: drawingInfo)
+                .frame(width: DrawingInfo.defaultSize.width, height: DrawingInfo.defaultSize.height)
+                .border(Color.blue, width: 4)
+                .aspectRatio(drawingInfo.imageSize, contentMode: .fit)
+                .onTapGesture(count: 1) { location in
+                    viewModel.handleTap(location: location)
                 }
+                .onTapGesture(count: 2) { location in
+                    viewModel.handleDoubleTap(location: location)                    }
+                .gesture(dragGesture)
+            HStack {
+                //                    Spacer()
+                
+                Button("Delete point") {
+                    viewModel.handleDeletePoint()
+                }
+                .disabled(!drawingInfo.enableDeletePointButton)
+                
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle(isOn: $drawingInfo.showControlPoints) {
+                        Text("Show control points")
+                    }
+                    .frame(maxWidth: 180, alignment: toggleAlignment)
+
+                    Toggle(isOn: $drawingInfo.showQuads) {
+                        Text("Show quads")
+                    }
+                    .frame(maxWidth: 130, alignment: toggleAlignment)
+                    
+                }
+                
+                Toggle(isOn: $drawingInfo.smoothCurves) {
+                    Text("Smooth")
+                }
+                .frame(maxWidth: 100, alignment: toggleAlignment)
+                
+                Toggle(isOn: $drawingInfo.showSmoothingPoints) {
+                    Text("Show smoothing")
+                }
+                .frame(maxWidth: 150, alignment: toggleAlignment)
+                
+                VStack(alignment: .center)   {
+                    Text("Thickness")
+                    Slider(value: $drawingInfo.lineThickness, in: 2...70)
+                }
+                .frame(maxWidth: 150)
+                .onChange(of: drawingInfo.lineThickness) {
+                    print("Line thickness = \(drawingInfo.lineThickness)")
+                }
+                
+                VStack(alignment: .center)   {
+                    Text("Line hardness")
+                    Slider(value: $drawingInfo.lineHardness, in: 0...2)
+                }
+                .frame(maxWidth: 150)
+                .onChange(of: drawingInfo.lineHardness) {
+                    //print("lineHardness = \(drawingInfo.lineHardness). Computed hardness = \(drawingInfo.hardness)")
+                }
+                //                    Spacer()
             }
-            Spacer()
+            .frame(maxWidth: .infinity)
+            .border(Color.black)
+
         }
     }
     
