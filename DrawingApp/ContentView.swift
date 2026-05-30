@@ -111,10 +111,39 @@ import Combine
                     let curvePointsCount = drawingInfo.curves[activeCurveIndex].points.count
                     if curvePointsCount == 1  {
                         drawingInfo.activePointIndex = 0
+                    } else {
+                        if let activeCurveIndex = drawingInfo.activeCurveIndex {
+                            print("Paring curve")
+                            let curve = drawingInfo.curves[activeCurveIndex]
+                            let paredCurve = viewModel.parePoints(curve, autoTerminate: true, maxError: 0.01)
+                            let startingPointCount = curve.points.count
+                            let paredCurvePointCount = paredCurve.points.count
+                            let percent = Float(startingPointCount - paredCurvePointCount) / Float(startingPointCount) * 100
+                            let percentString = String(format: "%.1f", percent)
+                            print("pared curve from \(curve.points.count) to \(paredCurve.points.count). \(percentString)% reduction.")
+                            drawingInfo.curves[activeCurveIndex] = paredCurve
+//                            Task {
+//                                try await Task.sleep(nanoseconds: UInt64(0.5 * 1_000_000_000))
+//                                Task { @MainActor in
+//                                    drawingInfo.curves[activeCurveIndex] = paredCurve
+//                                }
+//                            }
+                        }
+
                     }
                 } else {
                     // Decide what to do about ending dragging of a point.
                     drawingInfo.activePointIndex = nil
+                    /*
+                     public func parePoints(
+                         _ curve: CatmullRomCurve,
+                         autoTerminate: Bool,
+                         epsilon: Float? = nil,
+                         granularity: Int = 8,
+                         maxError: Float = 0.005
+
+                     */
+                    
                 }
                 drawingInfo.isDragging = false
                 drawingInfo.lastDragLocation = nil
@@ -151,6 +180,7 @@ import Combine
                 Button("Delete point") {
                     viewModel.handleDeletePoint()
                 }
+                .keyboardShortcut(.delete, modifiers: [])
                 .disabled(!drawingInfo.enableDeletePointButton)
                 
 //                VStack(alignment: .leading, spacing: 10) {

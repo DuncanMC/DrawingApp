@@ -43,7 +43,7 @@ struct ViewModel {
         if let target = getGestureLocation(touchLocation: location) {
             switch target.gestureLocation {
                 case .inControlPoint(let curveIndex, let pointIndex):
-                print("Single-tap in \(target.gestureLocation.description)\n")
+                //print("Single-tap in \(target.gestureLocation.description)\n")
                 if drawingInfo.drawingMode == .editingCurve &&
                     drawingInfo.activeCurveIndex == curveIndex &&
                     drawingInfo.activePointIndex == pointIndex {
@@ -137,14 +137,11 @@ struct ViewModel {
             
         case .creatingCurve:
             
-//            let deltaX = Float(lastDragLocation.x - value.location.x)
-//            let deltaY = Float(lastDragLocation.y - value.location.y)
-            
             guard let curveIndex = drawingInfo.activeCurveIndex else {
                 print("No active curve")
                 return
             }
-            guard  distanceSquardBetween(p1: lastDragLocation, p2: value.location) > 25 else {
+            guard  distanceSquardBetween(p1: lastDragLocation, p2: value.location) > 9 else {
                 //print("deltaX = \(deltaX), deltaY = \(deltaY). Exiting")
                 return
             }
@@ -230,14 +227,198 @@ struct ViewModel {
 
 
     func getGestureLocation(touchLocation: CGPoint) -> GesturePointTuple? {
-        
+
         let aspect = drawingInfo.viewportSize.width / drawingInfo.viewportSize.height
         let adjusted = CGPoint(x: touchLocation.x * aspect, y: touchLocation.y)
         //print("Adjusted tap point = \(adjusted)")
         let result = matchPoint(touchLocation, inPoints: points)
         return result
 
-        
+
     }
-    
+
+    // MARK: - Point Reduction (Ramer–Douglas–Peucker)
+
+    /// Reduces the number of control points in a curve using the Ramer–Douglas–Peucker algorithm.
+    ///
+    /// - Parameters:
+    ///   - curve: The input curve to simplify.
+    ///   - autoTerminate: If `true`, iteratively searches for the largest epsilon that keeps
+    ///     the smoothed-curve error below `maxError`. If `false`, uses the provided `epsilon`.
+    ///   - epsilon: The RDP distance threshold. Used when `autoTerminate` is `false`.
+    ///     Defaults to `nil`, which uses `0.01`.
+    ///   - granularity: The granularity passed to `smoothPointsInArray` when measuring error
+    ///     in auto-terminate mode.
+    ///   - maxError: The maximum allowed Hausdorff distance between the original and reduced
+    ///     smoothed curves. Used when `autoTerminate` is `true`.
+    public func parePoints(
+        _ curve: CatmullRomCurve,
+        autoTerminate: Bool,
+        epsilon: Float? = nil,
+        granularity: Int = 8,
+        maxError: Float = 0.005
+    ) -> CatmullRomCurve {
+        guard curve.points.count > 2 else { return curve }
+
+        if autoTerminate {
+            return parePointsAuto(curve, granularity: granularity, maxError: maxError)
+        } else {
+            let eps = epsilon ?? 0.01
+            let keptIndices = rdpReduce(curve.points, epsilon: eps)
+            var result = curve
+            result.points = keptIndices.map { curve.points[$0] }
+            return result
+        }
+    }
+
+    // MARK: Auto-terminate mode
+
+    public func parePointsAuto(
+        _ curve: CatmullRomCurve,
+        granularity: Int,
+        maxError: Float
+    ) -> CatmullRomCurve {
+        let referenceControlPoints = catmullRomControlPoints(for: curve)
+        let (referenceSmoothed, _) = smoothPointsInArray(
+            referenceControlPoints, granularity: granularity, adjustGranularity: false
+        )
+
+        let coords = curve.points.map { $0.coord }
+        var lo: Float = 0
+        var hi = boundingBoxDiagonal(coords)
+        var bestIndices = Array(0..<curve.points.count)
+
+        for _ in 0..<20 {
+            let mid = (lo + hi) / 2
+            let candidateIndices = rdpReduce(curve.points, epsilon: mid)
+
+            if candidateIndices.count < 2 {
+                hi = mid
+                continue
+            }
+
+            var candidateCurve = curve
+            candidateCurve.points = candidateIndices.map { curve.points[$0] }
+            let candidateControlPoints = catmullRomControlPoints(for: candidateCurve)
+            let (candidateSmoothed, _) = smoothPointsInArray(
+                candidateControlPoints, granularity: granularity, adjustGranularity: false
+            )
+
+            let error = directedHausdorff(from: referenceSmoothed, to: candidateSmoothed)
+
+            if error <= maxError {
+                bestIndices = candidateIndices
+                lo = mid
+            } else {
+                hi = mid
+            }
+        }
+
+        var result = curve
+        result.points = bestIndices.map { curve.points[$0] }
+        return result
+    }
+
+    // MARK: RDP core
+
+    private func rdpReduce(_ points: [CatmullRomPoint], epsilon: Float) -> [Int] {
+        guard points.count > 2 else {
+            return Array(0..<points.count)
+        }
+
+        let coords = points.map { $0.coord }
+        var keep = [Bool](repeating: false, count: points.count)
+        keep[0] = true
+        keep[points.count - 1] = true
+
+        for (i, point) in points.enumerated() {
+            if point.pointType == .corner { keep[i] = true }
+        }
+
+        let anchors = keep.enumerated().compactMap { $0.element ? $0.offset : nil }
+        for i in 0..<(anchors.count - 1) {
+            rdpRecurse(coords: coords, epsilon: epsilon,
+                       start: anchors[i], end: anchors[i + 1], keep: &keep)
+        }
+
+        return keep.enumerated().compactMap { $0.element ? $0.offset : nil }
+    }
+
+    private func rdpRecurse(
+        coords: [simd_float2], epsilon: Float,
+        start: Int, end: Int, keep: inout [Bool]
+    ) {
+        guard end - start > 1 else { return }
+
+        var maxDist: Float = 0
+        var maxIndex = start
+
+        for i in (start + 1)..<end {
+            let dist = pointToSegmentDistance(coords[i], coords[start], coords[end])
+            if dist > maxDist {
+                maxDist = dist
+                maxIndex = i
+            }
+        }
+
+        if maxDist > epsilon {
+            keep[maxIndex] = true
+            rdpRecurse(coords: coords, epsilon: epsilon, start: start, end: maxIndex, keep: &keep)
+            rdpRecurse(coords: coords, epsilon: epsilon, start: maxIndex, end: end, keep: &keep)
+        }
+    }
+
+    // MARK: Geometry helpers
+
+    private func pointToSegmentDistance(
+        _ point: simd_float2, _ segA: simd_float2, _ segB: simd_float2
+    ) -> Float {
+        let ab = segB - segA
+        let lengthSq = simd_dot(ab, ab)
+
+        if lengthSq < 1e-12 {
+            return simd_distance(point, segA)
+        }
+
+        let t = simd_clamp(simd_dot(point - segA, ab) / lengthSq, 0, 1)
+        let projection = segA + t * ab
+        return simd_distance(point, projection)
+    }
+
+    private func directedHausdorff(from a: [simd_float2], to b: [simd_float2]) -> Float {
+        guard !a.isEmpty, b.count >= 2 else { return .infinity }
+
+        var maxDist: Float = 0
+        for p in a {
+            var minDist: Float = .infinity
+            for i in 0..<(b.count - 1) {
+                minDist = min(minDist, pointToSegmentDistance(p, b[i], b[i + 1]))
+            }
+            maxDist = max(maxDist, minDist)
+        }
+        return maxDist
+    }
+
+    private func boundingBoxDiagonal(_ points: [simd_float2]) -> Float {
+        guard let first = points.first else { return 0 }
+        var lo = first, hi = first
+        for p in points {
+            lo = simd_min(lo, p)
+            hi = simd_max(hi, p)
+        }
+        return simd_distance(lo, hi)
+    }
+
+    /// Prepares control points for Catmull-Rom smoothing, matching the renderer's convention
+    /// of duplicating the first, last, and corner points.
+    private func catmullRomControlPoints(for curve: CatmullRomCurve) -> [simd_float2] {
+        var result = [simd_float2]()
+        for (index, point) in curve.points.enumerated() {
+            result.append(point.coord)
+            if index == 0 || index == curve.points.count - 1 || point.pointType == .corner {
+                result.append(point.coord)
+            }
+        }
+        return result
+    }
 }
