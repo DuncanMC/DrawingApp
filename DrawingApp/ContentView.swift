@@ -113,7 +113,6 @@ import Combine
                         drawingInfo.activePointIndex = 0
                     } else {
                         if let activeCurveIndex = drawingInfo.activeCurveIndex {
-                            print("Paring curve")
                             let curve = drawingInfo.curves[activeCurveIndex]
                             let paredCurve = viewModel.parePoints(curve, autoTerminate: true, maxError: 0.01)
                             let startingPointCount = curve.points.count

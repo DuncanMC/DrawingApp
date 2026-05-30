@@ -301,6 +301,32 @@ final class DrawingInfo: ObservableObject, Codable {
         self.viewportSize = DrawingInfo.defaultSize
     }
 
+    // MARK: - Editing Actions
+
+    func deletePoints(deleteEntireCurve: Bool = false) {
+        guard let curveIndex = activeCurveIndex,
+              var pointIndex = activePointIndex else { return }
+        if deleteEntireCurve {
+            curves.remove(at: curveIndex)
+            activeCurveIndex = nil
+            activePointIndex = nil
+            drawingMode = .idle
+            return
+        }
+        var curve = curves[curveIndex]
+        curve.points.remove(at: pointIndex)
+        pointIndex -= 1
+        if pointIndex >= 0 {
+            activePointIndex = pointIndex
+        }
+        if curve.points.isEmpty {
+            curves.remove(at: curveIndex)
+            activeCurveIndex = nil
+        } else {
+            curves[curveIndex] = curve
+        }
+    }
+
     // MARK: - Undo
 
     func registerUndo(with undoManager: UndoManager?) {

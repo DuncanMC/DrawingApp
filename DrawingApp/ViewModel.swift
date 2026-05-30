@@ -179,21 +179,7 @@ struct ViewModel {
         }
 
     func handleDeletePoint() {
-        guard let curveIndex = drawingInfo.activeCurveIndex,
-        var pointIndex = drawingInfo.activePointIndex else { return }
-        var curve = drawingInfo.curves[curveIndex]
-        curve.points.remove(at: pointIndex)
-        pointIndex -= 1
-        if pointIndex >= 0 {
-            drawingInfo.activePointIndex = pointIndex
-        }
-        if curve.points.isEmpty {
-            drawingInfo.curves.remove(at: curveIndex)
-            drawingInfo.activeCurveIndex = nil
-        } else {
-            drawingInfo.curves[curveIndex] = curve
-        }
-        
+        drawingInfo.deletePoints()
     }
     func matchPoint(_  tapPoint: CGPoint, inPoints points: [GesturePointTuple], slopDistance: CGFloat = 20) -> GesturePointTuple? {
         let matches = points

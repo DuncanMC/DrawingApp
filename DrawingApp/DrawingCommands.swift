@@ -11,6 +11,19 @@ struct DrawingCommands: Commands {
     @FocusedObject var drawingInfo: DrawingInfo?
 
     var body: some Commands {
+        CommandGroup(after: .pasteboard) {
+            Button("Delete Point") {
+                drawingInfo?.deletePoints()
+            }
+            .keyboardShortcut(.delete, modifiers: [])
+            .disabled(drawingInfo?.enableDeletePointButton != true)
+            Button("Delete entire curve") {
+                drawingInfo?.deletePoints(deleteEntireCurve: true)
+            }
+            .keyboardShortcut(.delete, modifiers: .command)
+            .disabled(drawingInfo?.enableDeletePointButton != true)
+        }
+
         CommandGroup(before: .toolbar) {
             Toggle("Smooth curves", isOn: Binding(
                 get: { drawingInfo?.smoothCurves ?? false },
