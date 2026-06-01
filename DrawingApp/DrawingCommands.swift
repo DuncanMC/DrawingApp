@@ -11,6 +11,31 @@ struct DrawingCommands: Commands {
     @FocusedObject var drawingInfo: DrawingInfo?
 
     var body: some Commands {
+        CommandGroup(replacing: .pasteboard) {
+            Button("Cut") {
+                drawingInfo?.cutSelectedPoints()
+            }
+            .keyboardShortcut("x", modifiers: .command)
+            .disabled(drawingInfo?.selectedPoints.isEmpty != false)
+
+            Button("Copy") {
+                drawingInfo?.copySelectedPoints()
+            }
+            .keyboardShortcut("c", modifiers: .command)
+            .disabled(drawingInfo?.selectedPoints.isEmpty != false)
+
+            Button("Paste") {
+                drawingInfo?.pastePoints()
+            }
+            .keyboardShortcut("v", modifiers: .command)
+
+            Button("Select All") {
+                drawingInfo?.selectAll()
+            }
+            .disabled(!(drawingInfo?.curves.isEmpty == false))
+            .keyboardShortcut("a", modifiers: .command)
+        }
+
         CommandGroup(after: .pasteboard) {
             Button("Delete Point") {
                 drawingInfo?.deletePoints()

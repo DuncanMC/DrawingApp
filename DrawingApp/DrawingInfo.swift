@@ -106,6 +106,11 @@ struct CatmullRomCurve: Codable {
     }
 }
 
+struct SelectedPoint: Hashable {
+    let curveIndex: Int
+    let pointIndex: Int
+}
+
 
 final class DrawingInfo: ObservableObject, Codable {
     // Items saved with Codable
@@ -137,7 +142,7 @@ final class DrawingInfo: ObservableObject, Codable {
     
     @Published var showControlPoints: Bool = true
     
-    var curves = [CatmullRomCurve]()
+    @Published var curves = [CatmullRomCurve]()
     
     // Items not saved with Codable
     
@@ -145,8 +150,7 @@ final class DrawingInfo: ObservableObject, Codable {
     
     func setEnableDeletePointButtonState() {
         enableDeletePointButton = drawingMode == .editingCurve &&
-        activePointIndex != nil &&
-        activeCurveIndex != nil
+        !selectedPoints.isEmpty
         
         
     }
@@ -155,18 +159,18 @@ final class DrawingInfo: ObservableObject, Codable {
             setEnableDeletePointButtonState()
         }
     }
-    var activeCurveIndex: Int? = nil
-    {
+    var selectedPoints: Set<SelectedPoint> = [] {
         didSet {
             setEnableDeletePointButtonState()
         }
     }
-    var activePointIndex: Int? = nil{
-        didSet {
-            setEnableDeletePointButtonState()
-        }
-    }
-    
+//    var activeCurveIndex: Int? = nil
+//    {
+//        didSet {
+//            setEnableDeletePointButtonState()
+//        }
+//    }
+
     @Published var viewportSize: CGSize = DrawingInfo.defaultSize // The size of the viewport
     
     //    static let defaultSize: CGSize = CGSize(width: 800, height: 300)
@@ -229,17 +233,23 @@ final class DrawingInfo: ObservableObject, Codable {
     }
     var currentMetalColor: SIMD4<Float>  {
         get {
-            if drawingMode == .idle || activeCurveIndex == nil {
                 return brushSettings.color
-            } else {
-                return curves[activeCurveIndex!].color
-            }
         }
         set {
-            if drawingMode == .idle || activeCurveIndex == nil {
+            if drawingMode == .idle || selectedPoints.isEmpty {
                 brushSettings.color = newValue
             } else {
-                curves[activeCurveIndex!].color = newValue
+                var curveIndexes = Set<Int>()
+                // Find all the unique curves in teh list of selected points
+                for point in selectedPoints {
+                    curveIndexes.insert(point.curveIndex)
+                }
+                // Loop through and change the color of all selected curves
+                for index in curveIndexes {
+                    var aCurve = curves[index]
+                    aCurve.color = newValue
+                    curves[index] = aCurve
+                }
             }
         }
     }
@@ -304,27 +314,157 @@ final class DrawingInfo: ObservableObject, Codable {
     // MARK: - Editing Actions
 
     func deletePoints(deleteEntireCurve: Bool = false) {
-        guard let curveIndex = activeCurveIndex,
-              var pointIndex = activePointIndex else { return }
-        if deleteEntireCurve {
+        if deleteEntireCurve,
+         let selectedPoint = selectedPoints.first{
+            // TODO: Figure out what to do if more than one cruve is selected.
+            let curveIndex = selectedPoint.curveIndex
             curves.remove(at: curveIndex)
-            activeCurveIndex = nil
-            activePointIndex = nil
+            selectedPoints.remove(selectedPoint)
             drawingMode = .idle
             return
         }
-        var curve = curves[curveIndex]
-        curve.points.remove(at: pointIndex)
-        pointIndex -= 1
-        if pointIndex >= 0 {
-            activePointIndex = pointIndex
+        if  selectedPoints.count == 1 {
+            let selectedPoint = selectedPoints.first!
+            var pointIndex = selectedPoint.pointIndex
+            
+            var curve = curves[selectedPoint.curveIndex]
+            curve.points.remove(at: selectedPoint.pointIndex)
+            selectedPoints.remove(selectedPoint)
+
+            if pointIndex > 0 {
+                pointIndex -= 1
+            }
+            if pointIndex >= 0 {
+                selectedPoints =  [SelectedPoint(curveIndex: selectedPoint.curveIndex, pointIndex: pointIndex)]
+            }
+            if curve.points.isEmpty {
+                curves.remove(at: selectedPoint.curveIndex)
+                selectedPoints = []
+            } else {
+                curves[selectedPoint.curveIndex] = curve
+                if selectedPoint.pointIndex > curve.points.count - 1 {
+                    selectedPoints =  [SelectedPoint(curveIndex: selectedPoint.curveIndex, pointIndex: curve.points.count - 1)]
+                }
+            }
+            return
         }
-        if curve.points.isEmpty {
-            curves.remove(at: curveIndex)
-            activeCurveIndex = nil
+        let selectedPointsArray = Array(selectedPoints).sorted {
+            ($0.curveIndex, $0.pointIndex) > ($1.curveIndex, $1.pointIndex)
+        }
+            
+        selectedPointsArray.forEach {
+            print($0)
+        }
+        for aPoint in selectedPointsArray {
+            var curve = curves[aPoint.curveIndex]
+            let pointIndex = aPoint.pointIndex
+            
+            curve.points.remove(at: pointIndex)
+            if curve.points.isEmpty {
+                curves.remove(at: aPoint.curveIndex)
+                selectedPoints = []
+            } else {
+                curves[aPoint.curveIndex] = curve
+            }
+            selectedPoints.remove(aPoint)
+        }
+    }
+
+    // MARK: - Clipboard
+
+    private static let pasteboardType = "com.wareto.drawingApp.copiedPoints"
+
+    @discardableResult
+    func copySelectedPoints() -> Bool {
+        guard !selectedPoints.isEmpty else { return false }
+
+        var curveGroups: [Int: [Int]] = [:]
+        for sp in selectedPoints {
+            curveGroups[sp.curveIndex, default: []].append(sp.pointIndex)
+        }
+
+        var copiedCurves: [CatmullRomCurve] = []
+        for (curveIndex, pointIndices) in curveGroups.sorted(by: { $0.key < $1.key }) {
+            let curve = curves[curveIndex]
+            let points = pointIndices.sorted().map { curve.points[$0] }
+            copiedCurves.append(CatmullRomCurve(
+                color: curve.color,
+                radius: curve.radius,
+                outlineColor: curve.outlineColor,
+                points: points
+            ))
+        }
+
+        let encoder = JSONEncoder()
+        guard let data = try? encoder.encode(copiedCurves) else { return false }
+
+        #if os(macOS)
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setData(data, forType: NSPasteboard.PasteboardType(Self.pasteboardType))
+        #else
+        UIPasteboard.general.setData(data, forPasteboardType: Self.pasteboardType)
+        #endif
+
+        return true
+    }
+
+    func cutSelectedPoints() {
+        guard copySelectedPoints() else { return }
+        deletePoints()
+    }
+    
+    func selectAll() {
+        print("In \(#function)")
+        var curveIndexes = Set<Int>()
+        if !selectedPoints.isEmpty {
+            for point in selectedPoints {
+                curveIndexes.insert(point.curveIndex)
+            }
         } else {
-            curves[curveIndex] = curve
+            for index in 0 ..< curves.count {
+                curveIndexes.insert(index)
+            }
         }
+        for curveIndex in curveIndexes {
+            let aCurve = curves[curveIndex]
+            for pointIndex in 0 ..< aCurve.points.count {
+                selectedPoints.insert(.init(curveIndex: curveIndex, pointIndex: pointIndex))
+            }
+        }
+    }
+    
+    func pastePoints() {
+        #if os(macOS)
+        guard let data = NSPasteboard.general.data(forType: NSPasteboard.PasteboardType(Self.pasteboardType)) else { return }
+        #else
+        guard let data = UIPasteboard.general.data(forPasteboardType: Self.pasteboardType) else { return }
+        #endif
+
+        guard let copiedCurves = try? JSONDecoder().decode([CatmullRomCurve].self, from: data) else { return }
+
+        let offset: Float = 0.05
+        selectedPoints = []
+        for var curve in copiedCurves {
+            for i in curve.points.indices {
+                curve.points[i].coord.x += offset
+                curve.points[i].coord.y -= offset
+            }
+            let newIndex = curves.count
+            curves.append(curve)
+            for pointIndex in curve.points.indices {
+                selectedPoints.insert(SelectedPoint(curveIndex: newIndex, pointIndex: pointIndex))
+            }
+        }
+        drawingMode = .editingCurve
+    }
+
+    var canPaste: Bool {
+        #if os(macOS)
+        return NSPasteboard.general.data(forType: NSPasteboard.PasteboardType(Self.pasteboardType)) != nil
+        #else
+        return UIPasteboard.general.contains(pasteboardTypes: [Self.pasteboardType])
+        #endif
     }
 
     // MARK: - Undo
@@ -350,7 +490,6 @@ final class DrawingInfo: ObservableObject, Codable {
         self.curves = restored.curves
         self.showControlPoints = restored.showControlPoints
         self.drawingMode = .idle
-        self.activeCurveIndex = nil
-        self.activePointIndex = nil
+        self.selectedPoints = []
     }
 }

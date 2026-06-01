@@ -39,30 +39,36 @@ struct ViewModel {
         }
         return result
     }
-    func handleTap(location: CGPoint) {
+    func handleTap(location: CGPoint, flags: UInt = 0) {
+
         if let target = getGestureLocation(touchLocation: location) {
             switch target.gestureLocation {
-                case .inControlPoint(let curveIndex, let pointIndex):
-                //print("Single-tap in \(target.gestureLocation.description)\n")
-                if drawingInfo.drawingMode == .editingCurve &&
-                    drawingInfo.activeCurveIndex == curveIndex &&
-                    drawingInfo.activePointIndex == pointIndex {
-                    drawingInfo.drawingMode = .idle
-                    drawingInfo.activeCurveIndex = nil
-                    drawingInfo.activePointIndex = nil
+                // The user tapeped on a control point
+            case .inControlPoint(let curveIndex, let pointIndex):
+                if drawingInfo.drawingMode == .editingCurve && !drawingInfo.selectedPoints.isEmpty,
+                   let selectedPoint = drawingInfo.selectedPoints.first
+                {
+                    if selectedPoint.curveIndex == curveIndex && selectedPoint.pointIndex == pointIndex {
+                        drawingInfo.drawingMode = .idle
+                        drawingInfo.selectedPoints = []
+                    } else if flags & NSEvent.ModifierFlags.shift.rawValue != 0 {
+                        //Shift key pressed
+                        drawingInfo.selectedPoints.insert(SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex))
+                    } else {
+                        drawingInfo.selectedPoints = [SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex)]
+                    }
                 } else {
                     drawingInfo.drawingMode = .editingCurve
-                    drawingInfo.activeCurveIndex = curveIndex
-                    drawingInfo.activePointIndex = pointIndex
+                    drawingInfo.selectedPoints = [SelectedPoint(curveIndex:curveIndex, pointIndex:pointIndex)]
                 }
             case .outside: break
             }
         } else {
             if drawingInfo.drawingMode == .editingCurve,
-               let activeCurveIndex = drawingInfo.activeCurveIndex,
-               let pointIndex = drawingInfo.activePointIndex {
+               drawingInfo.selectedPoints.count == 1,
+               let selectedPoint = drawingInfo.selectedPoints.first {
                 
-                var thisCurve = drawingInfo.curves[activeCurveIndex]
+                var thisCurve = drawingInfo.curves[selectedPoint.curveIndex]
                 let newlocation = viewPointToMetal(location)
                 let newPoint = CatmullRomPoint(
                     coord: newlocation,
@@ -70,28 +76,26 @@ struct ViewModel {
                     hardness: drawingInfo.brushSettings.hardness,
                     pointRadius: drawingInfo.brushSettings.size)
 
-                if pointIndex == thisCurve.points.count - 1 {
+                if selectedPoint.pointIndex == thisCurve.points.count - 1 {
                     //append point to end of curve.
                     thisCurve.points.append(newPoint)
-                    drawingInfo.activePointIndex = thisCurve.points.count - 1
-                    drawingInfo.curves[activeCurveIndex] = thisCurve
-                } else if pointIndex == 0 {
+                    drawingInfo.selectedPoints = [SelectedPoint(curveIndex: selectedPoint.curveIndex, pointIndex: thisCurve.points.count - 1)]
+                    drawingInfo.curves[selectedPoint.curveIndex] = thisCurve
+                } else if selectedPoint.pointIndex == 0 {
                     thisCurve.points.insert(newPoint, at: 0)
-                    drawingInfo.curves[activeCurveIndex] = thisCurve
-                } else
-                {
-                    let coords = thisCurve.points[pointIndex].coord
-                    let firstPoint = thisCurve.points[pointIndex]
+                    drawingInfo.curves[selectedPoint.curveIndex] = thisCurve
+                } else {
+                    let coords = thisCurve.points[selectedPoint.pointIndex].coord
+                    let firstPoint = thisCurve.points[selectedPoint.pointIndex]
 
 //                    let firstPoint =  CatmullRomPoint(coord: coords, pointType: .corner, hardness: 1.0, pointRadius: 10.0)
                     let newCurve = CatmullRomCurve(color: thisCurve.color,
                                                    radius: drawingInfo.brushSettings.size,
                                                    outlineColor: nil,
                                                    points: [firstPoint, newPoint])
-                    drawingInfo.activeCurveIndex = drawingInfo.curves.count
+                    drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 1)]
                     drawingInfo.curves.append(newCurve)
                     drawingInfo.drawingMode = .editingCurve
-                    drawingInfo.activePointIndex = 1
                 }
 
             } else {
@@ -104,10 +108,9 @@ struct ViewModel {
                                                radius: drawingInfo.brushSettings.size,
                                                outlineColor: nil,
                                                points: [point])
-                drawingInfo.activeCurveIndex = drawingInfo.curves.count
+                drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 0)]
                 drawingInfo.curves.append(newCurve)
                 drawingInfo.drawingMode = .editingCurve
-                drawingInfo.activePointIndex = 0
 
             }
         }
@@ -137,10 +140,13 @@ struct ViewModel {
             
         case .creatingCurve:
             
-            guard let curveIndex = drawingInfo.activeCurveIndex else {
+            guard drawingInfo.selectedPoints.count == 1 else
+            {
                 print("No active curve")
                 return
             }
+            let selectedPoint = drawingInfo.selectedPoints.first!
+            let curveIndex = selectedPoint.curveIndex
             guard  distanceSquardBetween(p1: lastDragLocation, p2: value.location) > 9 else {
                 //print("deltaX = \(deltaX), deltaY = \(deltaY). Exiting")
                 return
@@ -162,14 +168,17 @@ struct ViewModel {
             let deltaY = 2.0 * Float((lastDragLocation.y - value.location.y) / drawingInfo.imageSize.height)
             
             switch drawingInfo.draggingState {
-            case .inControlPoint(let curveIndex, let pointIndex):
-                let theCurve = drawingInfo.curves[curveIndex]
-                var thePoint = theCurve.points[pointIndex]
-                thePoint.coord.x += deltaX
-                thePoint.coord.y += deltaY
-                drawingInfo.curves[curveIndex].points[pointIndex] = thePoint
+            case .inControlPoint:
+                for aPoint in drawingInfo.selectedPoints {
+                    
+                    let theCurve = drawingInfo.curves[aPoint.curveIndex]
+                    var thePoint = theCurve.points[aPoint.pointIndex]
+                    thePoint.coord.x += deltaX
+                    thePoint.coord.y += deltaY
+                    drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex] = thePoint
+                }
                 drawingInfo.lastDragLocation = value.location
-                
+
             default:
                 break
             }

@@ -19,10 +19,10 @@ import Combine
     var dragGesture: some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
-//                var  flags: UInt = 0
-//#if os(macOS)
-//                flags = NSEvent.modifierFlags.rawValue
-//#endif
+                var  flags: UInt = 0
+#if os(macOS)
+                flags = NSEvent.modifierFlags.rawValue
+#endif
                 
                 if !drawingInfo.isDragging {
                     //                    //print("Begin dragging in view.")
@@ -34,20 +34,28 @@ import Combine
                             drawingInfo.isDragging = true
                             drawingInfo.lastDragLocation = value.startLocation
                             drawingInfo.draggingState = target.gestureLocation
-                            drawingInfo.activeCurveIndex = curveIndex
-                            drawingInfo.activePointIndex = pointIndex
+                            //If the shift key is down, add to the list of selected points, else make this the only selected point.
+                            let newPoint = SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex)
+                            if flags & NSEvent.ModifierFlags.shift.rawValue != 0 {
+                                drawingInfo.selectedPoints.insert(newPoint)
+                            } else {
+                                if !drawingInfo.selectedPoints.contains(newPoint) {
+                                    drawingInfo.selectedPoints = [newPoint]
+                                }
+                            }
                         default:
                             break
                         }
                     } else {
                         let coords = viewModel.viewPointToMetal(value.startLocation)
                         
-                        // If we are currently in editing mode with a point selected,
+                        // If we are currently in editing mode with a single point selected,
                         // we want to add points from the selected point.
 
                         if drawingInfo.drawingMode == .editingCurve,
-                            let activeCurveIndex = drawingInfo.activeCurveIndex,
-                           let activePointIndex = drawingInfo.activePointIndex {
+                           drawingInfo.selectedPoints.count == 1 {
+                            let activeCurveIndex = drawingInfo.selectedPoints.first!.curveIndex
+                            let activePointIndex = drawingInfo.selectedPoints.first!.pointIndex
                             print("Begin dragging while in editing mode.")
                             let point =  CatmullRomPoint(coord: coords, pointType: .smooth)
 
@@ -63,7 +71,7 @@ import Combine
                                 // Go back to creating mode and start adding points at the end.
                                 drawingInfo.drawingMode = .creatingCurve
                                 drawingInfo.curves[activeCurveIndex].points.append(point)
-                                drawingInfo.activePointIndex = nil
+                                drawingInfo.selectedPoints = [SelectedPoint(curveIndex: activeCurveIndex, pointIndex: drawingInfo.curves[activeCurveIndex].points.count - 1)] // TODO: should we deselect all?
                                 drawingInfo.isDragging = true
                                 drawingInfo.lastDragLocation = value.startLocation
                                 return
@@ -77,10 +85,9 @@ import Combine
                                                                radius: drawingInfo.brushSettings.size,
                                                                outlineColor: nil,
                                                                points: [activePoint, point])
-                                drawingInfo.activeCurveIndex = drawingInfo.curves.count
+                                drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 1)]
                                 drawingInfo.curves.append(newCurve)
                                 drawingInfo.drawingMode = .creatingCurve
-                                drawingInfo.activePointIndex = nil
                                 drawingInfo.lastDragLocation = value.startLocation
                                 drawingInfo.isDragging = true
                                 return
@@ -93,10 +100,10 @@ import Combine
                                                        radius: drawingInfo.brushSettings.size,
                                                        outlineColor: nil,
                                                        points: [point])
-                        drawingInfo.activeCurveIndex = drawingInfo.curves.count
+                        drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 0)]
+
                         drawingInfo.curves.append(newCurve)
                         drawingInfo.drawingMode = .creatingCurve
-                        drawingInfo.activePointIndex = nil
                         drawingInfo.lastDragLocation = value.startLocation
                         drawingInfo.isDragging = true
                     }
@@ -105,43 +112,36 @@ import Combine
                 }
             }
             .onEnded { value in
-                if drawingInfo.drawingMode == .creatingCurve,
-                let activeCurveIndex = drawingInfo.activeCurveIndex {
+                if drawingInfo.drawingMode == .creatingCurve
+                 {
+                    let activeCurveIndex = drawingInfo.selectedPoints.first!.curveIndex
                     drawingInfo.drawingMode = .editingCurve
                     let curvePointsCount = drawingInfo.curves[activeCurveIndex].points.count
                     if curvePointsCount == 1  {
-                        drawingInfo.activePointIndex = 0
+                        drawingInfo.selectedPoints = [SelectedPoint(curveIndex: activeCurveIndex, pointIndex: 0)]
                     } else {
-                        if let activeCurveIndex = drawingInfo.activeCurveIndex {
-                            let curve = drawingInfo.curves[activeCurveIndex]
-                            let paredCurve = viewModel.parePoints(curve, autoTerminate: true, maxError: 0.01)
-                            let startingPointCount = curve.points.count
-                            let paredCurvePointCount = paredCurve.points.count
-                            let percent = Float(startingPointCount - paredCurvePointCount) / Float(startingPointCount) * 100
-                            let percentString = String(format: "%.1f", percent)
-                            print("pared curve from \(curve.points.count) to \(paredCurve.points.count). \(percentString)% reduction.")
-                            drawingInfo.curves[activeCurveIndex] = paredCurve
-//                            Task {
-//                                try await Task.sleep(nanoseconds: UInt64(0.5 * 1_000_000_000))
-//                                Task { @MainActor in
-//                                    drawingInfo.curves[activeCurveIndex] = paredCurve
-//                                }
-//                            }
-                        }
-
+                        drawingInfo.selectedPoints = []
+                        let curve = drawingInfo.curves[activeCurveIndex]
+                        let paredCurve = viewModel.parePoints(curve, autoTerminate: true, maxError: 0.01)
+                        let startingPointCount = curve.points.count
+                        let paredCurvePointCount = paredCurve.points.count
+                        let percent = Float(startingPointCount - paredCurvePointCount) / Float(startingPointCount) * 100
+                        let percentString = String(format: "%.1f", percent)
+                        print("pared curve from \(curve.points.count) to \(paredCurve.points.count). \(percentString)% reduction.")
+                        drawingInfo.curves[activeCurveIndex] = paredCurve
+                        //                            Task {
+                        //                                try await Task.sleep(nanoseconds: UInt64(0.5 * 1_000_000_000))
+                        //                                Task { @MainActor in
+                        //                                    drawingInfo.curves[activeCurveIndex] = paredCurve
+                        //                                }
+                        //                            }
+                        
+                        
                     }
                 } else {
                     // Decide what to do about ending dragging of a point.
-                    drawingInfo.activePointIndex = nil
-                    /*
-                     public func parePoints(
-                         _ curve: CatmullRomCurve,
-                         autoTerminate: Bool,
-                         epsilon: Float? = nil,
-                         granularity: Int = 8,
-                         maxError: Float = 0.005
-
-                     */
+                    
+//                    drawingInfo.selectedPoints = []
                     
                 }
                 drawingInfo.isDragging = false
@@ -165,7 +165,12 @@ import Combine
                 .border(Color.blue, width: 4)
                 .aspectRatio(drawingInfo.imageSize, contentMode: .fit)
                 .onTapGesture(count: 1) { location in
-                    viewModel.handleTap(location: location)
+                    var flags: UInt = 0
+                #if os(macOS)
+                    flags = NSEvent.modifierFlags.rawValue
+                #endif
+
+                    viewModel.handleTap(location: location, flags: flags) // flags
                 }
                 .onTapGesture(count: 2) { location in
                     viewModel.handleDoubleTap(location: location)                    }
@@ -234,6 +239,39 @@ import Combine
         }
         #if os(iOS)
         .toolbar {
+            ToolbarItem(placement: .secondaryAction) {
+                Menu("Edit", systemImage: "scissors") {
+                    Button("Cut") {
+                        drawingInfo.cutSelectedPoints()
+                    }
+                    .disabled(drawingInfo.selectedPoints.isEmpty)
+
+                    Button("Copy") {
+                        drawingInfo.copySelectedPoints()
+                    }
+                    .disabled(drawingInfo.selectedPoints.isEmpty)
+
+                    Button("Paste") {
+                        drawingInfo.pastePoints()
+                    }
+                    .disabled(!drawingInfo.canPaste)
+
+                    Button("Select All") {
+                        drawingInfo.selectAll()
+                    }
+                    Divider()
+
+                    Button("Delete Point", role: .destructive) {
+                        drawingInfo.deletePoints()
+                    }
+                    .disabled(!drawingInfo.enableDeletePointButton)
+
+                    Button("Delete Entire Curve", role: .destructive) {
+                        drawingInfo.deletePoints(deleteEntireCurve: true)
+                    }
+                    .disabled(!drawingInfo.enableDeletePointButton)
+                }
+            }
             ToolbarItem(placement: .secondaryAction) {
                 Menu("View Options", systemImage: "eye") {
                     Toggle("Smooth Curves", isOn: $drawingInfo.smoothCurves)

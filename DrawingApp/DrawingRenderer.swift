@@ -626,13 +626,14 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     }
                 }
             }
-            if drawingInfo.drawingMode == .editingCurve,
-               let activeCurveIndex = drawingInfo.activeCurveIndex,
-               let activePointIndex = drawingInfo.activePointIndex {
-                let curve = curves[activeCurveIndex]
-                let point = curve.points[activePointIndex].coord
-                drawRing(center: point, color: MetalColors.white, radius: 10, lineThickness: 4)
-                drawRing(center: point, color: MetalColors.black, radius: 10, lineThickness: 2)
+            if drawingInfo.drawingMode == .editingCurve
+            {
+                for aSelectedPoint in drawingInfo.selectedPoints {
+                    let curve = curves[aSelectedPoint.curveIndex]
+                    let point = curve.points[aSelectedPoint.pointIndex].coord
+                    drawRing(center: point, color: MetalColors.white, radius: 10, lineThickness: 4)
+                    drawRing(center: point, color: MetalColors.black, radius: 10, lineThickness: 2)
+                }
 
             }
         }
