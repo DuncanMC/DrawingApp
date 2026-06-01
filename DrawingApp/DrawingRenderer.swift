@@ -234,11 +234,15 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 controlPoints.append(point.coord)
                 
                 // Add the first and last point and all corner points twice.
-                if index == 0 || index == curve.points.count - 1 || point.pointType == .corner {
+//                if index == 0 || index == curve.points.count - 1 || point.pointType == .corner {
+                if point.pointType == .corner {
                     controlPoints.append(point.coord)
                 }
             }
-            let (resultPoints, _) = smoothPointsInArray(controlPoints, granularity: 8, adjustGranularity: true)
+            let (resultPoints, _) = smoothPointsInArray(
+                controlPoints, granularity: 3,
+                adjustGranularity: true,
+                makeClosedLoop: curve.isClosedCurve)
             
             var filteredResultPoints: [simd_float2] = []
             var last: simd_float2? = nil

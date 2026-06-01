@@ -48,11 +48,6 @@ struct DrawingCommands: Commands {
             .keyboardShortcut(.delete, modifiers: .command)
             .disabled(drawingInfo?.enableDeletePointButton != true)
             
-            /*
-             Toggle(isOn: $drawingInfo?.selectedCurveIsClosed, label: {
-Text("Close Curve")
-             }
-             */
             Toggle("Close Curve", isOn: Binding(
                 get: {  drawingInfo?.selectedCurveIsClosed ?? false },
                 set: {  newValue in drawingInfo?.selectedCurveIsClosed = newValue }

@@ -457,20 +457,19 @@ final class DrawingInfo: ObservableObject, Codable {
     
     func selectAll() {
         print("In \(#function)")
-        var curveIndexes = Set<Int>()
+        var curveIndexes = [Int]()
         if !selectedPoints.isEmpty {
             for point in selectedPoints {
-                curveIndexes.insert(point.curveIndex)
+                curveIndexes.append(point.curveIndex)
             }
         } else {
-            for index in 0 ..< curves.count {
-                curveIndexes.insert(index)
-            }
+            curveIndexes = [Int](0 ... curves.count-1)
         }
         for curveIndex in curveIndexes {
             let aCurve = curves[curveIndex]
             for pointIndex in 0 ..< aCurve.points.count {
-                selectedPoints.insert(.init(curveIndex: curveIndex, pointIndex: pointIndex))
+                selectedPoints.insert(SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex))
+                drawingMode = .editingCurve
             }
         }
     }

@@ -45,13 +45,18 @@ struct ViewModel {
             switch target.gestureLocation {
                 // The user tapeped on a control point
             case .inControlPoint(let curveIndex, let pointIndex):
+                var shiftKeyPressed: Bool = false
+                #if os(macOS)
+                    shiftKeyPressed = flags & NSEvent.ModifierFlags.shift.rawValue != 0
+                #endif
+
                 if drawingInfo.drawingMode == .editingCurve && !drawingInfo.selectedPoints.isEmpty,
                    let selectedPoint = drawingInfo.selectedPoints.first
                 {
                     if selectedPoint.curveIndex == curveIndex && selectedPoint.pointIndex == pointIndex {
                         drawingInfo.drawingMode = .idle
                         drawingInfo.selectedPoints = []
-                    } else if flags & NSEvent.ModifierFlags.shift.rawValue != 0 {
+                    } else if shiftKeyPressed {
                         //Shift key pressed
                         drawingInfo.selectedPoints.insert(SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex))
                     } else {

@@ -156,7 +156,8 @@ public func newSmoothedPoints(_ point: simd_float2,
  */
 public func smoothPointsInArray(_ array: [simd_float2],
                                 granularity: Int = 4,
-                                adjustGranularity: Bool = true) -> ([simd_float2], String) {
+                                adjustGranularity: Bool = true,
+                                makeClosedLoop: Bool = false) -> ([simd_float2], String) {
   
   let startTime = Date().timeIntervalSinceReferenceDate
   guard array.count > 2 else {
@@ -169,21 +170,28 @@ public func smoothPointsInArray(_ array: [simd_float2],
   guard let first = array.first else {
     return (array, "")
   }
-  source.insert(first, at: 0)
-  source.insert(first, at: 0)
+    if !makeClosedLoop {
+        source.insert(first, at: 0)
+        source.insert(first, at: 0)
+    }
   
   guard let last = array.last else {
     return (array, "")
   }
-  source.append(last)
+    if !makeClosedLoop {
+        source.append(last)
+    }
   
   result.append(first)
+    
+    let start = makeClosedLoop ? 2 : 4
+    let end = makeClosedLoop ? source.count+2 : source.count
   
-  for index in 4 ..< source.count {
-    let p0 = source[index - 3]
-    let p1 = source[index - 2]
-    let p2 = source[index - 1]
-    let p3 = source[index]
+    for index in start ..< end  {
+    let p0 = source[(index + source.count - 3) % source.count]
+    let p1 = source[(index + source.count - 2) % source.count]
+    let p2 = source[(index + source.count - 1) % source.count]
+    let p3 = source[(index + source.count) % source.count]
     let thisGranularity: Int
     if adjustGranularity {
       thisGranularity = adjustedGranularity(granularity , startPoint: p1, endPoint: p2)
@@ -216,7 +224,9 @@ public func smoothPointsInArray(_ array: [simd_float2],
     }
     result.append(p2)
   }
-  result.append(last)
+    if !makeClosedLoop {
+        result.append(last)
+    }
   let elapsed = Date().timeIntervalSinceReferenceDate - startTime
   let timeString = String(format: "%lu points, added %lu, in %.5f sec",
                           array.count,

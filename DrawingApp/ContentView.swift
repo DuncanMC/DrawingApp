@@ -35,13 +35,17 @@ import Combine
                         drawingInfo.drawingMode = .editingCurve
                         switch target.gestureLocation {
                         case .inControlPoint(let curveIndex, let pointIndex):
+                            var shiftDrag: Bool = false
+                            #if os(macOS)
+                                shiftDrag = flags & NSEvent.ModifierFlags.shift.rawValue != 0
+                            #endif
                             print("\nUser dragged \(target.gestureLocation.description)\n")
                             drawingInfo.isDragging = true
                             drawingInfo.lastDragLocation = value.startLocation
                             drawingInfo.draggingState = target.gestureLocation
                             //If the shift key is down, add to the list of selected points, else make this the only selected point.
                             let newPoint = SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex)
-                            if flags & NSEvent.ModifierFlags.shift.rawValue != 0 {
+                            if shiftDrag {
                                 drawingInfo.selectedPoints.insert(newPoint)
                             } else {
                                 if !drawingInfo.selectedPoints.contains(newPoint) {
@@ -297,9 +301,10 @@ import Combine
                     }
                     .disabled(!drawingInfo.enableDeletePointButton)
                     
-                    Button("Close Curve") {
-                        drawingInfo.toggleCloseCurve()
-                    }
+                    Toggle("Close Curve", isOn: Binding(
+                        get: {  drawingInfo.selectedCurveIsClosed },
+                        set: {  newValue in drawingInfo.selectedCurveIsClosed = newValue }
+                    ))
                     .disabled(drawingInfo.selectedPoints.count != 1)
 
 
