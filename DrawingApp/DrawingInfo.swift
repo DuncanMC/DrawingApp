@@ -54,6 +54,7 @@ struct CatmullRomCurve: Codable {
     var radius: Float
     var outlineColor: simd_float4?
     var points: [CatmullRomPoint]
+    var isClosedCurve: Bool = false
 
     
     // MARK: - Codable Keys
@@ -62,16 +63,19 @@ struct CatmullRomCurve: Codable {
         case radius
         case outlineColor
         case points
+        case isClosedCurve
     }
     init(
         color: simd_float4,
         radius: Float,
         outlineColor: simd_float4? = nil,
+        isClosedCurve: Bool = false,
         points: [CatmullRomPoint]
     ) {
         self.color = color
         self.radius = radius
         self.outlineColor = outlineColor
+        self.isClosedCurve = isClosedCurve
         self.points = points
     }
     
@@ -87,6 +91,10 @@ struct CatmullRomCurve: Codable {
             }
             self.radius = try container.decode(Float.self, forKey: .radius)
             
+            if let isClosedCurve = try container.decodeIfPresent(Bool.self, forKey: .isClosedCurve)   {
+                self.isClosedCurve = isClosedCurve
+            }
+
             if let newPoints = try container.decodeIfPresent([CatmullRomPoint].self, forKey: .points) {
                 self.points = newPoints
             } else {
@@ -102,6 +110,7 @@ struct CatmullRomCurve: Codable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(CodableColor(simdColor: self.color), forKey: .color)
         try container.encode(self.radius, forKey: .radius)
+        try container.encode(self.isClosedCurve, forKey: .isClosedCurve)
         try container.encode(self.points, forKey: .points)
     }
 }
@@ -171,6 +180,23 @@ final class DrawingInfo: ObservableObject, Codable {
 //        }
 //    }
 
+    var selectedCurveIsClosed: Bool {
+        get {
+            guard selectedPoints.count == 1,
+                  let selectedPoint = selectedPoints.first else { return false }
+            let selectedCurveIndex = selectedPoint.curveIndex
+            let selectedCurve = curves[selectedCurveIndex]
+            return selectedCurve.isClosedCurve
+        }
+        set {
+            guard selectedPoints.count == 1,
+                  let selectedPoint = selectedPoints.first else { return }
+            let selectedCurveIndex = selectedPoint.curveIndex
+            var selectedCurve = curves[selectedCurveIndex]
+            selectedCurve.isClosedCurve = newValue
+            curves[selectedCurveIndex] = selectedCurve
+        }
+    }
     @Published var viewportSize: CGSize = DrawingInfo.defaultSize // The size of the viewport
     
     //    static let defaultSize: CGSize = CGSize(width: 800, height: 300)
@@ -184,6 +210,9 @@ final class DrawingInfo: ObservableObject, Codable {
     var lastDragLocation: CGPoint? = nil
     var isDragging: Bool = false
     var draggingState: GestureLocation? = nil
+    #if os(macOS)
+    var lastMouseDownFlags: NSEvent.ModifierFlags = []
+    #endif
     
     /*
      public typealias  pointsArraysTuple = (
@@ -313,60 +342,69 @@ final class DrawingInfo: ObservableObject, Codable {
 
     // MARK: - Editing Actions
 
+    func toggleCloseCurve() {
+        guard curves.count == 1,
+        var curve = curves.first else { return }
+        curve.isClosedCurve.toggle()
+        curves[0] = curve
+    }
+    
     func deletePoints(deleteEntireCurve: Bool = false) {
-        if deleteEntireCurve,
-         let selectedPoint = selectedPoints.first{
-            // TODO: Figure out what to do if more than one cruve is selected.
-            let curveIndex = selectedPoint.curveIndex
-            curves.remove(at: curveIndex)
-            selectedPoints.remove(selectedPoint)
-            drawingMode = .idle
-            return
-        }
-        if  selectedPoints.count == 1 {
-            let selectedPoint = selectedPoints.first!
-            var pointIndex = selectedPoint.pointIndex
-            
-            var curve = curves[selectedPoint.curveIndex]
-            curve.points.remove(at: selectedPoint.pointIndex)
-            selectedPoints.remove(selectedPoint)
+        performGroupedEdit {
+            if deleteEntireCurve,
+             let selectedPoint = selectedPoints.first{
+                // TODO: Figure out what to do if more than one cruve is selected.
+                let curveIndex = selectedPoint.curveIndex
+                curves.remove(at: curveIndex)
+                selectedPoints.remove(selectedPoint)
+                drawingMode = .idle
+                return
+            }
+            if  selectedPoints.count == 1 {
+                let selectedPoint = selectedPoints.first!
+                var pointIndex = selectedPoint.pointIndex
+                
+                var curve = curves[selectedPoint.curveIndex]
+                curve.points.remove(at: selectedPoint.pointIndex)
+                selectedPoints.remove(selectedPoint)
 
-            if pointIndex > 0 {
-                pointIndex -= 1
-            }
-            if pointIndex >= 0 {
-                selectedPoints =  [SelectedPoint(curveIndex: selectedPoint.curveIndex, pointIndex: pointIndex)]
-            }
-            if curve.points.isEmpty {
-                curves.remove(at: selectedPoint.curveIndex)
-                selectedPoints = []
-            } else {
-                curves[selectedPoint.curveIndex] = curve
-                if selectedPoint.pointIndex > curve.points.count - 1 {
-                    selectedPoints =  [SelectedPoint(curveIndex: selectedPoint.curveIndex, pointIndex: curve.points.count - 1)]
+                if pointIndex > 0 {
+                    pointIndex -= 1
                 }
+                if pointIndex >= 0 {
+                    selectedPoints =  [SelectedPoint(curveIndex: selectedPoint.curveIndex, pointIndex: pointIndex)]
+                }
+                if curve.points.isEmpty {
+                    curves.remove(at: selectedPoint.curveIndex)
+                    selectedPoints = []
+                } else {
+                    curves[selectedPoint.curveIndex] = curve
+                    if selectedPoint.pointIndex > curve.points.count - 1 {
+                        selectedPoints =  [SelectedPoint(curveIndex: selectedPoint.curveIndex, pointIndex: curve.points.count - 1)]
+                    }
+                }
+                return
             }
-            return
-        }
-        let selectedPointsArray = Array(selectedPoints).sorted {
-            ($0.curveIndex, $0.pointIndex) > ($1.curveIndex, $1.pointIndex)
-        }
-            
-        selectedPointsArray.forEach {
-            print($0)
-        }
-        for aPoint in selectedPointsArray {
-            var curve = curves[aPoint.curveIndex]
-            let pointIndex = aPoint.pointIndex
-            
-            curve.points.remove(at: pointIndex)
-            if curve.points.isEmpty {
-                curves.remove(at: aPoint.curveIndex)
-                selectedPoints = []
-            } else {
-                curves[aPoint.curveIndex] = curve
+            let selectedPointsArray = Array(selectedPoints).sorted {
+                ($0.curveIndex, $0.pointIndex) > ($1.curveIndex, $1.pointIndex)
             }
-            selectedPoints.remove(aPoint)
+                
+            selectedPointsArray.forEach {
+                print($0)
+            }
+            for aPoint in selectedPointsArray {
+                var curve = curves[aPoint.curveIndex]
+                let pointIndex = aPoint.pointIndex
+                
+                curve.points.remove(at: pointIndex)
+                if curve.points.isEmpty {
+                    curves.remove(at: aPoint.curveIndex)
+                    selectedPoints = []
+                } else {
+                    curves[aPoint.curveIndex] = curve
+                }
+                selectedPoints.remove(aPoint)
+            }
         }
     }
 
@@ -391,6 +429,7 @@ final class DrawingInfo: ObservableObject, Codable {
                 color: curve.color,
                 radius: curve.radius,
                 outlineColor: curve.outlineColor,
+                isClosedCurve: curve.isClosedCurve,
                 points: points
             ))
         }
@@ -410,8 +449,10 @@ final class DrawingInfo: ObservableObject, Codable {
     }
 
     func cutSelectedPoints() {
-        guard copySelectedPoints() else { return }
-        deletePoints()
+        performGroupedEdit {
+            guard copySelectedPoints() else { return }
+            deletePoints()
+        }
     }
     
     func selectAll() {
@@ -469,13 +510,23 @@ final class DrawingInfo: ObservableObject, Codable {
 
     // MARK: - Undo
 
-    func registerUndo(with undoManager: UndoManager?) {
+    weak var undoManager: UndoManager?
+    var suppressUndo = false
+
+    func performGroupedEdit(_ edits: () -> Void) {
+        registerUndo()
+        suppressUndo = true
+        edits()
+        suppressUndo = false
+    }
+
+    func registerUndo() {
         guard let undoManager else { return }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         guard let snapshot = try? encoder.encode(self) else { return }
         undoManager.registerUndo(withTarget: self) { target in
-            target.registerUndo(with: undoManager)
+            target.registerUndo()
             target.restore(from: snapshot)
         }
     }

@@ -14,17 +14,22 @@ import Combine
     @Environment(\.undoManager) var undoManager
 
     var viewModel: ViewModel
-    
+    #if os(macOS)
+    @State private var eventMonitor: Any?
+    #endif
 
     var dragGesture: some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
                 var  flags: UInt = 0
 #if os(macOS)
-                flags = NSEvent.modifierFlags.rawValue
+                flags = drawingInfo.lastMouseDownFlags.rawValue
 #endif
                 
                 if !drawingInfo.isDragging {
+                    drawingInfo.registerUndo()
+                    drawingInfo.suppressUndo = true
+
                     //                    //print("Begin dragging in view.")
                     if let target = viewModel.getGestureLocation(touchLocation: value.startLocation) {
                         drawingInfo.drawingMode = .editingCurve
@@ -112,6 +117,9 @@ import Combine
                 }
             }
             .onEnded { value in
+                defer {
+                    drawingInfo.suppressUndo = false
+                }
                 if drawingInfo.drawingMode == .creatingCurve
                  {
                     let activeCurveIndex = drawingInfo.selectedPoints.first!.curveIndex
@@ -167,10 +175,9 @@ import Combine
                 .onTapGesture(count: 1) { location in
                     var flags: UInt = 0
                 #if os(macOS)
-                    flags = NSEvent.modifierFlags.rawValue
+                    flags = drawingInfo.lastMouseDownFlags.rawValue
                 #endif
-
-                    viewModel.handleTap(location: location, flags: flags) // flags
+                    viewModel.handleTap(location: location, flags: flags)
                 }
                 .onTapGesture(count: 2) { location in
                     viewModel.handleDoubleTap(location: location)                    }
@@ -234,8 +241,27 @@ import Combine
             .padding([.top, .bottom], 10)
         }
         .focusedSceneObject(drawingInfo)
+        .onAppear {
+            drawingInfo.undoManager = undoManager
+            #if os(macOS)
+            eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown]) { event in
+                drawingInfo.lastMouseDownFlags = event.modifierFlags
+                return event
+            }
+            #endif
+        }
+        .onDisappear {
+            #if os(macOS)
+            if let monitor = eventMonitor {
+                NSEvent.removeMonitor(monitor)
+                eventMonitor = nil
+            }
+            #endif
+        }
         .onReceive(drawingInfo.objectWillChange) { _ in
-            drawingInfo.registerUndo(with: undoManager)
+            if !drawingInfo.suppressUndo {
+                drawingInfo.registerUndo()
+            }
         }
         #if os(iOS)
         .toolbar {
@@ -270,6 +296,13 @@ import Combine
                         drawingInfo.deletePoints(deleteEntireCurve: true)
                     }
                     .disabled(!drawingInfo.enableDeletePointButton)
+                    
+                    Button("Close Curve") {
+                        drawingInfo.toggleCloseCurve()
+                    }
+                    .disabled(drawingInfo.selectedPoints.count != 1)
+
+
                 }
             }
             ToolbarItem(placement: .secondaryAction) {
