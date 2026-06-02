@@ -226,25 +226,26 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             }
         }
         
-        func curveToCatmullRomPoints(_ curve: CatmullRomCurve) -> [simd_float2] {
-            var controlPoints = [simd_float2]()
+        func curveToCatmullRomPoints(_ curve: CatmullRomCurve) -> [SmoothedCurvePoint] {
+            var controlPoints = [SmoothedCurvePoint]()
             
             for (index, point) in curve.points.enumerated() {
                 // Add each control point to the array of control points.
-                controlPoints.append(point.coord)
+                controlPoints.append(SmoothedCurvePoint(coord: point.coord, controlPointIndex: index, weight: 0.0))
                 
                 // Add all corner points twice.
                 if point.pointType == .corner {
-                    controlPoints.append(point.coord)
+                    controlPoints.append(SmoothedCurvePoint(coord: point.coord, controlPointIndex: index, weight: 0.0))
                 }
             }
             let (resultPoints, _) = smoothPointsInArray(
-                controlPoints, granularity: 8,
+                controlPoints, granularity: 2,
                 adjustGranularity: true,
+                calculateWeights: true,
                 makeClosedLoop: curve.isClosedCurve)
             
-            var filteredResultPoints: [simd_float2] = []
-            var last: simd_float2? = nil
+            var filteredResultPoints: [SmoothedCurvePoint] = []
+            var last: SmoothedCurvePoint? = nil
             for point in resultPoints {
                 if point != last {
                     filteredResultPoints.append(point)
@@ -276,9 +277,10 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             for (_, curve) in curves.enumerated() {
                 
                 let radius = drawingInfo.lineThickness * widthPerPixel
-                var smoothedPoints: [simd_float2]
+                var smoothedPoints: [SmoothedCurvePoint]
                 if drawingInfo.smoothCurves == false {
-                    smoothedPoints = curve.points.map { $0.coord  }
+                    smoothedPoints = curve.points.enumerated().map { (index, point) in
+                        SmoothedCurvePoint(coord: point.coord, controlPointIndex: index, weight: 0)} // TODO: get index for control points
                     if curve.isClosedCurve {
                         smoothedPoints.append(smoothedPoints.first!)
                     }
@@ -287,11 +289,11 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 }
                 
                 if smoothedPoints.count == 1  {
-                    drawCircle(center: smoothedPoints[0], color: curve.color, radius: drawingInfo.lineThickness * 0.5, hardness: drawingInfo.hardness)
+                    drawCircle(center: smoothedPoints[0].coord, color: curve.color, radius: drawingInfo.lineThickness * 0.5, hardness: drawingInfo.hardness)
                 } else {
                     for index in 1 ..< smoothedPoints.count {
-                        let first = smoothedPoints[index-1] * adjustment
-                        let middle = smoothedPoints[index] * adjustment
+                        let first = smoothedPoints[index-1].coord * adjustment
+                        let middle = smoothedPoints[index].coord * adjustment
                         
                         let dir1 = normalize(middle - first)
                         let normal1 = simd_float2(-dir1.y, dir1.x) * radius
@@ -354,7 +356,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                         if index < smoothedPoints.count - 1 {
                             
                             //Calculate the intersection of "left" and right line segments and use them as the middle points.
-                            let last = smoothedPoints[index+1] * adjustment
+                            let last = smoothedPoints[index+1].coord * adjustment
                             
                             let adjustedMiddle = middle/adjustment
                             let adjustedLast = last/adjustment
@@ -615,8 +617,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 }
                 if drawingInfo.smoothCurves && drawingInfo.showSmoothingPoints {
                     for aPoint in smoothedPoints {
-                        drawSquare(center: aPoint, color: MetalColors.white, width: 4,  orthoMatrix: orthoMatrix)
-                        drawSquare(center: aPoint, color: MetalColors.blue, width: 2,  orthoMatrix: orthoMatrix)
+                        drawSquare(center: aPoint.coord, color: MetalColors.white, width: 4,  orthoMatrix: orthoMatrix)
+                        drawSquare(center: aPoint.coord, color: MetalColors.blue, width: 2,  orthoMatrix: orthoMatrix)
                     }
                 }
             } // for curves

@@ -147,17 +147,25 @@ public func newSmoothedPoints(_ point: simd_float2,
   return result
   }
   
+
+public struct SmoothedCurvePoint: Equatable {
+  let coord: simd_float2
+  let controlPointIndex: Int  // index from the parent CatmullRomPoint array that this point is based on
+  let weight: Float    // A weight value that tells how far we are from the controlPointIndex to the next point (0...1)
+}
+
 /**
  This function takes an array of control points and returns a new array of points where intermediate points have been added to create a smooth curve beween the control points.
- - Parameter array: The array of control points
+ - Parameter array: The array of control points, of type SmoothedCurvePoint
  - Parameter granularity: The base number of smoothing points to add (defalt value = 4). The function will add more than this number of points when the distance betwee control points is large, and less when the distance between control points is small.
  - Returns: The array of points that define the smoothed curve. The points from the input array will be included in the array of smoothed points.
 
  */
-public func smoothPointsInArray(_ array: [simd_float2],
+public func smoothPointsInArray(_ array: [SmoothedCurvePoint],
                                 granularity: Int = 4,
                                 adjustGranularity: Bool = true,
-                                makeClosedLoop: Bool = false) -> ([simd_float2], String) {
+                                calculateWeights: Bool = false,
+                                makeClosedLoop: Bool = false) -> ([SmoothedCurvePoint], String) {
   
   let startTime = Date().timeIntervalSinceReferenceDate
   guard array.count > 2 else {
@@ -165,7 +173,7 @@ public func smoothPointsInArray(_ array: [simd_float2],
   }
   
   var source = array
-  var result: [simd_float2] = []
+  var result: [SmoothedCurvePoint] = []
   
   guard let first = array.first else {
     return (array, "")
@@ -194,7 +202,7 @@ public func smoothPointsInArray(_ array: [simd_float2],
     let p3 = source[(index + source.count) % source.count]
     let thisGranularity: Int
     if adjustGranularity {
-      thisGranularity = adjustedGranularity(granularity , startPoint: p1, endPoint: p2)
+        thisGranularity = adjustedGranularity(granularity , startPoint: p1.coord, endPoint: p2.coord)
     }
     else {
       thisGranularity = granularity
@@ -209,18 +217,19 @@ public func smoothPointsInArray(_ array: [simd_float2],
       let ttt = tt * t
       
       var pi = simd_float2.zero;
-      var part1 = 2.0 * p0.x - 5.0 * p1.x + 4.0 * p2.x - p3.x
-      var part2 = (3.0 * p1.x - p0.x - 3.0 * p2.x + p3.x)
-      pi.x = 0.5 * (2.0 * p1.x + (p2.x - p0.x) * t +
+      var part1 = 2.0 * p0.coord.x - 5.0 * p1.coord.x + 4.0 * p2.coord.x - p3.coord.x
+      var part2 = (3.0 * p1.coord.x - p0.coord.x - 3.0 * p2.coord.x + p3.coord.x)
+      pi.x = 0.5 * (2.0 * p1.coord.x + (p2.coord.x - p0.coord.x) * t +
         part1 * tt +
         part2 * ttt)
       
-      part1 = 2.0 * p0.y - 5.0 * p1.y + 4.0 * p2.y - p3.y
-      part2 = (3.0 * p1.y - p0.y - 3.0 * p2.y + p3.y)
-      pi.y = 0.5 * (2.0 * p1.y + (p2.y - p0.y) * t +
+      part1 = 2.0 * p0.coord.y - 5.0 * p1.coord.y + 4.0 * p2.coord.y - p3.coord.y
+      part2 = (3.0 * p1.coord.y - p0.coord.y - 3.0 * p2.coord.y + p3.coord.y)
+      pi.y = 0.5 * (2.0 * p1.coord.y + (p2.coord.y - p0.coord.y) * t +
         part1 * tt +
         part2 * ttt)
-      result.append(pi)
+        //TODO: Figure out the correct controlPointIndex and weight to return
+        result.append(SmoothedCurvePoint(coord: pi, controlPointIndex: p1.controlPointIndex, weight: 0))
     }
     result.append(p2)
   }

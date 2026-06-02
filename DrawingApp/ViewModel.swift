@@ -279,7 +279,7 @@ struct ViewModel {
         granularity: Int,
         maxError: Float
     ) -> CatmullRomCurve {
-        let referenceControlPoints = catmullRomControlPoints(for: curve)
+        let referenceControlPoints: [SmoothedCurvePoint] = catmullRomControlPoints(for: curve)
         let (referenceSmoothed, _) = smoothPointsInArray(
             referenceControlPoints, granularity: granularity, adjustGranularity: false
         )
@@ -386,14 +386,14 @@ struct ViewModel {
         return simd_distance(point, projection)
     }
 
-    private func directedHausdorff(from a: [simd_float2], to b: [simd_float2]) -> Float {
+    private func directedHausdorff(from a: [SmoothedCurvePoint], to b: [SmoothedCurvePoint]) -> Float {
         guard !a.isEmpty, b.count >= 2 else { return .infinity }
 
         var maxDist: Float = 0
         for p in a {
             var minDist: Float = .infinity
             for i in 0..<(b.count - 1) {
-                minDist = min(minDist, pointToSegmentDistance(p, b[i], b[i + 1]))
+                minDist = min(minDist, pointToSegmentDistance(p.coord, b[i].coord, b[i + 1].coord))
             }
             maxDist = max(maxDist, minDist)
         }
@@ -412,12 +412,13 @@ struct ViewModel {
 
     /// Prepares control points for Catmull-Rom smoothing, matching the renderer's convention
     /// of duplicating the first, last, and corner points.
-    private func catmullRomControlPoints(for curve: CatmullRomCurve) -> [simd_float2] {
-        var result = [simd_float2]()
+    private func catmullRomControlPoints(for curve: CatmullRomCurve) -> [SmoothedCurvePoint] {
+        var result = [SmoothedCurvePoint]()
         for (index, point) in curve.points.enumerated() {
-            result.append(point.coord)
-            if index == 0 || index == curve.points.count - 1 || point.pointType == .corner {
-                result.append(point.coord)
+            let smoothedPoint = SmoothedCurvePoint(coord: point.coord, controlPointIndex: index, weight: 0)
+            result.append(smoothedPoint)
+            if  point.pointType == .corner {
+                result.append(smoothedPoint)
             }
         }
         return result
