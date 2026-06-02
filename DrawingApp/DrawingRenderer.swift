@@ -233,8 +233,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 // Add each control point to the array of control points.
                 controlPoints.append(point.coord)
                 
-                // Add the first and last point and all corner points twice.
-//                if index == 0 || index == curve.points.count - 1 || point.pointType == .corner {
+                // Add all corner points twice.
                 if point.pointType == .corner {
                     controlPoints.append(point.coord)
                 }

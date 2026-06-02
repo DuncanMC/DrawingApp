@@ -39,8 +39,8 @@ internal func adjustedGranularity(_ granularity: Int,
     if distance > 250_000 {
         thisGranularity *=  4
     }
-    else if distance > 40_000 {
-        thisGranularity +=  4 
+    else if distance > 4_000 {
+        thisGranularity *= 2
     }
     else if distance < 20 {
         thisGranularity = 0

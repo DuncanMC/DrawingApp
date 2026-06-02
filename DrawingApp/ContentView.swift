@@ -245,6 +245,28 @@ import Combine
             .frame(maxWidth: .infinity)
             .padding([.top, .bottom], 10)
         }
+        #if os(iOS)
+        .background {
+            VStack {
+                Button("") { drawingInfo.cutSelectedPoints() }
+                    .keyboardShortcut("x", modifiers: .command)
+                    .disabled(drawingInfo.selectedPoints.isEmpty)
+                Button("") { drawingInfo.copySelectedPoints() }
+                    .keyboardShortcut("c", modifiers: .command)
+                    .disabled(drawingInfo.selectedPoints.isEmpty)
+                Button("") { drawingInfo.pastePoints() }
+                    .keyboardShortcut("v", modifiers: .command)
+                    .disabled(!drawingInfo.canPaste)
+                Button("") { drawingInfo.selectAll() }
+                    .keyboardShortcut("a", modifiers: .command)
+                Button("") { drawingInfo.selectedPoints = [] }
+                    .keyboardShortcut("d", modifiers: .command)
+                    .disabled(drawingInfo.selectedPoints.isEmpty)
+            }
+            .frame(width: 0, height: 0)
+            .opacity(0)
+        }
+        #endif
         .focusedSceneObject(drawingInfo)
         .onAppear {
             drawingInfo.undoManager = undoManager
