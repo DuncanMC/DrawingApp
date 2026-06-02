@@ -224,7 +224,7 @@ import Combine
                 
                 VStack(alignment: .center)   {
                     Text("Thickness")
-                    Slider(value: $drawingInfo.lineThickness, in: 2...70)
+                    Slider(value: $drawingInfo.currentThickness, in: 2...120)
                 }
                 .frame(maxWidth: 150)
                 .padding(.trailing, 10)

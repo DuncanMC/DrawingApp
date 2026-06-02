@@ -239,7 +239,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 }
             }
             let (resultPoints, _) = smoothPointsInArray(
-                controlPoints, granularity: 2,
+                controlPoints, granularity: 8,
                 adjustGranularity: true,
                 calculateWeights: true,
                 makeClosedLoop: curve.isClosedCurve)
@@ -253,6 +253,17 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 last = point
             }
             return filteredResultPoints
+        }
+        
+        func computeRadiusForPoint(_ point: SmoothedCurvePoint, inCurve curve: CatmullRomCurve) -> Float {
+            
+            guard point.controlPointIndex < curve.points.count,
+                  let startingRadius: Float = curve.points[point.controlPointIndex].pointRadius
+            else { return drawingInfo.brushSettings.size }
+            let endingIndex: Int = point.controlPointIndex + 1 < curve.points.count ? point.controlPointIndex + 1 : point.controlPointIndex
+
+            let endingRadius: Float = curve.points[endingIndex].pointRadius ?? drawingInfo.brushSettings.size
+            return startingRadius * (1 - point.weight) + (endingRadius * point.weight)
         }
         
         func drawCurves(_ curves: [CatmullRomCurve]) {
@@ -276,7 +287,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 
             for (_, curve) in curves.enumerated() {
                 
-                let radius = drawingInfo.lineThickness * widthPerPixel
+                //let radius = drawingInfo.lineThickness * widthPerPixel
                 var smoothedPoints: [SmoothedCurvePoint]
                 if drawingInfo.smoothCurves == false {
                     smoothedPoints = curve.points.enumerated().map { (index, point) in
@@ -296,6 +307,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                         let middle = smoothedPoints[index].coord * adjustment
                         
                         let dir1 = normalize(middle - first)
+                        var radius = computeRadiusForPoint(smoothedPoints[index], inCurve: curve)
+                        radius *= widthPerPixel
                         let normal1 = simd_float2(-dir1.y, dir1.x) * radius
                         
                         let firstLeft = (first + normal1) / adjustment
@@ -458,27 +471,6 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                             
                             
                             
-                            // Add triangles to show the adjustment between the normals and the left and right line intersections
-                            if drawingInfo.showQuads {
-                                
-                                //                            if crossProduct < 0 { //right intersection is the miter.
-                                //                                cornerTriangles += [
-                                //                                    Vertex(position: rightIntersection, alpha: 0.25),
-                                //                                    Vertex(position: secondRightOne, alpha: 0.25),
-                                //                                    Vertex(position: secondRightTwo, alpha: 0.25),
-                                //                                ]
-                                //                            }
-                                //                            if crossProduct > 0 {
-                                //
-                                //                                cornerTriangles += [
-                                //                                    Vertex(position: leftIntersection, alpha: 0.25),
-                                //                                    Vertex(position: secondLeftOne, alpha: 0.25),
-                                //                                    Vertex(position: secondLeftTwo, alpha: 0.25),
-                                //                                ]
-                                //                            }
-                                //
-                                
-                            }
                             leftVertexes += [
                                 Vertex(position: leftIntersection, alpha: 0),
                                 Vertex(position: adjustedMiddle, alpha: maxAlpha)
@@ -494,15 +486,15 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 uniforms = Uniforms(
                     color: curve.color,
                     drawWithTetxure: false,
-                    orthoMatrix: orthoMatrix,
+                    orthoMatrix: orthoMatrix,ß
                     hardness: drawingInfo.hardness
                 )
                 
                 if leftVertexes.count >= 3 {
                     // Draw the left side triangle strips
                     let verticiesSize = MemoryLayout<Vertex>.stride * leftVertexes.count
-                    var offset = allocateVerticiesInRing(byteCount: verticiesSize)
-                    var dst = vertexBuffer.contents().advanced(by: offset)
+                    let offset = allocateVerticiesInRing(byteCount: verticiesSize)
+                    let dst = vertexBuffer.contents().advanced(by: offset)
                     dst.copyMemory(from: leftVertexes, byteCount: verticiesSize)
                     encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
                     

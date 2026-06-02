@@ -228,6 +228,39 @@ final class DrawingInfo: ObservableObject, Codable {
       blue: Float,
       alpha : Float)
 
+    var currentThickness: Float {
+        get {
+            guard !selectedPoints.isEmpty else { return brushSettings.size }
+            let selectedCurveIndex = selectedPoints.first!.curveIndex
+            let pointIndex = selectedPoints.first!.pointIndex
+            let curve = curves[selectedCurveIndex]
+            let point = curve.points[pointIndex]
+            return point.pointRadius ?? brushSettings.size
+        }
+        set {
+            if selectedPoints.count == 0 {
+                brushSettings.size = newValue
+            } else if selectedPoints.count == 1 {
+                let selectedCurveIndex = selectedPoints.first!.curveIndex
+                let pointIndex = selectedPoints.first!.pointIndex
+                var curve = curves[selectedCurveIndex]
+                var point = curve.points[pointIndex]
+                point.pointRadius = newValue
+                curve.points[pointIndex] = point
+                curves[selectedCurveIndex] = curve
+            } else {
+                for selectedPoint in selectedPoints {
+                    let selectedCurveIndex = selectedPoint.curveIndex
+                    let pointIndex = selectedPoint.pointIndex
+                    var curve = curves[selectedCurveIndex]
+                    var point = curve.points[pointIndex]
+                    point.pointRadius = newValue
+                    curve.points[pointIndex] = point
+                    curves[selectedCurveIndex] = curve
+                }
+            }
+        }
+    }
     var currentColor: Color {
         get {
             let metalColor: SIMD4<Float>

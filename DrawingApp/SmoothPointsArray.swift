@@ -151,7 +151,17 @@ public func newSmoothedPoints(_ point: simd_float2,
 public struct SmoothedCurvePoint: Equatable {
   let coord: simd_float2
   let controlPointIndex: Int  // index from the parent CatmullRomPoint array that this point is based on
-  let weight: Float    // A weight value that tells how far we are from the controlPointIndex to the next point (0...1)
+  var weight: Float    // A weight value that tells how far we are from the controlPointIndex to the next point (0...1)
+    
+    func smoothedPointWithWeight(_ newWeight: Float) -> SmoothedCurvePoint {
+        return SmoothedCurvePoint(coord: coord,
+                                       controlPointIndex: controlPointIndex,
+                                       weight: newWeight)
+    }
+    
+    static public func == (lhs: SmoothedCurvePoint, rhs: SmoothedCurvePoint) -> Bool {
+        return lhs.coord == rhs.coord && lhs.controlPointIndex == rhs.controlPointIndex
+    }
 }
 
 /**
@@ -211,6 +221,9 @@ public func smoothPointsInArray(_ array: [SmoothedCurvePoint],
             result.append(p2)
             continue
         }
+        var totalDistance: Float = 0
+
+        let startingIndex = result.count
         for i in 1 ... thisGranularity {
             let t: Float = Float(i) * 1.0 / Float(thisGranularity+1)
             let tt = t * t
@@ -229,12 +242,24 @@ public func smoothPointsInArray(_ array: [SmoothedCurvePoint],
                           part1 * tt +
                           part2 * ttt)
             //TODO: Figure out the correct controlPointIndex and weight to return
-            result.append(SmoothedCurvePoint(coord: pi, controlPointIndex: p1.controlPointIndex, weight: 0))
+            let oldPoint = result.last!.coord
+            let weight = distanceBetween(p1: oldPoint, p2: pi)
+            totalDistance += weight
+            result.append(SmoothedCurvePoint(coord: pi, controlPointIndex: p1.controlPointIndex, weight: weight))
         }
-        result.append(p2)
+        totalDistance += distanceBetween(p1: result.last!.coord, p2: p2.coord)
+        var runningDistance: Float = 0.0
+        for newPointIndex in startingIndex ..< result.count {
+            let thisWeight = result[newPointIndex].weight
+            runningDistance += thisWeight
+            result[newPointIndex].weight = runningDistance / totalDistance
+        }
+        
+        
+        result.append(p2.smoothedPointWithWeight(0))
     }
     if !makeClosedLoop {
-        result.append(last)
+        result.append(last.smoothedPointWithWeight(1))
     }
   let elapsed = Date().timeIntervalSinceReferenceDate - startTime
   let timeString = String(format: "%lu points, added %lu, in %.5f sec",
