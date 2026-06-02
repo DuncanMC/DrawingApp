@@ -34,6 +34,13 @@ struct DrawingCommands: Commands {
             }
             .disabled(!(drawingInfo?.curves.isEmpty == false))
             .keyboardShortcut("a", modifiers: .command)
+            
+            Button("Deselect All") {
+                drawingInfo?.selectedPoints = []
+            }
+            .keyboardShortcut("d", modifiers: .command)
+            .disabled(drawingInfo?.selectedPoints.isEmpty == true)
+
         }
 
         CommandGroup(after: .pasteboard) {
@@ -53,6 +60,11 @@ struct DrawingCommands: Commands {
                 set: {  newValue in drawingInfo?.selectedCurveIsClosed = newValue }
             ))
             .disabled(drawingInfo?.selectedPoints.count != 1)
+            // xxx
+            Button("Join Curves") {
+                drawingInfo?.joinCurves()
+            }
+            .disabled(drawingInfo?.enableJoinCurves != true)
 
         }
 

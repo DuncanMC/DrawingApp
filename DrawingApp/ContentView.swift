@@ -30,21 +30,17 @@ import Combine
                     drawingInfo.registerUndo()
                     drawingInfo.suppressUndo = true
 
-                    //                    //print("Begin dragging in view.")
                     if let target = viewModel.getGestureLocation(touchLocation: value.startLocation) {
                         drawingInfo.drawingMode = .editingCurve
                         switch target.gestureLocation {
                         case .inControlPoint(let curveIndex, let pointIndex):
-                            var shiftDrag: Bool = false
-                            #if os(macOS)
-                                shiftDrag = flags & NSEvent.ModifierFlags.shift.rawValue != 0
-                            #endif
                             print("\nUser dragged \(target.gestureLocation.description)\n")
                             drawingInfo.isDragging = true
                             drawingInfo.lastDragLocation = value.startLocation
                             drawingInfo.draggingState = target.gestureLocation
-                            //If the shift key is down, add to the list of selected points, else make this the only selected point.
                             let newPoint = SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex)
+                            #if os(macOS)
+                            let shiftDrag = flags & NSEvent.ModifierFlags.shift.rawValue != 0
                             if shiftDrag {
                                 drawingInfo.selectedPoints.insert(newPoint)
                             } else {
@@ -52,6 +48,11 @@ import Combine
                                     drawingInfo.selectedPoints = [newPoint]
                                 }
                             }
+                            #else
+                            if !drawingInfo.selectedPoints.contains(newPoint) {
+                                drawingInfo.selectedPoints = [newPoint]
+                            }
+                            #endif
                         default:
                             break
                         }
@@ -286,9 +287,16 @@ import Combine
                     }
                     .disabled(!drawingInfo.canPaste)
 
+
                     Button("Select All") {
                         drawingInfo.selectAll()
                     }
+                    Button("Deselect All") {
+                        drawingInfo.selectedPoints = []
+//                      //drawingMode = .idle
+                    }
+                    .disabled(drawingInfo.selectedPoints.isEmpty)
+
                     Divider()
 
                     Button("Delete Point", role: .destructive) {
@@ -306,7 +314,11 @@ import Combine
                         set: {  newValue in drawingInfo.selectedCurveIsClosed = newValue }
                     ))
                     .disabled(drawingInfo.selectedPoints.count != 1)
-
+                    // xxx
+                    Button("Join Curves") {
+                        drawingInfo.joinCurves()
+                    }
+                    .disabled(drawingInfo.enableJoinCurves != true)
 
                 }
             }

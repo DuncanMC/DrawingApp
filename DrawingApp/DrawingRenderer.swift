@@ -240,7 +240,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 }
             }
             let (resultPoints, _) = smoothPointsInArray(
-                controlPoints, granularity: 3,
+                controlPoints, granularity: 8,
                 adjustGranularity: true,
                 makeClosedLoop: curve.isClosedCurve)
             
@@ -277,9 +277,12 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             for (_, curve) in curves.enumerated() {
                 
                 let radius = drawingInfo.lineThickness * widthPerPixel
-                let smoothedPoints: [simd_float2]
+                var smoothedPoints: [simd_float2]
                 if drawingInfo.smoothCurves == false {
                     smoothedPoints = curve.points.map { $0.coord  }
+                    if curve.isClosedCurve {
+                        smoothedPoints.append(smoothedPoints.first!)
+                    }
                 } else {
                     smoothedPoints = curveToCatmullRomPoints(curve)
                 }
@@ -390,13 +393,18 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                                 // If this is a right-hand turn
                                 if crossProduct < 0 {
                                     let squaredDistance = distanceSquaredBetween(p1: leftIntersection, p2: secondLeftOne)
-                                    if squaredDistance > (radius * radius) * (miterLimit * miterLimit) / 4.0 {
-                                        leftVertexes += [
-                                            Vertex(position: secondLeftOne, alpha: 0),
-                                            Vertex(position: adjustedMiddle, alpha: maxAlpha)
-                                        ]
-                                        leftIntersection = secondLeftTwo
-                                    }
+//                                    if squaredDistance > (radius * radius) * (miterLimit * miterLimit) / 4.0 {
+//                                        leftVertexes += [
+//                                            Vertex(position: secondLeftOne, alpha: 0),
+//                                            Vertex(position: adjustedMiddle, alpha: maxAlpha)
+//                                        ]
+//                                        leftIntersection = secondLeftTwo
+//                                    }
+                                    leftVertexes += [
+                                        Vertex(position: secondLeftOne, alpha: 0),
+                                        Vertex(position: adjustedMiddle, alpha: maxAlpha)
+                                    ]
+                                    leftIntersection = secondLeftTwo
                                     leftIntersections.append(leftIntersection)
                                 }
                                 else if crossProduct > 0 {
@@ -418,13 +426,18 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                                 if crossProduct > 0
                                 {
                                     let squaredDistance = distanceSquaredBetween(p1: rightIntersection, p2: secondRightOne)
-                                    if squaredDistance > (radius * radius) * (miterLimit * miterLimit) / 4.0 {
-                                        rightVertexes += [
-                                            Vertex(position: secondRightOne, alpha: 0),
-                                            Vertex(position: adjustedMiddle, alpha: maxAlpha)
-                                        ]
-                                        rightIntersection = secondRightTwo
-                                    }
+//                                    if squaredDistance > (radius * radius) * (miterLimit * miterLimit) / 4.0 {
+//                                        rightVertexes += [
+//                                            Vertex(position: secondRightOne, alpha: 0),
+//                                            Vertex(position: adjustedMiddle, alpha: maxAlpha)
+//                                        ]
+//                                        rightIntersection = secondRightTwo
+//                                    }
+                                    rightVertexes += [
+                                        Vertex(position: secondRightOne, alpha: 0),
+                                        Vertex(position: adjustedMiddle, alpha: maxAlpha)
+                                    ]
+                                    rightIntersection = secondRightTwo
                                 } else if crossProduct < 0 {
                                     // righthand turn, so right side is inside
                                     let distanceToIntersection = distanceBetween(p1: secondRightOne, p2: rightIntersection)

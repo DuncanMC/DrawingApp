@@ -230,7 +230,12 @@ final class DrawingInfo: ObservableObject, Codable {
 
     var currentColor: Color {
         get {
-            let metalColor = currentMetalColor
+            let metalColor: SIMD4<Float>
+            if selectedPoints.count == 1 {
+                metalColor = curves[selectedPoints.first!.curveIndex].color
+            } else {
+                metalColor = currentMetalColor
+            }
             return Color(
                 red: Double(metalColor[0]),
                 green:  Double(metalColor[1]),
@@ -281,6 +286,26 @@ final class DrawingInfo: ObservableObject, Codable {
                 }
             }
         }
+    }
+    
+    var enableJoinCurves: Bool {
+        // Only enable the join curves menu item if exactly 2 points are selected
+        // and they are the beginning or end of different curves
+        if selectedPoints.count != 2 {
+            return false
+        }
+        let selectedPointsArray = Array(selectedPoints)
+        let curv1Point = selectedPointsArray[0]
+        let curve2Point = selectedPointsArray[1]
+        if curv1Point.curveIndex == curve2Point.curveIndex {
+            return false
+        }
+        let curve1 = curves[curv1Point.curveIndex]
+        let curve2 = curves[curve2Point.curveIndex]
+        if curve1.isClosedCurve || curve2.isClosedCurve {
+            return false
+        }
+        return (curv1Point.pointIndex == 0 || curv1Point.pointIndex == curve1.points.count - 1) && (curve2Point.pointIndex == 0 || curve2Point.pointIndex == curve2.points.count - 1)
     }
 
 
@@ -342,6 +367,58 @@ final class DrawingInfo: ObservableObject, Codable {
 
     // MARK: - Editing Actions
 
+    func joinCurves() {
+        print("In \(#function)")
+        performGroupedEdit {
+            let selectedPointsArray = Array(selectedPoints).sorted { $0.curveIndex < $1.curveIndex}
+            let curve1Index = selectedPointsArray[0].curveIndex
+            let curve1SelectedPoint = selectedPointsArray[0]
+            let curve2Index = selectedPointsArray[1].curveIndex
+            let curve2SelectedPoint = selectedPointsArray[1]
+            let curve1BeginningIsSelected = curve1SelectedPoint.pointIndex == 0
+            let curve2BeginningIsSelected = curve2SelectedPoint.pointIndex == 0
+            var curve1 = curves[curve1Index]
+            var curve2 = curves[curve2Index]
+            switch (curve1BeginningIsSelected, curve2BeginningIsSelected) {
+            case (true, true):
+                /*
+                 reverse points in curve2
+                 append to points in curve1
+                 delete curve 2
+                 */
+                curve2.points = curve2.points.reversed() + curve1.points
+                curves[curve2Index] = curve2
+                curves.remove(at: curve1Index)
+            case (false, true):
+                /*
+                 append curve2 points into curve1
+                 delete curve2.
+                 */
+                curve1.points += curve2.points
+                curves[curve1Index] = curve1
+                curves.remove(at: curve2Index)
+            case (true, false):
+                /*
+                 append curve1 points into curve2
+                 delete curve1.
+                 */
+                curve2.points += curve1.points
+                curves[curve2Index] = curve2
+                curves.remove(at: curve1Index)
+            case (false, false):
+                /*
+                 reverse curve2 points
+                 append points to curve1
+                 delete curve2
+                 */
+                curve1.points += curve2.points.reversed()
+                curves[curve1Index] = curve1
+                curves.remove(at: curve2Index)
+            }
+            selectedPoints = []
+        }
+    }
+    
     func toggleCloseCurve() {
         guard curves.count == 1,
         var curve = curves.first else { return }

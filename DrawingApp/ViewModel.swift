@@ -43,28 +43,29 @@ struct ViewModel {
 
         if let target = getGestureLocation(touchLocation: location) {
             switch target.gestureLocation {
-                // The user tapeped on a control point
             case .inControlPoint(let curveIndex, let pointIndex):
-                var shiftKeyPressed: Bool = false
-                #if os(macOS)
-                    shiftKeyPressed = flags & NSEvent.ModifierFlags.shift.rawValue != 0
-                #endif
+                let tappedPoint = SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex)
+                var toggleSelection = false
+//                #if os(macOS)
+//                toggleSelection = flags & NSEvent.ModifierFlags.shift.rawValue != 0
+//                #else
+//                toggleSelection = drawingInfo.drawingMode == .editingCurve
+//                #endif
+                toggleSelection = drawingInfo.drawingMode == .editingCurve
 
-                if drawingInfo.drawingMode == .editingCurve && !drawingInfo.selectedPoints.isEmpty,
-                   let selectedPoint = drawingInfo.selectedPoints.first
-                {
-                    if selectedPoint.curveIndex == curveIndex && selectedPoint.pointIndex == pointIndex {
-                        drawingInfo.drawingMode = .idle
-                        drawingInfo.selectedPoints = []
-                    } else if shiftKeyPressed {
-                        //Shift key pressed
-                        drawingInfo.selectedPoints.insert(SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex))
+                if toggleSelection {
+                    if drawingInfo.selectedPoints.contains(tappedPoint) {
+                        drawingInfo.selectedPoints.remove(tappedPoint)
+                        if drawingInfo.selectedPoints.isEmpty {
+                            drawingInfo.drawingMode = .idle
+                        }
                     } else {
-                        drawingInfo.selectedPoints = [SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex)]
+                        drawingInfo.drawingMode = .editingCurve
+                        drawingInfo.selectedPoints.insert(tappedPoint)
                     }
                 } else {
                     drawingInfo.drawingMode = .editingCurve
-                    drawingInfo.selectedPoints = [SelectedPoint(curveIndex:curveIndex, pointIndex:pointIndex)]
+                    drawingInfo.selectedPoints = [tappedPoint]
                 }
             case .outside: break
             }
@@ -138,7 +139,7 @@ struct ViewModel {
         }
     }
 
-    func handleDragging(_ value: DragGesture.Value) {
+@MainActor    func handleDragging(_ value: DragGesture.Value) {
         guard let lastDragLocation = drawingInfo.lastDragLocation else { return }
 
         switch drawingInfo.drawingMode {

@@ -30,26 +30,26 @@ public typealias  pointsArraysTuple = (
 internal func adjustedGranularity(_ granularity: Int,
                                   startPoint: simd_float2,
                                   endPoint: simd_float2) -> Int {
-  var xDistance = abs(startPoint.x - endPoint.x) / metalWidthPerPixel
-  xDistance *= xDistance
-  var yDistance = abs(startPoint.y - endPoint.y) / metalWidthPerPixel
-  yDistance *= yDistance
-  let distance = xDistance+yDistance
-  var thisGranularity = granularity
-  if distance > 10000 {
-    thisGranularity *=  4
-  }
-  else if distance > 4000 {
-    thisGranularity *=  2
-  }
-  else if distance < 20 {
-    thisGranularity = 0
-  }
-  else if distance < 500  && thisGranularity > 3 {
-    thisGranularity /=  2
-  }
-
-  return thisGranularity
+    var xDistance = abs(startPoint.x - endPoint.x) / metalWidthPerPixel
+    var yDistance = abs(startPoint.y - endPoint.y) / metalWidthPerPixel
+    yDistance *= yDistance
+    xDistance *= xDistance
+    let distance = xDistance+yDistance
+    var thisGranularity = granularity
+    if distance > 250_000 {
+        thisGranularity *=  4
+    }
+    else if distance > 40_000 {
+        thisGranularity +=  4 
+    }
+    else if distance < 20 {
+        thisGranularity = 0
+    }
+    else if distance < 500  && thisGranularity > 3 {
+        thisGranularity /=  2
+    }
+    
+    return thisGranularity
 }
 
 /**
