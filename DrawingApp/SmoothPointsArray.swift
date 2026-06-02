@@ -196,43 +196,43 @@ public func smoothPointsInArray(_ array: [SmoothedCurvePoint],
     let end = makeClosedLoop ? source.count+2 : source.count
   
     for index in start ..< end  {
-    let p0 = source[(index + source.count - 3) % source.count]
-    let p1 = source[(index + source.count - 2) % source.count]
-    let p2 = source[(index + source.count - 1) % source.count]
-    let p3 = source[(index + source.count) % source.count]
-    let thisGranularity: Int
-    if adjustGranularity {
-        thisGranularity = adjustedGranularity(granularity , startPoint: p1.coord, endPoint: p2.coord)
+        let p0 = source[(index + source.count - 3) % source.count]
+        let p1 = source[(index + source.count - 2) % source.count]
+        let p2 = source[(index + source.count - 1) % source.count]
+        let p3 = source[(index + source.count) % source.count]
+        let thisGranularity: Int
+        if adjustGranularity {
+            thisGranularity = adjustedGranularity(granularity , startPoint: p1.coord, endPoint: p2.coord)
+        }
+        else {
+            thisGranularity = granularity
+        }
+        if thisGranularity == 0 {
+            result.append(p2)
+            continue
+        }
+        for i in 1 ... thisGranularity {
+            let t: Float = Float(i) * 1.0 / Float(thisGranularity+1)
+            let tt = t * t
+            let ttt = tt * t
+            
+            var pi = simd_float2.zero;
+            var part1 = 2.0 * p0.coord.x - 5.0 * p1.coord.x + 4.0 * p2.coord.x - p3.coord.x
+            var part2 = (3.0 * p1.coord.x - p0.coord.x - 3.0 * p2.coord.x + p3.coord.x)
+            pi.x = 0.5 * (2.0 * p1.coord.x + (p2.coord.x - p0.coord.x) * t +
+                          part1 * tt +
+                          part2 * ttt)
+            
+            part1 = 2.0 * p0.coord.y - 5.0 * p1.coord.y + 4.0 * p2.coord.y - p3.coord.y
+            part2 = (3.0 * p1.coord.y - p0.coord.y - 3.0 * p2.coord.y + p3.coord.y)
+            pi.y = 0.5 * (2.0 * p1.coord.y + (p2.coord.y - p0.coord.y) * t +
+                          part1 * tt +
+                          part2 * ttt)
+            //TODO: Figure out the correct controlPointIndex and weight to return
+            result.append(SmoothedCurvePoint(coord: pi, controlPointIndex: p1.controlPointIndex, weight: 0))
+        }
+        result.append(p2)
     }
-    else {
-      thisGranularity = granularity
-    }
-     if thisGranularity == 0 {
-      result.append(p2)
-      continue
-    }
-    for i in 1 ... thisGranularity {
-      let t: Float = Float(i) * 1.0 / Float(thisGranularity+1)
-      let tt = t * t
-      let ttt = tt * t
-      
-      var pi = simd_float2.zero;
-      var part1 = 2.0 * p0.coord.x - 5.0 * p1.coord.x + 4.0 * p2.coord.x - p3.coord.x
-      var part2 = (3.0 * p1.coord.x - p0.coord.x - 3.0 * p2.coord.x + p3.coord.x)
-      pi.x = 0.5 * (2.0 * p1.coord.x + (p2.coord.x - p0.coord.x) * t +
-        part1 * tt +
-        part2 * ttt)
-      
-      part1 = 2.0 * p0.coord.y - 5.0 * p1.coord.y + 4.0 * p2.coord.y - p3.coord.y
-      part2 = (3.0 * p1.coord.y - p0.coord.y - 3.0 * p2.coord.y + p3.coord.y)
-      pi.y = 0.5 * (2.0 * p1.coord.y + (p2.coord.y - p0.coord.y) * t +
-        part1 * tt +
-        part2 * ttt)
-        //TODO: Figure out the correct controlPointIndex and weight to return
-        result.append(SmoothedCurvePoint(coord: pi, controlPointIndex: p1.controlPointIndex, weight: 0))
-    }
-    result.append(p2)
-  }
     if !makeClosedLoop {
         result.append(last)
     }
