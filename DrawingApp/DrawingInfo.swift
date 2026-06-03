@@ -44,7 +44,6 @@ func colorToSimdColor(_ color:  Color) -> simd_float4 {
 struct CatmullRomPoint: Codable {
     var coord: simd_float2
     var pointType: PointType
-    var hardness: Float?
     var pointRadius: Float?
 }
 
@@ -54,6 +53,7 @@ struct CatmullRomCurve: Codable {
     var radius: Float
     var outlineColor: simd_float4?
     var points: [CatmullRomPoint]
+    var hardness: Float?
     var isClosedCurve: Bool = false
 
     
@@ -64,19 +64,22 @@ struct CatmullRomCurve: Codable {
         case outlineColor
         case points
         case isClosedCurve
+        case hardness
     }
     init(
         color: simd_float4,
         radius: Float,
         outlineColor: simd_float4? = nil,
         isClosedCurve: Bool = false,
-        points: [CatmullRomPoint]
+        points: [CatmullRomPoint],
+        hardness: Float?
     ) {
         self.color = color
         self.radius = radius
         self.outlineColor = outlineColor
         self.isClosedCurve = isClosedCurve
         self.points = points
+        self.hardness = hardness
     }
     
     init(from decoder: Decoder) throws {
@@ -93,6 +96,10 @@ struct CatmullRomCurve: Codable {
             
             if let isClosedCurve = try container.decodeIfPresent(Bool.self, forKey: .isClosedCurve)   {
                 self.isClosedCurve = isClosedCurve
+            }
+
+            if let hardness = try container.decodeIfPresent(Float.self, forKey: .hardness)   {
+                self.hardness = hardness
             }
 
             if let newPoints = try container.decodeIfPresent([CatmullRomPoint].self, forKey: .points) {
@@ -112,6 +119,7 @@ struct CatmullRomCurve: Codable {
         try container.encode(self.radius, forKey: .radius)
         try container.encode(self.isClosedCurve, forKey: .isClosedCurve)
         try container.encode(self.points, forKey: .points)
+        try container.encode(self.hardness, forKey: .hardness)
     }
 }
 
@@ -540,7 +548,8 @@ final class DrawingInfo: ObservableObject, Codable {
                 radius: curve.radius,
                 outlineColor: curve.outlineColor,
                 isClosedCurve: curve.isClosedCurve,
-                points: points
+                points: points,
+                hardness:  curve.hardness
             ))
         }
 

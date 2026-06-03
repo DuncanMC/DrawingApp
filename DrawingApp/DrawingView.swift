@@ -11,7 +11,7 @@ import Combine
 import simd
 import MetalKit
 
-typealias ViewType = MTKView
+//typealias ViewType = MTKView
 
 #if os(macOS)
 struct DrawingView: NSViewRepresentable {

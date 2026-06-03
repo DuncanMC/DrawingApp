@@ -94,7 +94,8 @@ import Combine
                                 let newCurve = CatmullRomCurve(color: drawingInfo.brushSettings.color,
                                                                radius: drawingInfo.brushSettings.size,
                                                                outlineColor: nil,
-                                                               points: [activePoint, point])
+                                                               points: [activePoint, point],
+                                                               hardness: drawingInfo.brushSettings.hardness)
                                 drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 1)]
                                 drawingInfo.curves.append(newCurve)
                                 drawingInfo.drawingMode = .creatingCurve
@@ -109,7 +110,8 @@ import Combine
                         let newCurve = CatmullRomCurve(color: drawingInfo.brushSettings.color,
                                                        radius: drawingInfo.brushSettings.size,
                                                        outlineColor: nil,
-                                                       points: [point])
+                                                       points: [point],
+                                                       hardness: drawingInfo.brushSettings.hardness)
                         drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 0)]
 
                         drawingInfo.curves.append(newCurve)

@@ -79,7 +79,6 @@ struct ViewModel {
                 let newPoint = CatmullRomPoint(
                     coord: newlocation,
                                                pointType: .smooth,
-                    hardness: drawingInfo.brushSettings.hardness,
                     pointRadius: drawingInfo.brushSettings.size)
 
                 if selectedPoint.pointIndex == thisCurve.points.count - 1 {
@@ -98,7 +97,8 @@ struct ViewModel {
                     let newCurve = CatmullRomCurve(color: thisCurve.color,
                                                    radius: drawingInfo.brushSettings.size,
                                                    outlineColor: nil,
-                                                   points: [firstPoint, newPoint])
+                                                   points: [firstPoint, newPoint],
+                                                   hardness: drawingInfo.brushSettings.hardness)
                     drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 1)]
                     drawingInfo.curves.append(newCurve)
                     drawingInfo.drawingMode = .editingCurve
@@ -108,12 +108,13 @@ struct ViewModel {
                 print("Single-tap not on a known location.")
                 
                 let coords = viewPointToMetal(location)
-                let point =  CatmullRomPoint(coord: coords, pointType: .smooth, hardness: 1.0, pointRadius: 10.0)
+                let point =  CatmullRomPoint(coord: coords, pointType: .smooth, pointRadius: 10.0)
 
                 let newCurve = CatmullRomCurve(color: drawingInfo.brushSettings.color,
                                                radius: drawingInfo.brushSettings.size,
                                                outlineColor: nil,
-                                               points: [point])
+                                               points: [point],
+                                               hardness: drawingInfo.brushSettings.hardness)
                 drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 0)]
                 drawingInfo.curves.append(newCurve)
                 drawingInfo.drawingMode = .editingCurve
@@ -162,7 +163,6 @@ struct ViewModel {
             let newPoint = CatmullRomPoint(
                 coord: newlocation,
                 pointType: .smooth,
-                hardness: drawingInfo.brushSettings.hardness,
                 pointRadius: drawingInfo.brushSettings.size)
             drawingInfo.curves[curveIndex].points.append(newPoint)
             drawingInfo.lastDragLocation = value.location

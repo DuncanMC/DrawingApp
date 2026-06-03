@@ -407,13 +407,6 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                                 // If this is a right-hand turn
                                 if crossProduct < 0 {
                                     let squaredDistance = distanceSquaredBetween(p1: leftIntersection, p2: secondLeftOne)
-//                                    if squaredDistance > (radius * radius) * (miterLimit * miterLimit) / 4.0 {
-//                                        leftVertexes += [
-//                                            Vertex(position: secondLeftOne, alpha: 0),
-//                                            Vertex(position: adjustedMiddle, alpha: maxAlpha)
-//                                        ]
-//                                        leftIntersection = secondLeftTwo
-//                                    }
                                     leftVertexes += [
                                         Vertex(position: secondLeftOne, alpha: 0),
                                         Vertex(position: adjustedMiddle, alpha: maxAlpha)
@@ -430,8 +423,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                                     }
                                 }
                             }
-                            
-                            
+
                             if distanceSquaredBetween(p1: secondRightOne, p2: secondRightTwo) < widthPerPixel * widthPerPixel * 0.04 {
                                 // don't use the right intersection
                                 rightIntersection = midpoint(p1: secondRightOne, p2: secondRightTwo)
@@ -440,13 +432,6 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                                 if crossProduct > 0
                                 {
                                     let squaredDistance = distanceSquaredBetween(p1: rightIntersection, p2: secondRightOne)
-//                                    if squaredDistance > (radius * radius) * (miterLimit * miterLimit) / 4.0 {
-//                                        rightVertexes += [
-//                                            Vertex(position: secondRightOne, alpha: 0),
-//                                            Vertex(position: adjustedMiddle, alpha: maxAlpha)
-//                                        ]
-//                                        rightIntersection = secondRightTwo
-//                                    }
                                     rightVertexes += [
                                         Vertex(position: secondRightOne, alpha: 0),
                                         Vertex(position: adjustedMiddle, alpha: maxAlpha)
@@ -461,10 +446,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                                     }
                                 }
                                 
-                                //                        if squaredDistance > (radius * radius) * (miterLimit * miterLimit) / 4.0 {
-                                //                                rightIntersection = midpoint(p1: firstLeft, p2: secondLeftTwo)
                             }
-                            //                        }
                             
                             //Testing
                             rightIntersections.append(rightIntersection)
@@ -486,7 +468,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 uniforms = Uniforms(
                     color: curve.color,
                     drawWithTetxure: false,
-                    orthoMatrix: orthoMatrix,ß
+                    orthoMatrix: orthoMatrix,
                     hardness: drawingInfo.hardness
                 )
                 
