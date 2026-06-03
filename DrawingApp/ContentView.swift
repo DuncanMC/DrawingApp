@@ -35,7 +35,7 @@ import Combine
                     viewModel.handleDoubleTap(location: location)
                 },
                 onDragBegan: { location, event in
-                    viewModel.handleDragBegan(location: location, modifiers: event.modifierKeys)
+                    viewModel.handleDragBegan(location: location, event: event)
                 },
                 onDragChanged: { location, event in
                     viewModel.handleDragChanged(location: location, event: event)

@@ -506,9 +506,9 @@ final class DrawingInfo: ObservableObject, Codable {
                 ($0.curveIndex, $0.pointIndex) > ($1.curveIndex, $1.pointIndex)
             }
                 
-            selectedPointsArray.forEach {
-                print($0)
-            }
+//            selectedPointsArray.forEach {
+//                print($0)
+//            }
             for aPoint in selectedPointsArray {
                 var curve = curves[aPoint.curveIndex]
                 let pointIndex = aPoint.pointIndex
@@ -574,7 +574,11 @@ final class DrawingInfo: ObservableObject, Codable {
     }
     
     func selectAll() {
-        print("In \(#function)")
+        //print("In \(#function)")
+        guard curves.count > 0 else {
+            selectedPoints = []
+            return
+        }
         var curveIndexes = [Int]()
         if !selectedPoints.isEmpty {
             for point in selectedPoints {

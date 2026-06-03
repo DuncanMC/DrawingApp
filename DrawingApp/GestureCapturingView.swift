@@ -72,6 +72,7 @@ import AppKit
 
 class GestureCapturingView: NSView {
     var eventRecognizers: [GestureRecognizer] = []
+    private var forceTouchPressure: CGFloat?
 
     override var acceptsFirstResponder: Bool { true }
     override var isFlipped: Bool { true }
@@ -81,6 +82,7 @@ class GestureCapturingView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        forceTouchPressure = nil
         let gestureEvent = makeGestureEvent(event: event)
         for r in eventRecognizers { r.touchBegan(gestureEvent) }
     }
@@ -94,14 +96,22 @@ class GestureCapturingView: NSView {
     override func mouseUp(with event: NSEvent) {
         let gestureEvent = makeGestureEvent(event: event)
         for r in eventRecognizers { r.touchEnded(gestureEvent) }
+        forceTouchPressure = nil
+    }
+
+    override func pressureChange(with event: NSEvent) {
+        forceTouchPressure = CGFloat(event.pressure)
     }
 
     private func makeGestureEvent(event: NSEvent) -> GestureEvent {
         let location = convert(event.locationInWindow, from: nil)
         let modifiers = GestureModifierKeys(nsEventFlags: event.modifierFlags)
-        let pressure: CGFloat? = event.subtype == .tabletPoint || event.pressure > 0
-            ? CGFloat(event.pressure)
-            : nil
+        let pressure: CGFloat?
+        if event.subtype == .tabletPoint {
+            pressure = CGFloat(event.pressure)
+        } else {
+            pressure = forceTouchPressure
+        }
         return GestureEvent(
             location: location,
             timestamp: event.timestamp,
