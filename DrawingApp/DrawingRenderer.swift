@@ -257,9 +257,10 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         
         func computeRadiusForPoint(_ point: SmoothedCurvePoint, inCurve curve: CatmullRomCurve) -> Float {
             
-            guard point.controlPointIndex < curve.points.count,
-                  let startingRadius: Float = curve.points[point.controlPointIndex].pointRadius
+            guard point.controlPointIndex < curve.points.count
             else { return drawingInfo.brushSettings.size }
+            let startingRadius: Float = curve.points[point.controlPointIndex].pointRadius ?? drawingInfo.brushSettings.size
+
             let endingIndex: Int = point.controlPointIndex + 1 < curve.points.count ? point.controlPointIndex + 1 : point.controlPointIndex
 
             let endingRadius: Float = curve.points[endingIndex].pointRadius ?? drawingInfo.brushSettings.size

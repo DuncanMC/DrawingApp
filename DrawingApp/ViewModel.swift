@@ -203,7 +203,7 @@ struct ViewModel {
         }
     }
 
-    func handleDragChanged(location: CGPoint) {
+    func handleDragChanged(location: CGPoint, event: GestureEvent) {
         guard let lastDragLocation = drawingInfo.lastDragLocation else { return }
 
         switch drawingInfo.drawingMode {
@@ -221,12 +221,26 @@ struct ViewModel {
             }
 
             let newlocation = viewPointToMetal(location)
+            let brushSize: Float?
+            if let pressure = event.pressure,
+                let pencilData = event.pencilData
+            {
+                let force = pressure / sin(pencilData.altitudeAngle)
+                print("Dragging, force = \(force). altitudeAngle = \(pencilData.altitudeAngle)")
+                print("Dragging, trackpad pressure = \(force)")
+                brushSize = Float(force) * (maxThickness - minThickness) + minThickness
+            } else {
+                brushSize = drawingInfo.brushSettings.size
+            }
+
             let newPoint = CatmullRomPoint(
                 coord: newlocation,
                 pointType: .smooth,
-                pointRadius: drawingInfo.brushSettings.size)
+                pointRadius: brushSize)
             drawingInfo.curves[curveIndex].points.append(newPoint)
             drawingInfo.lastDragLocation = location
+            //MARK: - Force handling
+            //MARK: -
         case .idle:
             break
         case .editingCurve:

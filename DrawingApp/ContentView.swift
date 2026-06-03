@@ -38,7 +38,7 @@ import Combine
                     viewModel.handleDragBegan(location: location, modifiers: event.modifierKeys)
                 },
                 onDragChanged: { location, event in
-                    viewModel.handleDragChanged(location: location)
+                    viewModel.handleDragChanged(location: location, event: event)
                 },
                 onDragEnded: { location, event in
                     viewModel.handleDragEnded()
@@ -61,7 +61,7 @@ import Combine
 
                 VStack(alignment: .center)   {
                     Text("Thickness")
-                    Slider(value: $drawingInfo.currentThickness, in: 2...120)
+                    Slider(value: $drawingInfo.currentThickness, in: minThickness...maxThickness)
                 }
                 .frame(maxWidth: 150)
                 .padding(.trailing, 10)

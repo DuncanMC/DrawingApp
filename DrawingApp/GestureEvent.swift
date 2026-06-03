@@ -17,7 +17,6 @@ struct GestureModifierKeys: OptionSet, Sendable {
 }
 
 struct PencilData {
-    let force: CGFloat
     let altitudeAngle: CGFloat
     let azimuthAngle: CGFloat
 }
@@ -26,6 +25,7 @@ struct GestureEvent {
     let location: CGPoint
     let timestamp: TimeInterval
     let modifierKeys: GestureModifierKeys
+    let pressure: CGFloat?
     let pencilData: PencilData?
 }
 

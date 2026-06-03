@@ -40,8 +40,11 @@ class GestureCapturingView: UIView {
 
     private func makeGestureEvent(touch: UITouch) -> GestureEvent {
         let location = touch.location(in: self)
-        let pencil: PencilData? = touch.type == .pencil ? PencilData(
-            force: touch.force,
+        let isPencil = touch.type == .pencil
+        let pressure: CGFloat? = isPencil && touch.maximumPossibleForce > 0
+            ? touch.force / touch.maximumPossibleForce
+            : nil
+        let pencil: PencilData? = isPencil ? PencilData(
             altitudeAngle: touch.altitudeAngle,
             azimuthAngle: touch.azimuthAngle(in: self)
         ) : nil
@@ -49,6 +52,7 @@ class GestureCapturingView: UIView {
             location: location,
             timestamp: touch.timestamp,
             modifierKeys: [],
+            pressure: pressure,
             pencilData: pencil
         )
     }
@@ -95,10 +99,14 @@ class GestureCapturingView: NSView {
     private func makeGestureEvent(event: NSEvent) -> GestureEvent {
         let location = convert(event.locationInWindow, from: nil)
         let modifiers = GestureModifierKeys(nsEventFlags: event.modifierFlags)
+        let pressure: CGFloat? = event.subtype == .tabletPoint || event.pressure > 0
+            ? CGFloat(event.pressure)
+            : nil
         return GestureEvent(
             location: location,
             timestamp: event.timestamp,
             modifierKeys: modifiers,
+            pressure: pressure,
             pencilData: nil
         )
     }

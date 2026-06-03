@@ -128,6 +128,8 @@ struct SelectedPoint: Hashable {
     let pointIndex: Int
 }
 
+let minThickness: Float = 2.0
+let maxThickness: Float = 120.0
 
 final class DrawingInfo: ObservableObject, Codable {
     // Items saved with Codable
