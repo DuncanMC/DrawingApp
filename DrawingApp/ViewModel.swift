@@ -7,7 +7,6 @@
 
 import Foundation
 import SwiftUI
-import Combine
 
 enum GestureLocation: CustomStringConvertible {
     case inControlPoint(curveIndex: Int, pointIndex: Int)
@@ -39,19 +38,13 @@ struct ViewModel {
         }
         return result
     }
-    func handleTap(location: CGPoint, flags: UInt = 0) {
+    func handleTap(location: CGPoint, modifiers: GestureModifierKeys = []) {
 
         if let target = getGestureLocation(touchLocation: location) {
             switch target.gestureLocation {
             case .inControlPoint(let curveIndex, let pointIndex):
                 let tappedPoint = SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex)
-                var toggleSelection = false
-//                #if os(macOS)
-//                toggleSelection = flags & NSEvent.ModifierFlags.shift.rawValue != 0
-//                #else
-//                toggleSelection = drawingInfo.drawingMode == .editingCurve
-//                #endif
-                toggleSelection = drawingInfo.drawingMode == .editingCurve
+                let toggleSelection = drawingInfo.drawingMode == .editingCurve
 
                 if toggleSelection {
                     if drawingInfo.selectedPoints.contains(tappedPoint) {
@@ -140,58 +133,148 @@ struct ViewModel {
         }
     }
 
-@MainActor    func handleDragging(_ value: DragGesture.Value) {
+    func handleDragBegan(location: CGPoint, modifiers: GestureModifierKeys) {
+        drawingInfo.registerUndo()
+        drawingInfo.suppressUndo = true
+
+        if let target = getGestureLocation(touchLocation: location) {
+            drawingInfo.drawingMode = .editingCurve
+            switch target.gestureLocation {
+            case .inControlPoint(let curveIndex, let pointIndex):
+                drawingInfo.isDragging = true
+                drawingInfo.lastDragLocation = location
+                drawingInfo.draggingState = target.gestureLocation
+                let newPoint = SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex)
+                if modifiers.contains(.shift) {
+                    drawingInfo.selectedPoints.insert(newPoint)
+                } else if !drawingInfo.selectedPoints.contains(newPoint) {
+                    drawingInfo.selectedPoints = [newPoint]
+                }
+            default:
+                break
+            }
+        } else {
+            let coords = viewPointToMetal(location)
+
+            if drawingInfo.drawingMode == .editingCurve,
+               drawingInfo.selectedPoints.count == 1 {
+                let activeCurveIndex = drawingInfo.selectedPoints.first!.curveIndex
+                let activePointIndex = drawingInfo.selectedPoints.first!.pointIndex
+                let point = CatmullRomPoint(coord: coords, pointType: .smooth)
+
+                switch activePointIndex {
+                case 0:
+                    drawingInfo.curves[activeCurveIndex].points.reverse()
+                    fallthrough
+                case drawingInfo.curves[activeCurveIndex].points.count - 1:
+                    drawingInfo.drawingMode = .creatingCurve
+                    drawingInfo.curves[activeCurveIndex].points.append(point)
+                    drawingInfo.selectedPoints = [SelectedPoint(curveIndex: activeCurveIndex, pointIndex: drawingInfo.curves[activeCurveIndex].points.count - 1)]
+                    drawingInfo.isDragging = true
+                    drawingInfo.lastDragLocation = location
+                    return
+                default:
+                    let activePoint = drawingInfo.curves[activeCurveIndex].points[activePointIndex]
+                    let newCurve = CatmullRomCurve(color: drawingInfo.brushSettings.color,
+                                                   radius: drawingInfo.brushSettings.size,
+                                                   outlineColor: nil,
+                                                   points: [activePoint, point],
+                                                   hardness: drawingInfo.brushSettings.hardness)
+                    drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 1)]
+                    drawingInfo.curves.append(newCurve)
+                    drawingInfo.drawingMode = .creatingCurve
+                    drawingInfo.lastDragLocation = location
+                    drawingInfo.isDragging = true
+                    return
+                }
+            }
+
+            let point = CatmullRomPoint(coord: coords, pointType: .smooth)
+            let newCurve = CatmullRomCurve(color: drawingInfo.brushSettings.color,
+                                           radius: drawingInfo.brushSettings.size,
+                                           outlineColor: nil,
+                                           points: [point],
+                                           hardness: drawingInfo.brushSettings.hardness)
+            drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 0)]
+            drawingInfo.curves.append(newCurve)
+            drawingInfo.drawingMode = .creatingCurve
+            drawingInfo.lastDragLocation = location
+            drawingInfo.isDragging = true
+        }
+    }
+
+    func handleDragChanged(location: CGPoint) {
         guard let lastDragLocation = drawingInfo.lastDragLocation else { return }
 
         switch drawingInfo.drawingMode {
-            
+
         case .creatingCurve:
-            
-            guard drawingInfo.selectedPoints.count == 1 else
-            {
+
+            guard drawingInfo.selectedPoints.count == 1 else {
                 print("No active curve")
                 return
             }
             let selectedPoint = drawingInfo.selectedPoints.first!
             let curveIndex = selectedPoint.curveIndex
-            guard  distanceSquardBetween(p1: lastDragLocation, p2: value.location) > 9 else {
-                //print("deltaX = \(deltaX), deltaY = \(deltaY). Exiting")
+            guard distanceSquardBetween(p1: lastDragLocation, p2: location) > 9 else {
                 return
             }
-            
-            let newlocation = viewPointToMetal(value.location)
+
+            let newlocation = viewPointToMetal(location)
             let newPoint = CatmullRomPoint(
                 coord: newlocation,
                 pointType: .smooth,
                 pointRadius: drawingInfo.brushSettings.size)
             drawingInfo.curves[curveIndex].points.append(newPoint)
-            drawingInfo.lastDragLocation = value.location
+            drawingInfo.lastDragLocation = location
         case .idle:
             break
         case .editingCurve:
-            
-            let deltaX = -2.0 * Float((lastDragLocation.x - value.location.x) / drawingInfo.imageSize.width)
-            let deltaY = 2.0 * Float((lastDragLocation.y - value.location.y) / drawingInfo.imageSize.height)
-            
+
+            let deltaX = -2.0 * Float((lastDragLocation.x - location.x) / drawingInfo.imageSize.width)
+            let deltaY = 2.0 * Float((lastDragLocation.y - location.y) / drawingInfo.imageSize.height)
+
             switch drawingInfo.draggingState {
             case .inControlPoint:
                 for aPoint in drawingInfo.selectedPoints {
-                    
                     let theCurve = drawingInfo.curves[aPoint.curveIndex]
                     var thePoint = theCurve.points[aPoint.pointIndex]
                     thePoint.coord.x += deltaX
                     thePoint.coord.y += deltaY
                     drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex] = thePoint
                 }
-                drawingInfo.lastDragLocation = value.location
-
+                drawingInfo.lastDragLocation = location
             default:
                 break
             }
         }
+    }
 
-
+    func handleDragEnded() {
+        defer {
+            drawingInfo.suppressUndo = false
         }
+        if drawingInfo.drawingMode == .creatingCurve {
+            let activeCurveIndex = drawingInfo.selectedPoints.first!.curveIndex
+            drawingInfo.drawingMode = .editingCurve
+            let curvePointsCount = drawingInfo.curves[activeCurveIndex].points.count
+            if curvePointsCount == 1 {
+                drawingInfo.selectedPoints = [SelectedPoint(curveIndex: activeCurveIndex, pointIndex: 0)]
+            } else {
+                drawingInfo.selectedPoints = []
+                let curve = drawingInfo.curves[activeCurveIndex]
+                let paredCurve = parePoints(curve, autoTerminate: true, maxError: 0.01)
+                let startingPointCount = curve.points.count
+                let paredCurvePointCount = paredCurve.points.count
+                let percent = Float(startingPointCount - paredCurvePointCount) / Float(startingPointCount) * 100
+                let percentString = String(format: "%.1f", percent)
+                print("pared curve from \(curve.points.count) to \(paredCurve.points.count). \(percentString)% reduction.")
+                drawingInfo.curves[activeCurveIndex] = paredCurve
+            }
+        }
+        drawingInfo.isDragging = false
+        drawingInfo.lastDragLocation = nil
+    }
 
     func handleDeletePoint() {
         drawingInfo.deletePoints()

@@ -218,9 +218,6 @@ final class DrawingInfo: ObservableObject, Codable {
     var lastDragLocation: CGPoint? = nil
     var isDragging: Bool = false
     var draggingState: GestureLocation? = nil
-    #if os(macOS)
-    var lastMouseDownFlags: NSEvent.ModifierFlags = []
-    #endif
     
     /*
      public typealias  pointsArraysTuple = (
