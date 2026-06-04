@@ -19,9 +19,11 @@ struct DrawingAppApp: App {
         .commands {
             DrawingCommands()
         }
-        Settings {
-            SettingsView()
-        }
+        #if os(macOS)
+            Settings {
+                SettingsView()
+            }
+        #endif
 
     }
 }
