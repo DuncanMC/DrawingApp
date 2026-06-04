@@ -42,6 +42,9 @@ import Combine
                     onDoubleTap: { location, event in
                         viewModel.handleDoubleTap(location: location)
                     },
+                    onTwoFingerTap: { location, event in
+                        viewModel.handleTwoFingerTap(location: location)
+                    },
                     onDragBegan: { location, event in
                         viewModel.handleDragBegan(location: location, event: event)
                     },
@@ -50,6 +53,15 @@ import Combine
                     },
                     onDragEnded: { location, event in
                         viewModel.handleDragEnded()
+                    },
+                    onPinchRotateBegan: { center in
+                        viewModel.handlePinchRotateBegan(center: center)
+                    },
+                    onPinchRotateChanged: { scale, rotation, center in
+                        viewModel.handlePinchRotateChanged(scale: scale, rotation: rotation, center: center)
+                    },
+                    onPinchRotateEnded: {
+                        viewModel.handlePinchRotateEnded()
                     }
                 )
                 .frame(width: DrawingInfo.defaultSize.width, height: DrawingInfo.defaultSize.height)

@@ -15,9 +15,13 @@ struct DrawingView: NSViewRepresentable {
 
     var onTap: ((CGPoint, GestureEvent) -> Void)?
     var onDoubleTap: ((CGPoint, GestureEvent) -> Void)?
+    var onTwoFingerTap: ((CGPoint, GestureEvent) -> Void)?
     var onDragBegan: ((CGPoint, GestureEvent) -> Void)?
     var onDragChanged: ((CGPoint, GestureEvent) -> Void)?
     var onDragEnded: ((CGPoint, GestureEvent) -> Void)?
+    var onPinchRotateBegan: ((CGPoint) -> Void)?
+    var onPinchRotateChanged: ((CGFloat, CGFloat, CGPoint) -> Void)?
+    var onPinchRotateEnded: (() -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(drawingInfo: drawingInfo)
@@ -49,24 +53,36 @@ struct DrawingView: NSViewRepresentable {
 
         container.eventRecognizers = [tap, drag]
 
+        container.onPinchRotateBegan = { [weak coord] center in coord?.onPinchRotateBegan?(center) }
+        container.onPinchRotateChanged = { [weak coord] scale, rotation, center in coord?.onPinchRotateChanged?(scale, rotation, center) }
+        container.onPinchRotateEnded = { [weak coord] in coord?.onPinchRotateEnded?() }
+
         return container
     }
 
     func updateNSView(_ nsView: GestureCapturingView, context: Context) {
         context.coordinator.onTap = onTap
         context.coordinator.onDoubleTap = onDoubleTap
+        context.coordinator.onTwoFingerTap = onTwoFingerTap
         context.coordinator.onDragBegan = onDragBegan
         context.coordinator.onDragChanged = onDragChanged
         context.coordinator.onDragEnded = onDragEnded
+        context.coordinator.onPinchRotateBegan = onPinchRotateBegan
+        context.coordinator.onPinchRotateChanged = onPinchRotateChanged
+        context.coordinator.onPinchRotateEnded = onPinchRotateEnded
     }
 
     class Coordinator {
         let renderer: DrawingRenderer
         var onTap: ((CGPoint, GestureEvent) -> Void)?
         var onDoubleTap: ((CGPoint, GestureEvent) -> Void)?
+        var onTwoFingerTap: ((CGPoint, GestureEvent) -> Void)?
         var onDragBegan: ((CGPoint, GestureEvent) -> Void)?
         var onDragChanged: ((CGPoint, GestureEvent) -> Void)?
         var onDragEnded: ((CGPoint, GestureEvent) -> Void)?
+        var onPinchRotateBegan: ((CGPoint) -> Void)?
+        var onPinchRotateChanged: ((CGFloat, CGFloat, CGPoint) -> Void)?
+        var onPinchRotateEnded: (() -> Void)?
 
         init(drawingInfo: DrawingInfo) {
             renderer = DrawingRenderer(drawingInfo: drawingInfo)
@@ -81,9 +97,13 @@ struct DrawingView: UIViewRepresentable {
 
     var onTap: ((CGPoint, GestureEvent) -> Void)?
     var onDoubleTap: ((CGPoint, GestureEvent) -> Void)?
+    var onTwoFingerTap: ((CGPoint, GestureEvent) -> Void)?
     var onDragBegan: ((CGPoint, GestureEvent) -> Void)?
     var onDragChanged: ((CGPoint, GestureEvent) -> Void)?
     var onDragEnded: ((CGPoint, GestureEvent) -> Void)?
+    var onPinchRotateBegan: ((CGPoint) -> Void)?
+    var onPinchRotateChanged: ((CGFloat, CGFloat, CGPoint) -> Void)?
+    var onPinchRotateEnded: (() -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(drawingInfo: drawingInfo)
@@ -110,12 +130,20 @@ struct DrawingView: UIViewRepresentable {
         tap.onTap = { [weak coord] loc, event in coord?.onTap?(loc, event) }
         tap.onDoubleTap = { [weak coord] loc, event in coord?.onDoubleTap?(loc, event) }
 
+        let twoFingerTap = TwoFingerTapRecognizer()
+        twoFingerTap.onTwoFingerTap = { [weak coord] loc, event in coord?.onTwoFingerTap?(loc, event) }
+
+        let pinchRotate = PinchRotateRecognizer()
+        pinchRotate.onPinchRotateBegan = { [weak coord] center in coord?.onPinchRotateBegan?(center) }
+        pinchRotate.onPinchRotateChanged = { [weak coord] scale, rotation, center in coord?.onPinchRotateChanged?(scale, rotation, center) }
+        pinchRotate.onPinchRotateEnded = { [weak coord] in coord?.onPinchRotateEnded?() }
+
         let drag = DragRecognizer()
         drag.onDragBegan = { [weak coord] loc, event in coord?.onDragBegan?(loc, event) }
         drag.onDragChanged = { [weak coord] loc, event in coord?.onDragChanged?(loc, event) }
         drag.onDragEnded = { [weak coord] loc, event in coord?.onDragEnded?(loc, event) }
 
-        container.eventRecognizers = [tap, drag]
+        container.eventRecognizers = [twoFingerTap, pinchRotate, tap, drag]
 
         return container
     }
@@ -123,18 +151,26 @@ struct DrawingView: UIViewRepresentable {
     func updateUIView(_ uiView: GestureCapturingView, context: Context) {
         context.coordinator.onTap = onTap
         context.coordinator.onDoubleTap = onDoubleTap
+        context.coordinator.onTwoFingerTap = onTwoFingerTap
         context.coordinator.onDragBegan = onDragBegan
         context.coordinator.onDragChanged = onDragChanged
         context.coordinator.onDragEnded = onDragEnded
+        context.coordinator.onPinchRotateBegan = onPinchRotateBegan
+        context.coordinator.onPinchRotateChanged = onPinchRotateChanged
+        context.coordinator.onPinchRotateEnded = onPinchRotateEnded
     }
 
     class Coordinator {
         let renderer: DrawingRenderer
         var onTap: ((CGPoint, GestureEvent) -> Void)?
         var onDoubleTap: ((CGPoint, GestureEvent) -> Void)?
+        var onTwoFingerTap: ((CGPoint, GestureEvent) -> Void)?
         var onDragBegan: ((CGPoint, GestureEvent) -> Void)?
         var onDragChanged: ((CGPoint, GestureEvent) -> Void)?
         var onDragEnded: ((CGPoint, GestureEvent) -> Void)?
+        var onPinchRotateBegan: ((CGPoint) -> Void)?
+        var onPinchRotateChanged: ((CGFloat, CGFloat, CGPoint) -> Void)?
+        var onPinchRotateEnded: (() -> Void)?
 
         init(drawingInfo: DrawingInfo) {
             renderer = DrawingRenderer(drawingInfo: drawingInfo)

@@ -27,6 +27,8 @@ struct Uniforms {
     bool drawWithTexture;
     float4x4 orthoMatrix;
     float hardness;
+    float scale;
+    float2 textureOffset;
 };
 
 // ---- Vertex shader
@@ -45,9 +47,10 @@ vertex VertexOut vertex_main(const device VertexIn* vert [[buffer(0)]],
 fragment float4 fragment_main(VertexOut in [[stage_in]],
                               texture2d<float> tex [[texture(0)]],
                               constant Uniforms& uniforms [[buffer(1)]]) {
-    constexpr sampler s(address::clamp_to_edge, filter::linear);
+    constexpr sampler s(s_address::repeat, t_address::repeat, filter::linear);
     if (uniforms.drawWithTexture) {
-        float2 coord = in.texCoord;
+        float2 texSize = float2(tex.get_width(), tex.get_height());
+        float2 coord = (in.position.xy + uniforms.textureOffset) / (texSize * uniforms.scale);
         return tex.sample(s, coord);
     } else {
         float4 color = uniforms.color;

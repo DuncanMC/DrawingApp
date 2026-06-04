@@ -26,6 +26,8 @@ struct GestureEvent {
     let modifierKeys: GestureModifierKeys
     let pressure: CGFloat?
     let pencilData: PencilData?
+    var touchCount: Int = 1
+    var secondTouchLocation: CGPoint? = nil
 }
 
 #if os(macOS)

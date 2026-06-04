@@ -345,6 +345,9 @@ final class DrawingInfo: ObservableObject, Codable {
         return true
     }
     
+    @Published var marchingAnts: Bool = true
+    @Published var texture: MTLTexture?
+
     var enableJoinCurves: Bool {
         // Only enable the join curves menu item if exactly 2 points are selected
         // and they are the beginning or end of different curves

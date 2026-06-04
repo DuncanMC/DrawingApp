@@ -58,6 +58,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         let drawWithTetxure: Bool   // Tells shader to draw with texture rather than color
         let orthoMatrix: float4x4
         let hardness: Float
+        let scale: Float
+        let textureOffset: simd_float2
     }
 
     init(drawingInfo: DrawingInfo) {
@@ -83,6 +85,35 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         }
         commandQueue = device.makeCommandQueue()
         makePipeline()
+        loadTexture()
+    }
+    
+    func loadTexture() {
+        let bundle = Bundle.main
+        guard let url = bundle.url(forResource: "Checkerboard", withExtension: "png"),
+        let imageData = try? Data(contentsOf: url) else {
+            print("Can't load image data")
+            return
+        }
+        let loader = MTKTextureLoader(device: device)
+        do {
+            let options: [MTKTextureLoader.Option: Any] = [.origin:MTKTextureLoader.Origin.bottomLeft, .generateMipmaps: true]
+            let tex = try loader.newTexture(data: imageData, options: options)
+            Task { @MainActor in
+                drawingInfo.texture = tex
+            }
+            let hasAlpha =
+            tex.pixelFormat == .rgba8Unorm ||
+            tex.pixelFormat == .rgba8Unorm_srgb ||
+            tex.pixelFormat == .bgra8Unorm ||
+            tex.pixelFormat == .bgra8Unorm_srgb ||
+            tex.pixelFormat == .rgba16Float ||
+            tex.pixelFormat == .rgba32Float
+            //                    print("[ScopeRenderer] Loaded texture pixel format: \(tex.pixelFormat) | hasAlpha: \(hasAlpha)")
+        } catch {
+            print("Error loading texture: \(error)")
+        }
+
     }
     
     func makePipeline() {
@@ -166,6 +197,15 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         scale = Float(mtkView?.contentScaleFactor ?? 1)
 #endif
         let orthoMatrix = matrix_identity_float4x4
+        let textureOffset: simd_float2
+        if drawingInfo.marchingAnts {
+            let time = Float(CACurrentMediaTime())
+            let speed: Float = 10
+            let offset = time * speed
+            textureOffset = simd_float2(offset, offset)
+        } else {
+            textureOffset = simd_float2(0, 0)
+        }
         
         // Reset ring write offset at the start of a frame region
         // Simple partitioning by frame without explicit GPU sync. For robust sync, use in-flight semaphores.
@@ -185,6 +225,9 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         descriptor.colorAttachments[0].loadAction =  MTLLoadAction.clear
         let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)!
         encoder.setRenderPipelineState(pipeline)
+        if let texture = drawingInfo.texture {
+            encoder.setFragmentTexture(texture, index: 0)
+        }
 
         // Drawing code goes here:
         
@@ -192,7 +235,9 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             color: MetalColors.black,
             drawWithTetxure: false,
             orthoMatrix: orthoMatrix,
-            hardness: drawingInfo.hardness
+            hardness: drawingInfo.hardness,
+            scale: scale,
+            textureOffset: textureOffset
         )
 
         
@@ -480,9 +525,11 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     color: curve.color,
                     drawWithTetxure: false,
                     orthoMatrix: orthoMatrix,
-                    hardness: drawingInfo.hardness
+                    hardness: drawingInfo.hardness,
+                    scale: scale,
+                    textureOffset: textureOffset
                 )
-                
+
                 if leftVertexes.count >= 3 {
                     // Draw the left side triangle strips
                     let verticiesSize = MemoryLayout<Vertex>.stride * leftVertexes.count
@@ -501,7 +548,9 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     color: curve.color,
                     drawWithTetxure: false,
                     orthoMatrix: orthoMatrix,
-                    hardness: drawingInfo.hardness
+                    hardness: drawingInfo.hardness,
+                    scale: scale,
+                    textureOffset: textureOffset
                 )
 
                 if rightVertexes.count >= 3 {
@@ -525,7 +574,9 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                         color: MetalColors.black,
                         drawWithTetxure: false,
                         orthoMatrix: orthoMatrix,
-                        hardness: 1.0
+                        hardness: 1.0,
+                        scale: scale,
+                        textureOffset: textureOffset
                     )
                     if !leftLines.isEmpty {
                         
@@ -549,7 +600,9 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                             color: MetalColors.black,
                             drawWithTetxure: false,
                             orthoMatrix: orthoMatrix,
-                            hardness: 1.0
+                            hardness: 1.0,
+                            scale: scale,
+                            textureOffset: textureOffset
                         )
                         let verticiesSize = MemoryLayout<Vertex>.stride * rightLines.count
                         let offset = allocateVerticiesInRing(byteCount: verticiesSize)
@@ -570,7 +623,9 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                             color: simd_float4(1, 0.0, 0.0, 0.6),  // 75% opaque darkish red.
                             drawWithTetxure: false,
                             orthoMatrix: orthoMatrix,
-                            hardness: 1.0
+                            hardness: 1.0,
+                            scale: scale,
+                            textureOffset: textureOffset
                         )
                         
                         let verticiesSize = MemoryLayout<Vertex>.stride * cornerTriangles.count
@@ -634,8 +689,10 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 for aSelectedPoint in drawingInfo.selectedPoints {
                     let curve = curves[aSelectedPoint.curveIndex]
                     let point = curve.points[aSelectedPoint.pointIndex].coord
-                    drawRing(center: point, color: MetalColors.white, radius: 10, lineThickness: 4)
-                    drawRing(center: point, color: MetalColors.black, radius: 10, lineThickness: 2)
+//                    drawRing(center: point, color: MetalColors.white, radius: 10, lineThickness: 4, drawWithTexture: true)
+//                    drawRing(center: point, color: MetalColors.black, radius: 10, lineThickness: 2, drawWithTexture: true)
+//                    drawRing(center: point, color: MetalColors.white, radius: 10, lineThickness: 4)
+                    drawRing(center: point, color: MetalColors.black, radius: 10, lineThickness: 2, drawWithTexture: true)
                 }
 
             }
@@ -646,13 +703,15 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             color: SIMD4<Float>,
             radius: Float,
             steps: Int = 24,
-            hardness: Float = 1.0
+            hardness: Float = 1.0,
+            drawWithTexture: Bool = false,
         ) {
             drawWedge(                center: center,
                                       color: color,
                                       radius: radius,
                                       steps: steps,
-                                      hardness: hardness
+                                      hardness: hardness,
+                                      drawWithTexture: drawWithTexture,
                                       )
         }
         
@@ -663,7 +722,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             startAngle: Float = 0,
             endAngle: Float = 360.0,
             steps: Int = 24,
-            hardness: Float = 1.0
+            hardness: Float = 1.0,
+            drawWithTexture: Bool = false,
 ) {
             let aspect = drawingInfo.imageAspectRatio
             let landscape = aspect > 1
@@ -704,11 +764,13 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             
             uniforms = Uniforms(
                 color: color,
-                drawWithTetxure: false,
+                drawWithTetxure: drawWithTexture,
                 orthoMatrix: orthoMatrix,
-                hardness: hardness
+                hardness: hardness,
+                scale: scale,
+                textureOffset: textureOffset
             )
-            
+
             let verticiesSize = MemoryLayout<Vertex>.stride * vertexes.count
             if maxVerticiesSize < verticiesSize {
                 maxVerticiesSize = verticiesSize
@@ -718,28 +780,31 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             let dst = vertexBuffer.contents().advanced(by: offset)
             dst.copyMemory(from: vertexes, byteCount: verticiesSize)
             encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
-            
+
             encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
             encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
             encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: vertexes.count)
 
 
         }
-    
-        
+
+
         func drawRing(
             center: simd_float2,
             color: SIMD4<Float>,
             radius: Float,
             steps: Int = 24,
             lineThickness: Float,
+            drawWithTexture: Bool = false,
         ) {
             drawArc(
                 center: center,
                 color: color,
                 radius: radius,
                 steps: steps,
-                lineThickness: lineThickness)
+                lineThickness: lineThickness,
+                drawWithTexture: drawWithTexture
+            )
         }
         
         func drawArc(
@@ -749,7 +814,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             startAngle: Float = 0,
             endAngle: Float = 360.0,
             steps: Int = 24,
-            lineThickness: Float
+            lineThickness: Float,
+            drawWithTexture: Bool = false,
             ) {
                 
                 let aspect = drawingInfo.imageAspectRatio
@@ -799,9 +865,11 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 
                 uniforms = Uniforms(
                     color: color,
-                    drawWithTetxure: false,
+                    drawWithTetxure: drawWithTexture,
                     orthoMatrix: orthoMatrix,
-                    hardness: drawingInfo.hardness
+                    hardness: drawingInfo.hardness,
+                    scale: scale,
+                    textureOffset: textureOffset
                 )
                 
                 let verticiesSize = MemoryLayout<Vertex>.stride * vertexes.count
@@ -862,9 +930,11 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     color: color,
                     drawWithTetxure: false,
                     orthoMatrix: orthoMatrix,
-                    hardness: drawingInfo.hardness
+                    hardness: drawingInfo.hardness,
+                    scale: scale,
+                    textureOffset: textureOffset
                 )
-                
+
                 var verticiesSize = MemoryLayout<Vertex>.stride * vertexes.count
 
                 let offset = allocateVerticiesInRing(byteCount: verticiesSize)
@@ -951,9 +1021,11 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 color: color,
                 drawWithTetxure: false,
                 orthoMatrix: orthoMatrix,
-                hardness: drawingInfo.hardness
+                hardness: drawingInfo.hardness,
+                scale: scale,
+                textureOffset: textureOffset
             )
-            
+
             //                encoder.setVertexBytes(verticies, length: MemoryLayout<Vertex>.stride * verticies.count, index: 0)
             
             let verticiesSize = MemoryLayout<Vertex>.stride * verticies.count
@@ -1003,7 +1075,9 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 color: color,
                 drawWithTetxure: false,
                 orthoMatrix: orthoMatrix,
-                hardness: drawingInfo.hardness
+                hardness: drawingInfo.hardness,
+                scale: scale,
+                textureOffset: textureOffset
             )
             encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
             encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)

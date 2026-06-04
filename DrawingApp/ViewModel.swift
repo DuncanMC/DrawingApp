@@ -125,6 +125,26 @@ struct ViewModel {
         }
     }
     
+    func handleTwoFingerTap(location: CGPoint) {
+        if let target = getGestureLocation(touchLocation: location) {
+            switch target.gestureLocation {
+            case .inControlPoint(let curveIndex, _):
+                let curve = drawingInfo.curves[curveIndex]
+                drawingInfo.drawingMode = .editingCurve
+                var newSelection = Set<SelectedPoint>()
+                for pointIndex in 0..<curve.points.count {
+                    newSelection.insert(SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex))
+                }
+                drawingInfo.selectedPoints = newSelection
+            case .outside:
+                break
+            }
+        } else {
+            drawingInfo.selectedPoints = []
+            drawingInfo.drawingMode = .idle
+        }
+    }
+
     func handleDoubleTap(location: CGPoint) {
         if let target = getGestureLocation(touchLocation: location) {
             print("Double-tap in \(target.gestureLocation.description)")
@@ -158,6 +178,39 @@ struct ViewModel {
         return brushSize
     }
     
+    func handlePinchRotateBegan(center: CGPoint) {
+        drawingInfo.registerUndo()
+        drawingInfo.suppressUndo = true
+    }
+
+    func handlePinchRotateChanged(scale: CGFloat, rotation: CGFloat, center: CGPoint) {
+        guard !drawingInfo.selectedPoints.isEmpty else { return }
+
+        let cosR = cos(rotation)
+        let sinR = sin(rotation)
+
+        for aPoint in drawingInfo.selectedPoints {
+            let coord = drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex].coord
+            let viewPt = metalPointToView(coord)
+            let dx = viewPt.x - center.x
+            let dy = viewPt.y - center.y
+            let rx = cosR * dx - sinR * dy
+            let ry = sinR * dx + cosR * dy
+            let sx = rx * scale
+            let sy = ry * scale
+            let newViewPt = CGPoint(x: sx + center.x, y: sy + center.y)
+            drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex].coord = viewPointToMetal(newViewPt)
+
+            if let radius = drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex].pointRadius {
+                drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex].pointRadius = radius * Float(scale)
+            }
+        }
+    }
+
+    func handlePinchRotateEnded() {
+        drawingInfo.suppressUndo = false
+    }
+
     func handleDragBegan(location: CGPoint, event: GestureEvent) {
         drawingInfo.registerUndo()
         drawingInfo.suppressUndo = true
