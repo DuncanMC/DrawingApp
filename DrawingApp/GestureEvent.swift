@@ -20,7 +20,6 @@ struct PencilData {
     let altitudeAngle: CGFloat
     let azimuthAngle: CGFloat
 }
-
 struct GestureEvent {
     let location: CGPoint
     let timestamp: TimeInterval

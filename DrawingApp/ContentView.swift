@@ -9,9 +9,15 @@
 import SwiftUI
 import Combine
 
+
 @MainActor struct ContentView: View {
+    
+
     @ObservedObject var drawingInfo: DrawingInfo
     @Environment(\.undoManager) var undoManager
+    
+    @State private var showSettings = false
+    
 
     var viewModel: ViewModel
 
@@ -24,63 +30,88 @@ import Combine
 
     }
 
+    
     var body: some View {
-        VStack {
-            DrawingView(
-                drawingInfo: drawingInfo,
-                onTap: { location, event in
-                    viewModel.handleTap(location: location, modifiers: event.modifierKeys)
-                },
-                onDoubleTap: { location, event in
-                    viewModel.handleDoubleTap(location: location)
-                },
-                onDragBegan: { location, event in
-                    viewModel.handleDragBegan(location: location, event: event)
-                },
-                onDragChanged: { location, event in
-                    viewModel.handleDragChanged(location: location, event: event)
-                },
-                onDragEnded: { location, event in
-                    viewModel.handleDragEnded()
-                }
-            )
+        ZStack {
+            VStack {
+                DrawingView(
+                    drawingInfo: drawingInfo,
+                    onTap: { location, event in
+                        viewModel.handleTap(location: location, modifiers: event.modifierKeys)
+                    },
+                    onDoubleTap: { location, event in
+                        viewModel.handleDoubleTap(location: location)
+                    },
+                    onDragBegan: { location, event in
+                        viewModel.handleDragBegan(location: location, event: event)
+                    },
+                    onDragChanged: { location, event in
+                        viewModel.handleDragChanged(location: location, event: event)
+                    },
+                    onDragEnded: { location, event in
+                        viewModel.handleDragEnded()
+                    }
+                )
                 .frame(width: DrawingInfo.defaultSize.width, height: DrawingInfo.defaultSize.height)
                 .border(Color.blue, width: 4)
                 .aspectRatio(drawingInfo.imageSize, contentMode: .fit)
-            HStack(spacing: 20) {
-                //                    Spacer()
-
-                ColorPicker("Curve color", selection: $drawingInfo.currentColor)
+                HStack(spacing: 20) {
+                    //                    Spacer()
+                    
+                    ColorPicker("Curve color", selection: $drawingInfo.currentColor)
+                        .frame(maxWidth: 150)
+                    
+                    Button("Delete point") {
+                        viewModel.handleDeletePoint()
+                    }
+                    .keyboardShortcut(.delete, modifiers: [])
+                    .disabled(!drawingInfo.enableDeletePointButton)
+                    
+                    VStack(alignment: .center)   {
+                        Text("Thickness")
+                        Slider(value: $drawingInfo.currentThickness, in: minThickness...maxThickness)
+                    }
                     .frame(maxWidth: 150)
-
-                Button("Delete point") {
-                    viewModel.handleDeletePoint()
+                    .padding(.trailing, 10)
+                    //                .onChange(of: drawingInfo.lineThickness) {
+                    //                    //print("Line thickness = \(drawingInfo.lineThickness)")
+                    //                }
+                    
+                    VStack(alignment: .center)   {
+                        Text("Line hardness")
+                        Slider(value: $drawingInfo.lineHardness, in: 0...2)
+                    }
+                    .frame(maxWidth: 150)
+                    .onChange(of: drawingInfo.lineHardness) {
+                        //print("lineHardness = \(drawingInfo.lineHardness). Computed hardness = \(drawingInfo.hardness)")
+                    }
+                    //                    Spacer()
                 }
-                .keyboardShortcut(.delete, modifiers: [])
-                .disabled(!drawingInfo.enableDeletePointButton)
-
-                VStack(alignment: .center)   {
-                    Text("Thickness")
-                    Slider(value: $drawingInfo.currentThickness, in: minThickness...maxThickness)
-                }
-                .frame(maxWidth: 150)
-                .padding(.trailing, 10)
-//                .onChange(of: drawingInfo.lineThickness) {
-//                    //print("Line thickness = \(drawingInfo.lineThickness)")
-//                }
-
-                VStack(alignment: .center)   {
-                    Text("Line hardness")
-                    Slider(value: $drawingInfo.lineHardness, in: 0...2)
-                }
-                .frame(maxWidth: 150)
-                .onChange(of: drawingInfo.lineHardness) {
-                    //print("lineHardness = \(drawingInfo.lineHardness). Computed hardness = \(drawingInfo.hardness)")
-                }
-                //                    Spacer()
+                .frame(maxWidth: .infinity)
+                .padding([.top, .bottom], 10)
             }
-            .frame(maxWidth: .infinity)
-            .padding([.top, .bottom], 10)
+            #if os(iOS)
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        Button {
+                            print("Button tapped")
+                            showSettings = true
+                        } label:  {
+                            Image(systemName: "gear")
+                                .resizable(resizingMode: .stretch)
+                                .frame(width: 30, height: 30)
+                        }
+                        .padding([.trailing, .bottom])
+                        .buttonStyle(.borderless)
+
+                    }
+                }
+            #endif
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView(doneButtonuttonAction: { showSettings = false } )
         }
         #if os(iOS)
         .background {
@@ -158,7 +189,7 @@ import Combine
                         get: {  drawingInfo.selectedCurveIsClosed },
                         set: {  newValue in drawingInfo.selectedCurveIsClosed = newValue }
                     ))
-                    .disabled(drawingInfo.selectedPoints.count != 1)
+                    .disabled(!drawingInfo.singleCurveSelected)
                     // xxx
                     Button("Join Curves") {
                         drawingInfo.joinCurves()

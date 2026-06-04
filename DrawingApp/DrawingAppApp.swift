@@ -8,6 +8,7 @@
 
 import SwiftUI
 
+
 @main
 @MainActor
 struct DrawingAppApp: App {
@@ -18,5 +19,9 @@ struct DrawingAppApp: App {
         .commands {
             DrawingCommands()
         }
+        Settings {
+            SettingsView()
+        }
+
     }
 }

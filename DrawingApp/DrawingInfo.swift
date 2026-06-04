@@ -192,14 +192,14 @@ final class DrawingInfo: ObservableObject, Codable {
 
     var selectedCurveIsClosed: Bool {
         get {
-            guard selectedPoints.count == 1,
+            guard singleCurveSelected,
                   let selectedPoint = selectedPoints.first else { return false }
             let selectedCurveIndex = selectedPoint.curveIndex
             let selectedCurve = curves[selectedCurveIndex]
             return selectedCurve.isClosedCurve
         }
         set {
-            guard selectedPoints.count == 1,
+            guard singleCurveSelected,
                   let selectedPoint = selectedPoints.first else { return }
             let selectedCurveIndex = selectedPoint.curveIndex
             var selectedCurve = curves[selectedCurveIndex]
@@ -331,6 +331,20 @@ final class DrawingInfo: ObservableObject, Codable {
         }
     }
     
+    var singleCurveSelected: Bool {
+        if selectedPoints.count == 1 { return true}
+        if selectedPoints.count == 0 { return false}
+        var selectedPointsArray = Array(selectedPoints)
+        let firstPoint = selectedPointsArray.removeFirst()
+        var firstCurveIndex = firstPoint.curveIndex
+        for aPoint in selectedPointsArray {
+            if aPoint.curveIndex != firstCurveIndex {
+                return false
+            }
+        }
+        return true
+    }
+    
     var enableJoinCurves: Bool {
         // Only enable the join curves menu item if exactly 2 points are selected
         // and they are the beginning or end of different curves
@@ -352,7 +366,7 @@ final class DrawingInfo: ObservableObject, Codable {
     }
 
 
-    
+
     // MARK: - Codable Keys
     enum CodingKeys: String, CodingKey {
         case title

@@ -59,7 +59,7 @@ struct DrawingCommands: Commands {
                 get: {  drawingInfo?.selectedCurveIsClosed ?? false },
                 set: {  newValue in drawingInfo?.selectedCurveIsClosed = newValue }
             ))
-            .disabled(drawingInfo?.selectedPoints.count != 1)
+            .disabled(!(drawingInfo?.singleCurveSelected ?? false))
             // xxx
             Button("Join Curves") {
                 drawingInfo?.joinCurves()

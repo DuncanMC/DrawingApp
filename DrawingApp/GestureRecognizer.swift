@@ -25,7 +25,7 @@ class TapRecognizer: GestureRecognizer {
     var onTap: ((CGPoint, GestureEvent) -> Void)?
     var onDoubleTap: ((CGPoint, GestureEvent) -> Void)?
 
-    var movementThreshold: CGFloat = 10
+    var movementThreshold: CGFloat = 20
     var tapDurationLimit: TimeInterval = 0.3
     var doubleTapWindow: TimeInterval = 0.25
 
@@ -104,7 +104,7 @@ class DragRecognizer: GestureRecognizer {
     var onDragChanged: ((CGPoint, GestureEvent) -> Void)?
     var onDragEnded: ((CGPoint, GestureEvent) -> Void)?
 
-    var movementThreshold: CGFloat = 10
+    var movementThreshold: CGFloat = 15
 
     private var startLocation: CGPoint?
     private var startEvent: GestureEvent?

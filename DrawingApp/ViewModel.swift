@@ -25,6 +25,16 @@ enum GestureLocation: CustomStringConvertible {
 typealias GesturePointTuple = (point: CGPoint, gestureLocation: GestureLocation)
 
 struct ViewModel {
+    
+    init(drawingInfo: DrawingInfo) {
+        self.drawingInfo = drawingInfo
+    }
+
+    var useForceTouch: Bool {
+        let value = UserDefaults.standard.bool(forKey: UserDefaultsKeys.useForceTouch.rawValue)
+        return value
+    }
+
     @ObservedObject var drawingInfo: DrawingInfo
     
     var points: [GesturePointTuple]  {
@@ -134,13 +144,16 @@ struct ViewModel {
     
     func brushSizeForEvent(_ event: GestureEvent) -> Float? {
         var brushSize: Float?  = nil
-        if let pressure = event.pressure,
-           let pencilData = event.pencilData
-        {
-            let force = pressure / sin(pencilData.altitudeAngle)
-            print("Dragging, force = \(force). altitudeAngle = \(pencilData.altitudeAngle)")
-            print("Dragging, trackpad pressure = \(force)")
-            brushSize = Float(force) * (maxThickness - minThickness) + minThickness
+        guard useForceTouch else { return nil }
+        if let pressure = event.pressure {
+            if let pencilData = event.pencilData {
+                let force = pressure / sin(pencilData.altitudeAngle)
+                print("Dragging, force = \(force). altitudeAngle = \(pencilData.altitudeAngle)")
+                print("Dragging, trackpad pressure = \(force)")
+                brushSize = Float(force) * (maxThickness - minThickness) + minThickness
+            } else {
+                brushSize = Float(pressure) * (maxThickness - minThickness) + minThickness
+            }
         }
         return brushSize
     }
@@ -233,18 +246,7 @@ struct ViewModel {
             }
 
             let newlocation = viewPointToMetal(location)
-            let brushSize: Float?
-            if var pressure = event.pressure {
-                if  let pencilData = event.pencilData {
-                    pressure = pressure / sin(pencilData.altitudeAngle)
-                    //print("Dragging, pressure = \(pressure). altitudeAngle = \(pencilData.altitudeAngle)")
-                } else {
-                    //print("Dragging, pressure = \(pressure).")
-                }
-                brushSize = Float(pressure) * (maxThickness - minThickness) + minThickness
-            } else {
-                brushSize = drawingInfo.brushSettings.size
-            }
+            let brushSize = brushSizeForEvent( event)
 
             let newPoint = CatmullRomPoint(
                 coord: newlocation,
