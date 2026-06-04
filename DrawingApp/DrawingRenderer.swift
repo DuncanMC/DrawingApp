@@ -133,6 +133,15 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
     
     func draw(in view: MTKView) {
         
+        struct Vertex: CustomStringConvertible {
+        let position: SIMD2<Float>
+        let alpha: Float
+            
+            var description: String {
+                "\(position.x)\t\(position.y)\t\(alpha)"
+            }
+        }
+
         
         enum ArrowHeadDirection {
             case down
@@ -198,8 +207,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             drawRing(center: simd_float2(-0.75, -0.75), color: MetalColors.black, radius: 2, lineThickness: 4)
             
             drawThickLine(
-                p1: simd_float2(-limit,limit * drawingInfo.lineThickness),
-                p2: simd_float2(limit, -limit * drawingInfo.lineThickness),
+                p1: simd_float2(-limit,limit * drawingInfo.brushSettings.size),
+                p2: simd_float2(limit, -limit * drawingInfo.brushSettings.size),
                 color: MetalColors.black,
                 thickness: 20,
             )
@@ -217,14 +226,6 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 
 
         // MARK: - nested drawing functions
-        struct Vertex: CustomStringConvertible {
-        let position: SIMD2<Float>
-        let alpha: Float
-            
-            var description: String {
-                "\(position.x)\t\(position.y)\t\(alpha)"
-            }
-        }
         
         func curveToCatmullRomPoints(_ curve: CatmullRomCurve) -> [SmoothedCurvePoint] {
             var controlPoints = [SmoothedCurvePoint]()
@@ -239,6 +240,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 }
             }
             let (resultPoints, _) = smoothPointsInArray(
+                // MARK: Granularity setting
                 controlPoints, granularity: 8,
                 adjustGranularity: true,
                 calculateWeights: true,
@@ -261,7 +263,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             else { return drawingInfo.brushSettings.size }
             let startingRadius: Float = curve.points[point.controlPointIndex].pointRadius ?? drawingInfo.brushSettings.size
 
-            let endingIndex: Int = point.controlPointIndex + 1 < curve.points.count ? point.controlPointIndex + 1 : point.controlPointIndex
+            let endingIndex: Int = (point.controlPointIndex + 1) % curve.points.count
+//            < curve.points.count ? point.controlPointIndex + 1 : point.controlPointIndex
 
             let endingRadius: Float = curve.points[endingIndex].pointRadius ?? drawingInfo.brushSettings.size
             return startingRadius * (1 - point.weight) + (endingRadius * point.weight)
@@ -301,15 +304,18 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 }
                 
                 if smoothedPoints.count == 1  {
-                    drawCircle(center: smoothedPoints[0].coord, color: curve.color, radius: drawingInfo.lineThickness * 0.5, hardness: drawingInfo.hardness)
+                    let point = smoothedPoints[0]
+                    let size = curve.points[point.controlPointIndex].pointRadius ?? drawingInfo.brushSettings.size
+                    drawCircle(center: point.coord, color: curve.color, radius: size * 0.5, hardness: drawingInfo.hardness)
                 } else {
                     for index in 1 ..< smoothedPoints.count {
                         let first = smoothedPoints[index-1].coord * adjustment
                         let middle = smoothedPoints[index].coord * adjustment
                         
                         let dir1 = normalize(middle - first)
-                        var radius = computeRadiusForPoint(smoothedPoints[index], inCurve: curve)
-                        radius *= widthPerPixel
+                        let indexToUse = index == 1 ? index - 1 : index
+                        let pixelRadius = computeRadiusForPoint(smoothedPoints[indexToUse], inCurve: curve)
+                        let radius = pixelRadius * widthPerPixel
                         let normal1 = simd_float2(-dir1.y, dir1.x) * radius
                         
                         let firstLeft = (first + normal1) / adjustment
@@ -370,7 +376,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                         if index < smoothedPoints.count - 1 {
                             
                             //Calculate the intersection of "left" and right line segments and use them as the middle points.
-                            let last = smoothedPoints[index+1].coord * adjustment
+                            let last = smoothedPoints[(index+1) % smoothedPoints.count].coord * adjustment
                             
                             let adjustedMiddle = middle/adjustment
                             let adjustedLast = last/adjustment
@@ -386,6 +392,10 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                             //                        }
                             
                             let dir2 = normalize(last - middle)
+//                            // Get the next point's radius
+//                            pixelRadius = computeRadiusForPoint(smoothedPoints[index], inCurve: curve)
+//                            radius = pixelRadius * widthPerPixel
+
                             let normal2 = simd_float2(-dir2.y, dir2.x) * radius
                             let secondLeftTwo = (middle + normal2) / adjustment
                             let secondRightTwo = (middle - normal2) / adjustment

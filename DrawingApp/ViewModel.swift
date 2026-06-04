@@ -71,8 +71,7 @@ struct ViewModel {
                 let newlocation = viewPointToMetal(location)
                 let newPoint = CatmullRomPoint(
                     coord: newlocation,
-                                               pointType: .smooth,
-                    pointRadius: drawingInfo.brushSettings.size)
+                    pointType: .smooth)
 
                 if selectedPoint.pointIndex == thisCurve.points.count - 1 {
                     //append point to end of curve.
@@ -98,10 +97,10 @@ struct ViewModel {
                 }
 
             } else {
-                print("Single-tap not on a known location.")
+                //print("Single-tap not on a known location.")
                 
                 let coords = viewPointToMetal(location)
-                let point =  CatmullRomPoint(coord: coords, pointType: .smooth, pointRadius: 10.0)
+                let point =  CatmullRomPoint(coord: coords, pointType: .smooth)
 
                 let newCurve = CatmullRomCurve(color: drawingInfo.brushSettings.color,
                                                radius: drawingInfo.brushSettings.size,
@@ -378,7 +377,11 @@ struct ViewModel {
             let eps = epsilon ?? 0.01
             let keptIndices = rdpReduce(curve.points, epsilon: eps)
             var result = curve
-            result.points = keptIndices.map { curve.points[$0] }
+            result.points = redistributeRadii(
+                originalPoints: curve.points,
+                keptIndices: keptIndices,
+                defaultRadius: drawingInfo.brushSettings.size
+            )
             return result
         }
     }
@@ -427,7 +430,39 @@ struct ViewModel {
         }
 
         var result = curve
-        result.points = bestIndices.map { curve.points[$0] }
+        result.points = redistributeRadii(
+            originalPoints: curve.points,
+            keptIndices: bestIndices,
+            defaultRadius: drawingInfo.brushSettings.size
+        )
+        return result
+    }
+
+    // MARK: Radius redistribution
+
+    private func redistributeRadii(
+        originalPoints: [CatmullRomPoint],
+        keptIndices: [Int],
+        defaultRadius: Float
+    ) -> [CatmullRomPoint] {
+        var result = keptIndices.map { originalPoints[$0] }
+        let keptSet = Set(keptIndices)
+
+        for i in 0..<originalPoints.count {
+            guard !keptSet.contains(i) else { continue }
+            guard let removedRadius = originalPoints[i].pointRadius else { continue }
+
+            if let leftResultIndex = keptIndices.lastIndex(where: { $0 < i }) {
+                let currentRadius = result[leftResultIndex].pointRadius ?? defaultRadius
+                result[leftResultIndex].pointRadius = currentRadius * 2.0 / 3.0 + removedRadius / 3.0
+            }
+
+            if let rightResultIndex = keptIndices.firstIndex(where: { $0 > i }) {
+                let currentRadius = result[rightResultIndex].pointRadius ?? defaultRadius
+                result[rightResultIndex].pointRadius = currentRadius * 2.0 / 3.0 + removedRadius / 3.0
+            }
+        }
+
         return result
     }
 

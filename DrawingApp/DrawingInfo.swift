@@ -135,7 +135,7 @@ final class DrawingInfo: ObservableObject, Codable {
     // Items saved with Codable
     
     @Published var backgroundColor = Color.white
-    @Published var lineThickness: Float = 20
+    //@Published var lineThickness: Float = 20
     let imageSize: CGSize
     
     // Test properties
@@ -240,6 +240,9 @@ final class DrawingInfo: ObservableObject, Codable {
             guard !selectedPoints.isEmpty else { return brushSettings.size }
             let selectedCurveIndex = selectedPoints.first!.curveIndex
             let pointIndex = selectedPoints.first!.pointIndex
+            guard curves.count > selectedCurveIndex else {
+                return brushSettings.size
+            }
             let curve = curves[selectedCurveIndex]
             let point = curve.points[pointIndex]
             return point.pointRadius ?? brushSettings.size
@@ -378,7 +381,7 @@ final class DrawingInfo: ObservableObject, Codable {
         } else {
             self.backgroundColor = .white
         }
-        self.lineThickness = try container.decodeIfPresent(Float.self, forKey: .lineThickness) ?? 5
+//        self.lineThickness = try container.decodeIfPresent(Float.self, forKey: .lineThickness) ?? 5
         self.lineHardness = try container.decodeIfPresent(Float.self, forKey: .lineHardness) ?? 2
         self.showControlPoints = try container.decode(Bool.self, forKey: .showControlPoints)
 
@@ -392,7 +395,7 @@ final class DrawingInfo: ObservableObject, Codable {
         try container.encode(showSmoothingPoints, forKey: .showSmoothingPoints)
         try container.encode(smoothCurves, forKey: .smoothCurves)
         try container.encode(CodableColor(color: backgroundColor), forKey: .backgroundColor)
-        try container.encode(lineThickness, forKey: .lineThickness)
+//        try container.encode(lineThickness, forKey: .lineThickness)
         try container.encode(lineHardness, forKey: .lineHardness)
         try container.encode(curves, forKey: .curves)
         try container.encode(showControlPoints, forKey: .showControlPoints)
@@ -657,7 +660,7 @@ final class DrawingInfo: ObservableObject, Codable {
         self.showSmoothingPoints = restored.showSmoothingPoints
         self.smoothCurves = restored.smoothCurves
         self.backgroundColor = restored.backgroundColor
-        self.lineThickness = restored.lineThickness
+//        self.lineThickness = restored.lineThickness
         self.lineHardness = restored.lineHardness
         self.curves = restored.curves
         self.showControlPoints = restored.showControlPoints

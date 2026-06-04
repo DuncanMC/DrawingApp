@@ -65,9 +65,9 @@ import Combine
                 }
                 .frame(maxWidth: 150)
                 .padding(.trailing, 10)
-                .onChange(of: drawingInfo.lineThickness) {
-                    //print("Line thickness = \(drawingInfo.lineThickness)")
-                }
+//                .onChange(of: drawingInfo.lineThickness) {
+//                    //print("Line thickness = \(drawingInfo.lineThickness)")
+//                }
 
                 VStack(alignment: .center)   {
                     Text("Line hardness")
