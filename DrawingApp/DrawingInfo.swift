@@ -19,6 +19,14 @@ struct MetalColors {
     static let white: SIMD4<Float> = SIMD4<Float>(1, 1, 1, 1)
 }
 
+struct TransformModeValues {
+    var rotationCenter: simd_float2
+    var topLeft: simd_float2
+    var topRight: simd_float2
+    var bottomLeft: simd_float2
+    var bottomRight: simd_float2
+}
+
 enum Mode: Int, Codable {
     case idle
     case creatingCurve
@@ -167,20 +175,22 @@ final class DrawingInfo: ObservableObject, Codable {
     
     @Published var enableDeletePointButton: Bool = false
     
-    func setEnableDeletePointButtonState() {
+    func handleChangeInSelectedPonts() {
         enableDeletePointButton = drawingMode == .editingCurve &&
         !selectedPoints.isEmpty
-        
-        
+        if transformSelection && selectedPoints.count < 2 {
+            transformSelection = false
+        }
     }
+    
     var drawingMode: Mode = .idle {
         didSet {
-            setEnableDeletePointButtonState()
+            handleChangeInSelectedPonts()
         }
     }
     var selectedPoints: Set<SelectedPoint> = [] {
         didSet {
-            setEnableDeletePointButtonState()
+            handleChangeInSelectedPonts()
         }
     }
 //    var activeCurveIndex: Int? = nil
@@ -346,8 +356,46 @@ final class DrawingInfo: ObservableObject, Codable {
     }
     
     @Published var marchingAnts: Bool = true
+    @Published var transformSelection: Bool = false {
+        didSet {
+            guard transformSelection else {
+                transformModeValues = nil
+                return
+            }
+            /*
+             var minX: Float = Float.infinity
+             var maxX: Float = -Float.infinity
+             var minY: Float = Float.infinity
+             var maxY: Float = -Float.infinity
+             for aPoint in drawingInfo.selectedPoints {
+                 let coords: simd_float2 = curves[aPoint.curveIndex].points[aPoint.pointIndex].coord
+                 if coords.x < minX { minX = coords.x }
+                 if coords.x > maxX { maxX = coords.x }
+                 if coords.y < minY { minY = coords.y }
+                 if coords.y > maxY { maxY = coords.y }
+             }
+             let border = 40 * widthPerPixel
+             let buffer = 10 * widthPerPixel
+             if minX - border / adjustment.x > -1 + buffer / adjustment.x { minX -= border / adjustment.x }
+             
+             if minY - border / adjustment.y > -1 + buffer / adjustment.y { minY -= border / adjustment.y }
+             
+             if maxX + border / adjustment.x < 1 - buffer / adjustment.x { maxX += border / adjustment.x }
+             
+             if maxY + border / adjustment.y < 1 - buffer / adjustment.y { maxY += border / adjustment.y }
+             
+             let topLeft: simd_float2 = simd_float2(x: minX, y: maxY)
+             let topRight = simd_float2(x: maxX, y: maxY)
+             let bottomLeft = simd_float2(x: minX, y: minY)
+             let bottomRight = simd_float2(x: maxX, y: minY)
+
+             */
+        }
+    }
     @Published var texture: MTLTexture?
 
+    var transformModeValues: TransformModeValues? = nil
+    
     var enableJoinCurves: Bool {
         // Only enable the join curves menu item if exactly 2 points are selected
         // and they are the beginning or end of different curves
@@ -674,6 +722,7 @@ final class DrawingInfo: ObservableObject, Codable {
 
     func restore(from data: Data) {
         guard let restored = try? JSONDecoder().decode(DrawingInfo.self, from: data) else { return }
+        suppressUndo = true
         self.showSmoothingPoints = restored.showSmoothingPoints
         self.smoothCurves = restored.smoothCurves
         self.backgroundColor = restored.backgroundColor
@@ -683,5 +732,8 @@ final class DrawingInfo: ObservableObject, Codable {
         self.showControlPoints = restored.showControlPoints
         self.drawingMode = .idle
         self.selectedPoints = []
+        DispatchQueue.main.async { [weak self] in
+            self?.suppressUndo = false
+        }
     }
 }

@@ -12,6 +12,7 @@ import UIKit
 
 class GestureCapturingView: UIView {
     var eventRecognizers: [GestureRecognizer] = []
+    var onShake: (() -> Void)?
     private var trackedTouches: [UITouch] = []
 
     override init(frame: CGRect) {
@@ -22,6 +23,15 @@ class GestureCapturingView: UIView {
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         isMultipleTouchEnabled = true
+    }
+
+    override var canBecomeFirstResponder: Bool { true }
+
+    override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+        if motion == .motionShake {
+            onShake?()
+        }
+        super.motionEnded(motion, with: event)
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {

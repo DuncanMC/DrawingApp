@@ -35,6 +35,11 @@ struct DrawingCommands: Commands {
             .disabled(!(drawingInfo?.curves.isEmpty == false))
             .keyboardShortcut("a", modifiers: .command)
             
+            Toggle("Transform Selection", isOn: Binding(
+                get: {  drawingInfo?.transformSelection ?? false },
+                set: {  newValue in drawingInfo?.transformSelection = newValue } ))
+            .disabled(drawingInfo?.drawingMode != .editingCurve || drawingInfo?.selectedPoints.count ?? 0 < 2)
+
             Button("Deselect All") {
                 drawingInfo?.selectedPoints = []
             }
@@ -60,7 +65,7 @@ struct DrawingCommands: Commands {
                 set: {  newValue in drawingInfo?.selectedCurveIsClosed = newValue }
             ))
             .disabled(!(drawingInfo?.singleCurveSelected ?? false))
-            // xxx
+
             Button("Join Curves") {
                 drawingInfo?.joinCurves()
             }

@@ -686,15 +686,60 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             }
             if drawingInfo.drawingMode == .editingCurve
             {
+                // If we have selected points, draw them
                 for aSelectedPoint in drawingInfo.selectedPoints {
                     let curve = curves[aSelectedPoint.curveIndex]
                     let point = curve.points[aSelectedPoint.pointIndex].coord
-//                    drawRing(center: point, color: MetalColors.white, radius: 10, lineThickness: 4, drawWithTexture: true)
-//                    drawRing(center: point, color: MetalColors.black, radius: 10, lineThickness: 2, drawWithTexture: true)
-//                    drawRing(center: point, color: MetalColors.white, radius: 10, lineThickness: 4)
                     drawRing(center: point, color: MetalColors.black, radius: 10, lineThickness: 2, drawWithTexture: true)
                 }
-
+                // If we are in transform selection mode, find the bounding box for our selected points.
+                if drawingInfo.transformSelection {
+                    var minX: Float = Float.infinity
+                    var maxX: Float = -Float.infinity
+                    var minY: Float = Float.infinity
+                    var maxY: Float = -Float.infinity
+                    for aPoint in drawingInfo.selectedPoints {
+                        let coords: simd_float2 = curves[aPoint.curveIndex].points[aPoint.pointIndex].coord
+                        if coords.x < minX { minX = coords.x }
+                        if coords.x > maxX { maxX = coords.x }
+                        if coords.y < minY { minY = coords.y }
+                        if coords.y > maxY { maxY = coords.y }
+                    }
+                    let border = 40 * widthPerPixel
+                    let buffer = 10 * widthPerPixel
+                    if minX - border / adjustment.x > -1 + buffer / adjustment.x { minX -= border / adjustment.x }
+                    
+                    if minY - border / adjustment.y > -1 + buffer / adjustment.y { minY -= border / adjustment.y }
+                    
+                    if maxX + border / adjustment.x < 1 - buffer / adjustment.x { maxX += border / adjustment.x }
+                    
+                    if maxY + border / adjustment.y < 1 - buffer / adjustment.y { maxY += border / adjustment.y }
+                    
+                    let topLeft: simd_float2 = simd_float2(x: minX, y: maxY)
+                    let topRight = simd_float2(x: maxX, y: maxY)
+                    let bottomLeft = simd_float2(x: minX, y: minY)
+                    let bottomRight = simd_float2(x: maxX, y: minY)
+                    drawThickLine(p1: topLeft,
+                                  p2: topRight,
+                                  color: MetalColors.black,
+                                  thickness: 1,
+                                  drawWithTexture: true)
+                    drawThickLine(p1: bottomLeft,
+                                  p2: bottomRight,
+                                  color: MetalColors.black,
+                                  thickness: 1,
+                                  drawWithTexture: true)
+                    drawThickLine(p1: topLeft,
+                                  p2: bottomLeft,
+                                  color: MetalColors.black,
+                                  thickness: 1,
+                                  drawWithTexture: true)
+                    drawThickLine(p1: topRight,
+                                  p2: bottomRight,
+                                  color: MetalColors.black,
+                                  thickness: 1,
+                                  drawWithTexture: true)
+                }
             }
         }
 
@@ -1045,7 +1090,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             p1: simd_float2,
             p2: simd_float2,
             color: SIMD4<Float>,
-            thickness: Float
+            thickness: Float,
+            drawWithTexture: Bool = false,
         ) {
             
             let aspect = drawingInfo.imageAspectRatio
@@ -1053,6 +1099,15 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             let adjustment: simd_float2 = landscape ?  simd_float2(1, 1/aspect) : simd_float2(1*aspect, 1)
             let p1Tweaked = p1  * adjustment
             let p2Tweaked = p2  * adjustment
+            
+            /*
+             let aspect = drawingInfo.imageAspectRatio
+             let landscape = aspect > 1
+             let adjustment: simd_float2 = landscape ?  simd_float2(1, 1/aspect) : simd_float2(1*aspect, 1)
+             
+             let widthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
+
+             */
             
             let thickness = thickness * scale / Float(max(drawableSize.width, drawableSize.height))
             let dir = normalize(p2Tweaked - p1Tweaked)
@@ -1063,7 +1118,12 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             let v1 = (p1Tweaked - normal) / adjustment
             let v2 = (p2Tweaked + normal) / adjustment
             let v3 = (p2Tweaked - normal) / adjustment
-            let vertexes = [v0, v1, v2, v3]
+            let vertexes = [
+                Vertex(position: v0, alpha: 1),
+                Vertex(position: v1, alpha: 1),
+                Vertex(position: v2, alpha: 1),
+                Vertex(position: v3, alpha: 1),
+            ]
             
             let verticiesSize = MemoryLayout<Vertex>.stride * 4
             let offset = allocateVerticiesInRing(byteCount: verticiesSize)
@@ -1073,7 +1133,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             
             uniforms = Uniforms(
                 color: color,
-                drawWithTetxure: false,
+                drawWithTetxure: drawWithTexture,
                 orthoMatrix: orthoMatrix,
                 hardness: drawingInfo.hardness,
                 scale: scale,

@@ -168,8 +168,8 @@ struct ViewModel {
         if let pressure = event.pressure {
             if let pencilData = event.pencilData {
                 let force = pressure / sin(pencilData.altitudeAngle)
-                print("Dragging, force = \(force). altitudeAngle = \(pencilData.altitudeAngle)")
-                print("Dragging, trackpad pressure = \(force)")
+//                print("Dragging, force = \(force). altitudeAngle = \(pencilData.altitudeAngle)")
+//                print("Dragging, trackpad pressure = \(force)")
                 brushSize = Float(force) * (maxThickness - minThickness) + minThickness
             } else {
                 brushSize = Float(pressure) * (maxThickness - minThickness) + minThickness

@@ -22,6 +22,7 @@ struct DrawingView: NSViewRepresentable {
     var onPinchRotateBegan: ((CGPoint) -> Void)?
     var onPinchRotateChanged: ((CGFloat, CGFloat, CGPoint) -> Void)?
     var onPinchRotateEnded: (() -> Void)?
+    var onShake: (() -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(drawingInfo: drawingInfo)
@@ -104,6 +105,7 @@ struct DrawingView: UIViewRepresentable {
     var onPinchRotateBegan: ((CGPoint) -> Void)?
     var onPinchRotateChanged: ((CGFloat, CGFloat, CGPoint) -> Void)?
     var onPinchRotateEnded: (() -> Void)?
+    var onShake: (() -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(drawingInfo: drawingInfo)
@@ -145,6 +147,9 @@ struct DrawingView: UIViewRepresentable {
 
         container.eventRecognizers = [twoFingerTap, pinchRotate, tap, drag]
 
+        container.onShake = { [weak coord] in coord?.onShake?() }
+        container.becomeFirstResponder()
+
         return container
     }
 
@@ -158,6 +163,7 @@ struct DrawingView: UIViewRepresentable {
         context.coordinator.onPinchRotateBegan = onPinchRotateBegan
         context.coordinator.onPinchRotateChanged = onPinchRotateChanged
         context.coordinator.onPinchRotateEnded = onPinchRotateEnded
+        context.coordinator.onShake = onShake
     }
 
     class Coordinator {
@@ -171,6 +177,7 @@ struct DrawingView: UIViewRepresentable {
         var onPinchRotateBegan: ((CGPoint) -> Void)?
         var onPinchRotateChanged: ((CGFloat, CGFloat, CGPoint) -> Void)?
         var onPinchRotateEnded: (() -> Void)?
+        var onShake: (() -> Void)?
 
         init(drawingInfo: DrawingInfo) {
             renderer = DrawingRenderer(drawingInfo: drawingInfo)

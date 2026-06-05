@@ -47,12 +47,13 @@ vertex VertexOut vertex_main(const device VertexIn* vert [[buffer(0)]],
 fragment float4 fragment_main(VertexOut in [[stage_in]],
                               texture2d<float> tex [[texture(0)]],
                               constant Uniforms& uniforms [[buffer(1)]]) {
-    constexpr sampler s(s_address::repeat, t_address::repeat, filter::linear);
     if (uniforms.drawWithTexture) {
+        constexpr sampler s(s_address::repeat, t_address::repeat, filter::nearest);
         float2 texSize = float2(tex.get_width(), tex.get_height());
         float2 coord = (in.position.xy + uniforms.textureOffset) / (texSize * uniforms.scale);
         return tex.sample(s, coord);
     } else {
+        constexpr sampler s(s_address::repeat, t_address::repeat, filter::linear);
         float4 color = uniforms.color;
         color[3] = pow((in.alpha * 1.2), uniforms.hardness);
         return color;

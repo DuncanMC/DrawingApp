@@ -62,6 +62,9 @@ import Combine
                     },
                     onPinchRotateEnded: {
                         viewModel.handlePinchRotateEnded()
+                    },
+                    onShake: { [weak undoManager] in
+                        undoManager?.undo()
                     }
                 )
                 .frame(width: DrawingInfo.defaultSize.width, height: DrawingInfo.defaultSize.height)
@@ -128,6 +131,12 @@ import Combine
         #if os(iOS)
         .background {
             VStack {
+                Button("") { undoManager?.undo() }
+                    .keyboardShortcut("z", modifiers: .command)
+                    .disabled(!(undoManager?.canUndo ?? false))
+                Button("") { undoManager?.redo() }
+                    .keyboardShortcut("z", modifiers: [.command, .shift])
+                    .disabled(!(undoManager?.canRedo ?? false))
                 Button("") { drawingInfo.cutSelectedPoints() }
                     .keyboardShortcut("x", modifiers: .command)
                     .disabled(drawingInfo.selectedPoints.isEmpty)
@@ -142,6 +151,9 @@ import Combine
                 Button("") { drawingInfo.selectedPoints = [] }
                     .keyboardShortcut("d", modifiers: .command)
                     .disabled(drawingInfo.selectedPoints.isEmpty)
+                Button("") { drawingInfo.deletePoints(deleteEntireCurve: true) }
+                    .keyboardShortcut(.delete, modifiers: .command)
+                    .disabled(!drawingInfo.enableDeletePointButton)
             }
             .frame(width: 0, height: 0)
             .opacity(0)
@@ -160,6 +172,18 @@ import Combine
         .toolbar {
             ToolbarItem(placement: .secondaryAction) {
                 Menu("Edit", systemImage: "scissors") {
+                    Button("Undo") {
+                        undoManager?.undo()
+                    }
+                    .disabled(!(undoManager?.canUndo ?? false))
+
+                    Button("Redo") {
+                        undoManager?.redo()
+                    }
+                    .disabled(!(undoManager?.canRedo ?? false))
+
+                    Divider()
+
                     Button("Cut") {
                         drawingInfo.cutSelectedPoints()
                     }
@@ -175,10 +199,14 @@ import Combine
                     }
                     .disabled(!drawingInfo.canPaste)
 
-
                     Button("Select All") {
                         drawingInfo.selectAll()
                     }
+                    Toggle("Transform Selection", isOn: Binding(
+                        get: {  drawingInfo.transformSelection},
+                        set: {  newValue in drawingInfo.transformSelection = newValue } ))
+                    .disabled(drawingInfo.drawingMode != .editingCurve || drawingInfo.selectedPoints.count ?? 0 < 2)
+
                     Button("Deselect All") {
                         drawingInfo.selectedPoints = []
 //                      //drawingMode = .idle
