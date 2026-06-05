@@ -35,7 +35,12 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 
     
     var sampleCount: Int = 1
-    var scale: Float = 1.0
+    var scale: Float = 1.0 {
+        didSet {
+            metalWidthPerPixel = scale / Float(max(drawingInfo.drawableSize.width, drawingInfo.drawableSize.height))
+            drawingInfo.scale = scale
+        }
+    }
     
     weak var mtkView: MTKView?
     var device: MTLDevice!
@@ -43,13 +48,6 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
     var pipeline: MTLRenderPipelineState!
     var aspectRatio: Float = 1.0
     
-    private(set) var drawableSize: CGSize = .zero {
-        didSet {
-            aspectRatio = Float(drawableSize.width / drawableSize.height)
-            metalWidthPerPixel = scale / Float(max(drawableSize.width, drawableSize.height))
-
-        }
-    }
 
     let drawingInfo: DrawingInfo
 
@@ -102,13 +100,13 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             Task { @MainActor in
                 drawingInfo.texture = tex
             }
-            let hasAlpha =
-            tex.pixelFormat == .rgba8Unorm ||
-            tex.pixelFormat == .rgba8Unorm_srgb ||
-            tex.pixelFormat == .bgra8Unorm ||
-            tex.pixelFormat == .bgra8Unorm_srgb ||
-            tex.pixelFormat == .rgba16Float ||
-            tex.pixelFormat == .rgba32Float
+//            let hasAlpha =
+//            tex.pixelFormat == .rgba8Unorm ||
+//            tex.pixelFormat == .rgba8Unorm_srgb ||
+//            tex.pixelFormat == .bgra8Unorm ||
+//            tex.pixelFormat == .bgra8Unorm_srgb ||
+//            tex.pixelFormat == .rgba16Float ||
+//            tex.pixelFormat == .rgba32Float
             //                    print("[ScopeRenderer] Loaded texture pixel format: \(tex.pixelFormat) | hasAlpha: \(hasAlpha)")
         } catch {
             print("Error loading texture: \(error)")
@@ -140,7 +138,10 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
 
 
-        drawableSize = size
+        drawingInfo.drawableSize = size
+        aspectRatio = Float(size.width / size.height)
+        metalWidthPerPixel = scale / Float(max(size.width, size.height))
+
         Task { @MainActor in
             let newScale: CGFloat
     #if os(macOS)
@@ -320,7 +321,6 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             let landscape = aspect > 1
             let adjustment: simd_float2 = landscape ?  simd_float2(1, 1/aspect) : simd_float2(1*aspect, 1)
             
-            let widthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
             
             var leftIntersections: [simd_float2] = []
             var rightIntersections: [simd_float2] = []
@@ -336,7 +336,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 
             for (_, curve) in curves.enumerated() {
                 
-                //let radius = drawingInfo.lineThickness * widthPerPixel
+                //let radius = drawingInfo.lineThickness * metalWidthPerPixel
                 var smoothedPoints: [SmoothedCurvePoint]
                 if drawingInfo.smoothCurves == false {
                     smoothedPoints = curve.points.enumerated().map { (index, point) in
@@ -360,7 +360,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                         let dir1 = normalize(middle - first)
                         let indexToUse = index == 1 ? index - 1 : index
                         let pixelRadius = computeRadiusForPoint(smoothedPoints[indexToUse], inCurve: curve)
-                        let radius = pixelRadius * widthPerPixel
+                        let radius = pixelRadius * metalWidthPerPixel
                         let normal1 = simd_float2(-dir1.y, dir1.x) * radius
                         
                         let firstLeft = (first + normal1) / adjustment
@@ -456,7 +456,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                             
                             
                             
-                            if distanceSquaredBetween(p1: secondLeftOne, p2: secondLeftTwo) < widthPerPixel * widthPerPixel * 0.04 {
+                            if distanceSquaredBetween(p1: secondLeftOne, p2: secondLeftTwo) < metalWidthPerPixel * metalWidthPerPixel * 0.04 {
                                 leftIntersection = midpoint(p1: secondLeftOne, p2: secondLeftTwo)
                             } else {
                                 leftIntersection = intersection(line1: firstLeftLine, line2: secondLeftLine) ?? midpoint(p1: secondLeftOne, p2: secondLeftTwo)
@@ -480,7 +480,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                                 }
                             }
 
-                            if distanceSquaredBetween(p1: secondRightOne, p2: secondRightTwo) < widthPerPixel * widthPerPixel * 0.04 {
+                            if distanceSquaredBetween(p1: secondRightOne, p2: secondRightTwo) < metalWidthPerPixel * metalWidthPerPixel * 0.04 {
                                 // don't use the right intersection
                                 rightIntersection = midpoint(p1: secondRightOne, p2: secondRightTwo)
                             } else {
@@ -694,48 +694,51 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 }
                 // If we are in transform selection mode, find the bounding box for our selected points.
                 if drawingInfo.transformSelection {
-                    var minX: Float = Float.infinity
-                    var maxX: Float = -Float.infinity
-                    var minY: Float = Float.infinity
-                    var maxY: Float = -Float.infinity
-                    for aPoint in drawingInfo.selectedPoints {
-                        let coords: simd_float2 = curves[aPoint.curveIndex].points[aPoint.pointIndex].coord
-                        if coords.x < minX { minX = coords.x }
-                        if coords.x > maxX { maxX = coords.x }
-                        if coords.y < minY { minY = coords.y }
-                        if coords.y > maxY { maxY = coords.y }
+//                    var minX: Float = Float.infinity
+//                    var maxX: Float = -Float.infinity
+//                    var minY: Float = Float.infinity
+//                    var maxY: Float = -Float.infinity
+//                    for aPoint in drawingInfo.selectedPoints {
+//                        let coords: simd_float2 = curves[aPoint.curveIndex].points[aPoint.pointIndex].coord
+//                        if coords.x < minX { minX = coords.x }
+//                        if coords.x > maxX { maxX = coords.x }
+//                        if coords.y < minY { minY = coords.y }
+//                        if coords.y > maxY { maxY = coords.y }
+//                    }
+//                    let border = 40 * metalWidthPerPixel
+//                    let buffer = 10 * metalWidthPerPixel
+//                    if minX - border / adjustment.x > -1 + buffer / adjustment.x { minX -= border / adjustment.x }
+//                    
+//                    if minY - border / adjustment.y > -1 + buffer / adjustment.y { minY -= border / adjustment.y }
+//                    
+//                    if maxX + border / adjustment.x < 1 - buffer / adjustment.x { maxX += border / adjustment.x }
+//                    
+//                    if maxY + border / adjustment.y < 1 - buffer / adjustment.y { maxY += border / adjustment.y }
+//                    
+//                    let topLeft: simd_float2 = simd_float2(x: minX, y: maxY)
+//                    let topRight = simd_float2(x: maxX, y: maxY)
+//                    let bottomLeft = simd_float2(x: minX, y: minY)
+//                    let bottomRight = simd_float2(x: maxX, y: minY)
+                    guard let transformModeValues = drawingInfo.transformModeValues else {
+                        return
                     }
-                    let border = 40 * widthPerPixel
-                    let buffer = 10 * widthPerPixel
-                    if minX - border / adjustment.x > -1 + buffer / adjustment.x { minX -= border / adjustment.x }
-                    
-                    if minY - border / adjustment.y > -1 + buffer / adjustment.y { minY -= border / adjustment.y }
-                    
-                    if maxX + border / adjustment.x < 1 - buffer / adjustment.x { maxX += border / adjustment.x }
-                    
-                    if maxY + border / adjustment.y < 1 - buffer / adjustment.y { maxY += border / adjustment.y }
-                    
-                    let topLeft: simd_float2 = simd_float2(x: minX, y: maxY)
-                    let topRight = simd_float2(x: maxX, y: maxY)
-                    let bottomLeft = simd_float2(x: minX, y: minY)
-                    let bottomRight = simd_float2(x: maxX, y: minY)
-                    drawThickLine(p1: topLeft,
-                                  p2: topRight,
+                    drawThickLine(p1: transformModeValues.topLeft,
+                                  p2: transformModeValues.topRight,
                                   color: MetalColors.black,
                                   thickness: 1,
                                   drawWithTexture: true)
-                    drawThickLine(p1: bottomLeft,
-                                  p2: bottomRight,
+                    drawThickLine(p1: transformModeValues.bottomLeft,
+                                  p2: transformModeValues.bottomRight,
                                   color: MetalColors.black,
                                   thickness: 1,
                                   drawWithTexture: true)
-                    drawThickLine(p1: topLeft,
-                                  p2: bottomLeft,
+                    drawThickLine(p1: transformModeValues.topLeft,
+                                  p2: transformModeValues.bottomLeft,
                                   color: MetalColors.black,
                                   thickness: 1,
                                   drawWithTexture: true)
-                    drawThickLine(p1: topRight,
-                                  p2: bottomRight,
+                    drawThickLine(p1: transformModeValues.topRight,
+                                  p2: transformModeValues.bottomRight,
                                   color: MetalColors.black,
                                   thickness: 1,
                                   drawWithTexture: true)
@@ -774,7 +777,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             let landscape = aspect > 1
             let adjustment: simd_float2 = landscape ?  simd_float2(1, aspect) : simd_float2(1/aspect, 1)
 
-            let widthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
+//            let widthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
 
             let startAngleRadians = startAngle.degreesToRadians
             let arcDelta = endAngle.degreesToRadians - startAngleRadians
@@ -789,14 +792,14 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 let angle: Float = startAngleRadians + Float(step) / Float(steps) * arcDelta
                 let angle2 = startAngleRadians + Float((step+1) % steps) / Float(loopSteps) * arcDelta
                 
-                var deltaX = cos(angle) * widthPerPixel * (radius) * adjustment.x
-                var deltaY = sin(angle) * widthPerPixel * (radius) * adjustment.y
+                var deltaX = cos(angle) * metalWidthPerPixel * (radius) * adjustment.x
+                var deltaY = sin(angle) * metalWidthPerPixel * (radius) * adjustment.y
                 
                 let p1 = simd_float2(x: center.x + deltaX, y: center.y + deltaY)
                 
                 
-                deltaX = cos(angle2) * widthPerPixel * (radius) * adjustment.x
-                deltaY = sin(angle2) * widthPerPixel * (radius) * adjustment.y
+                deltaX = cos(angle2) * metalWidthPerPixel * (radius) * adjustment.x
+                deltaY = sin(angle2) * metalWidthPerPixel * (radius) * adjustment.y
                 let p2 = simd_float2(x: center.x + deltaX, y: center.y + deltaY)
 
                 vertexes += [
@@ -867,7 +870,6 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 let landscape = aspect > 1
                 let adjustment: simd_float2 = landscape ?  simd_float2(1, aspect) : simd_float2(1/aspect, 1)
 
-                let widthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
 
                 let startAngleRadians = startAngle.degreesToRadians
                 let arcDelta = endAngle.degreesToRadians - startAngleRadians
@@ -882,22 +884,22 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     let angle: Float = startAngleRadians + Float(step) / Float(steps) * arcDelta
                     let angle2 = startAngleRadians + Float((step+1) % steps) / Float(loopSteps) * arcDelta
                     
-                    var deltaX = cos(angle) * widthPerPixel * (radius - lineThickness) * adjustment.x
-                    var deltaY = sin(angle) * widthPerPixel * (radius - lineThickness) * adjustment.y
+                    var deltaX = cos(angle) * metalWidthPerPixel * (radius - lineThickness) * adjustment.x
+                    var deltaY = sin(angle) * metalWidthPerPixel * (radius - lineThickness) * adjustment.y
                     
                     let p1Inside = simd_float2(x: center.x + deltaX, y: center.y + deltaY)
                     
-                    deltaX = cos(angle) * widthPerPixel  * (radius + lineThickness) * adjustment.x
-                    deltaY = sin(angle) * widthPerPixel * (radius + lineThickness) * adjustment.y
+                    deltaX = cos(angle) * metalWidthPerPixel  * (radius + lineThickness) * adjustment.x
+                    deltaY = sin(angle) * metalWidthPerPixel * (radius + lineThickness) * adjustment.y
                     
                     let p1Outside = simd_float2(x: center.x + deltaX, y: center.y + deltaY)
                     
-                    deltaX = cos(angle2) * widthPerPixel * (radius - lineThickness) * adjustment.x
-                    deltaY = sin(angle2) * widthPerPixel * (radius - lineThickness) * adjustment.y
+                    deltaX = cos(angle2) * metalWidthPerPixel * (radius - lineThickness) * adjustment.x
+                    deltaY = sin(angle2) * metalWidthPerPixel * (radius - lineThickness) * adjustment.y
                     let p2Inside = simd_float2(x: center.x + deltaX, y: center.y + deltaY)
                     
-                    deltaX = cos(angle2) * widthPerPixel  * (radius + lineThickness) * adjustment.x
-                    deltaY = sin(angle2) * widthPerPixel * (radius + lineThickness) * adjustment.y
+                    deltaX = cos(angle2) * metalWidthPerPixel  * (radius + lineThickness) * adjustment.x
+                    deltaY = sin(angle2) * metalWidthPerPixel * (radius + lineThickness) * adjustment.y
                     let p2Outside = simd_float2(x: center.x + deltaX, y: center.y + deltaY)
                     
                     vertexes += [
@@ -945,9 +947,9 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 
                 let width = width
                 let center: simd_float2 = simd_float2(x: center.x, y: center.y)
-                let widthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
-                let yOffset = (widthPerPixel * width) / adjustment.y
-                let xOffset = widthPerPixel * width  / adjustment.x
+                //let metalWidthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
+                let yOffset = (metalWidthPerPixel * width) / adjustment.y
+                let xOffset = metalWidthPerPixel * width  / adjustment.x
                 let p1: simd_float2
                 let p2: simd_float2
                 let p3: simd_float2
@@ -1019,15 +1021,15 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             orthoMatrix: float4x4
         ) {
             let thickness = thickness * scale
-            let widthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
+//            let metalWidthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
             
-            let tipXOffset = (direction == .left ? -widthPerPixel * thickness / 2 : 0)
-            let tipYOffset = (direction == .down ? -widthPerPixel * thickness / 2 : 0)
+            let tipXOffset = (direction == .left ? -metalWidthPerPixel * thickness / 2 : 0)
+            let tipYOffset = (direction == .down ? -metalWidthPerPixel * thickness / 2 : 0)
             
             let point = simd_float2(point.x + (direction == .left ? tipXOffset / 2 : 0), point.y + (direction == .down ? tipYOffset / 2 : 0))
             
-            let deltaX = Float(sqrt(2)) / 2 * size * scale * widthPerPixel
-            let deltaY = Float(sqrt(2)) / 2 * size * scale * widthPerPixel
+            let deltaX = Float(sqrt(2)) / 2 * size * scale * metalWidthPerPixel
+            let deltaY = Float(sqrt(2)) / 2 * size * scale * metalWidthPerPixel
             let pointTip = simd_float2(
                 point.x + tipXOffset * (direction == .down ? 0 : 1),
                 point.y + tipYOffset * (direction == .left ? 0 : 1)
@@ -1100,16 +1102,12 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             let p1Tweaked = p1  * adjustment
             let p2Tweaked = p2  * adjustment
             
-            /*
-             let aspect = drawingInfo.imageAspectRatio
-             let landscape = aspect > 1
-             let adjustment: simd_float2 = landscape ?  simd_float2(1, 1/aspect) : simd_float2(1*aspect, 1)
-             
-             let widthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
-
-             */
             
-            let thickness = thickness * scale / Float(max(drawableSize.width, drawableSize.height))
+             
+
+             
+            
+            let thickness = thickness * scale / Float(max(drawingInfo.drawableSize.width, drawingInfo.drawableSize.height))
             let dir = normalize(p2Tweaked - p1Tweaked)
             let normal = simd_float2(-dir.y, dir.x) * thickness
             

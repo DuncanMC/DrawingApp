@@ -175,22 +175,30 @@ final class DrawingInfo: ObservableObject, Codable {
     
     @Published var enableDeletePointButton: Bool = false
     
-    func handleChangeInSelectedPonts() {
+    func handleChangeInSelectedPoints(pointCountChanged: Bool) {
         enableDeletePointButton = drawingMode == .editingCurve &&
         !selectedPoints.isEmpty
-        if transformSelection && selectedPoints.count < 2 {
+        
+        if pointCountChanged || drawingMode != .editingCurve {
             transformSelection = false
         }
     }
     
     var drawingMode: Mode = .idle {
         didSet {
-            handleChangeInSelectedPonts()
+            handleChangeInSelectedPoints(pointCountChanged: false)
         }
     }
-    var selectedPoints: Set<SelectedPoint> = [] {
-        didSet {
-            handleChangeInSelectedPonts()
+    private var _selectedPoints: Set<SelectedPoint> = []
+    var selectedPoints: Set<SelectedPoint> {
+        set {
+            let pointCount = _selectedPoints.count
+            let newPointCount = newValue.count
+            _selectedPoints = newValue
+            handleChangeInSelectedPoints(pointCountChanged: pointCount != newPointCount)
+        }
+        get {
+            return _selectedPoints
         }
     }
 //    var activeCurveIndex: Int? = nil
@@ -362,20 +370,24 @@ final class DrawingInfo: ObservableObject, Codable {
                 transformModeValues = nil
                 return
             }
-            /*
              var minX: Float = Float.infinity
              var maxX: Float = -Float.infinity
              var minY: Float = Float.infinity
              var maxY: Float = -Float.infinity
-             for aPoint in drawingInfo.selectedPoints {
+            let  metalWidthPerPixel = scale / Float(max(drawableSize.width, drawableSize.height))
+            let aspect = imageAspectRatio
+            let landscape = aspect > 1
+            let adjustment: simd_float2 = landscape ?  simd_float2(1, 1/aspect) : simd_float2(1*aspect, 1)
+
+             for aPoint in selectedPoints {
                  let coords: simd_float2 = curves[aPoint.curveIndex].points[aPoint.pointIndex].coord
                  if coords.x < minX { minX = coords.x }
                  if coords.x > maxX { maxX = coords.x }
                  if coords.y < minY { minY = coords.y }
                  if coords.y > maxY { maxY = coords.y }
              }
-             let border = 40 * widthPerPixel
-             let buffer = 10 * widthPerPixel
+             let border = 40 * metalWidthPerPixel
+             let buffer = 10 * metalWidthPerPixel
              if minX - border / adjustment.x > -1 + buffer / adjustment.x { minX -= border / adjustment.x }
              
              if minY - border / adjustment.y > -1 + buffer / adjustment.y { minY -= border / adjustment.y }
@@ -384,16 +396,23 @@ final class DrawingInfo: ObservableObject, Codable {
              
              if maxY + border / adjustment.y < 1 - buffer / adjustment.y { maxY += border / adjustment.y }
              
-             let topLeft: simd_float2 = simd_float2(x: minX, y: maxY)
-             let topRight = simd_float2(x: maxX, y: maxY)
-             let bottomLeft = simd_float2(x: minX, y: minY)
-             let bottomRight = simd_float2(x: maxX, y: minY)
-
-             */
+            let topLeft: simd_float2 = simd_float2(x: minX, y: maxY)
+            let topRight = simd_float2(x: maxX, y: maxY)
+            let bottomLeft = simd_float2(x: minX, y: minY)
+            let bottomRight = simd_float2(x: maxX, y: minY)
+            let rotationCenter = simd_float2(x: (topRight.x - topLeft.x) / 2, y: (topRight.y - bottomRight.y) / 2)
+            transformModeValues = TransformModeValues(
+                rotationCenter: rotationCenter,
+                topLeft: topLeft,
+                topRight: topRight,
+                bottomLeft: bottomLeft,
+                bottomRight: bottomRight)
         }
     }
     @Published var texture: MTLTexture?
 
+    var drawableSize: CGSize = CGSizeZero
+    var scale: Float = 1.0
     var transformModeValues: TransformModeValues? = nil
     
     var enableJoinCurves: Bool {

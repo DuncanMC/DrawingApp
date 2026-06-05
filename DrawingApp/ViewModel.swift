@@ -184,14 +184,9 @@ struct ViewModel {
     }
 
     func handlePinchRotateChanged(scale: CGFloat, rotation: CGFloat, center: CGPoint) {
-        guard !drawingInfo.selectedPoints.isEmpty else { return }
-
-        let cosR = cos(rotation)
-        let sinR = sin(rotation)
-
-        for aPoint in drawingInfo.selectedPoints {
-            let coord = drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex].coord
-            let viewPt = metalPointToView(coord)
+        
+        func transformPoint(_ point: simd_float2) -> simd_float2 {
+            let viewPt = metalPointToView(point)
             let dx = viewPt.x - center.x
             let dy = viewPt.y - center.y
             let rx = cosR * dx - sinR * dy
@@ -199,12 +194,30 @@ struct ViewModel {
             let sx = rx * scale
             let sy = ry * scale
             let newViewPt = CGPoint(x: sx + center.x, y: sy + center.y)
-            drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex].coord = viewPointToMetal(newViewPt)
+            return viewPointToMetal(newViewPt)
+        }
+
+        guard !drawingInfo.selectedPoints.isEmpty else { return }
+
+        let cosR = cos(rotation)
+        let sinR = sin(rotation)
+        for aPoint in drawingInfo.selectedPoints {
+            let coord = drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex].coord
+            drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex].coord =  transformPoint(coord)
 
             if let radius = drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex].pointRadius {
                 drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex].pointRadius = radius * Float(scale)
             }
+            
         }
+        if drawingInfo.transformSelection, var transformModeValues = drawingInfo.transformModeValues {
+            transformModeValues.topLeft = transformPoint(transformModeValues.topLeft)
+            transformModeValues.topRight = transformPoint(transformModeValues.topRight)
+            transformModeValues.bottomLeft = transformPoint(transformModeValues.bottomLeft)
+            transformModeValues.bottomRight = transformPoint(transformModeValues.bottomRight)
+            drawingInfo.transformModeValues = transformModeValues
+        }
+
     }
 
     func handlePinchRotateEnded() {
@@ -315,15 +328,23 @@ struct ViewModel {
 
             let deltaX = -2.0 * Float((lastDragLocation.x - location.x) / drawingInfo.imageSize.width)
             let deltaY = 2.0 * Float((lastDragLocation.y - location.y) / drawingInfo.imageSize.height)
+            let vector = SIMD2<Float>(deltaX, deltaY)
 
             switch drawingInfo.draggingState {
             case .inControlPoint:
                 for aPoint in drawingInfo.selectedPoints {
                     let theCurve = drawingInfo.curves[aPoint.curveIndex]
                     var thePoint = theCurve.points[aPoint.pointIndex]
-                    thePoint.coord.x += deltaX
-                    thePoint.coord.y += deltaY
+                    thePoint.coord += vector
                     drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex] = thePoint
+                }
+                if drawingInfo.transformSelection, var transformModeValues = drawingInfo.transformModeValues {
+                    transformModeValues.topLeft +=  vector
+                    transformModeValues.topRight +=  vector
+                    transformModeValues.bottomLeft +=  vector
+                    transformModeValues.bottomRight +=  vector
+                    transformModeValues.rotationCenter += vector
+                    drawingInfo.transformModeValues = transformModeValues
                 }
                 drawingInfo.lastDragLocation = location
             default:
