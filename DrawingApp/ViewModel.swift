@@ -210,11 +210,16 @@ struct ViewModel {
             }
             
         }
-        if drawingInfo.transformSelection, var transformModeValues = drawingInfo.transformModeValues {
+        if drawingInfo.transformSelection,
+            var transformModeValues = drawingInfo.transformModeValues {
             transformModeValues.topLeft = transformPoint(transformModeValues.topLeft)
             transformModeValues.topRight = transformPoint(transformModeValues.topRight)
             transformModeValues.bottomLeft = transformPoint(transformModeValues.bottomLeft)
             transformModeValues.bottomRight = transformPoint(transformModeValues.bottomRight)
+            transformModeValues.rotationCenter = transformPoint(transformModeValues.rotationCenter)
+            for index in 0 ..< transformModeValues.dragHandles.count {
+                transformModeValues.dragHandles[index] = DragHandle(coord: transformPoint(transformModeValues.dragHandles[index].coord), position: transformModeValues.dragHandles[index].position)
+            }
             drawingInfo.transformModeValues = transformModeValues
         }
 
@@ -344,6 +349,9 @@ struct ViewModel {
                     transformModeValues.bottomLeft +=  vector
                     transformModeValues.bottomRight +=  vector
                     transformModeValues.rotationCenter += vector
+                    for index in 0 ..< transformModeValues.dragHandles.count {
+                        transformModeValues.dragHandles[index] = DragHandle(coord: transformModeValues.dragHandles[index].coord + vector, position: transformModeValues.dragHandles[index].position)
+                    }
                     drawingInfo.transformModeValues = transformModeValues
                 }
                 drawingInfo.lastDragLocation = location

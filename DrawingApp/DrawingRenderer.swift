@@ -272,7 +272,12 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 
 
         // MARK: - nested drawing functions
-        
+        func drawOutlinedBoxes(at points: [DragHandle]) {
+            for aPoint in points {
+                drawBox(center: aPoint.coord, color: MetalColors.white, width: 10, lineThickness: 3, orthoMatrix: orthoMatrix)
+                drawBox(center: aPoint.coord, color: MetalColors.black, width: 10, lineThickness: 1, orthoMatrix: orthoMatrix)
+            }
+        }
         func curveToCatmullRomPoints(_ curve: CatmullRomCurve) -> [SmoothedCurvePoint] {
             var controlPoints = [SmoothedCurvePoint]()
             
@@ -694,34 +699,10 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 }
                 // If we are in transform selection mode, find the bounding box for our selected points.
                 if drawingInfo.transformSelection {
-//                    var minX: Float = Float.infinity
-//                    var maxX: Float = -Float.infinity
-//                    var minY: Float = Float.infinity
-//                    var maxY: Float = -Float.infinity
-//                    for aPoint in drawingInfo.selectedPoints {
-//                        let coords: simd_float2 = curves[aPoint.curveIndex].points[aPoint.pointIndex].coord
-//                        if coords.x < minX { minX = coords.x }
-//                        if coords.x > maxX { maxX = coords.x }
-//                        if coords.y < minY { minY = coords.y }
-//                        if coords.y > maxY { maxY = coords.y }
-//                    }
-//                    let border = 40 * metalWidthPerPixel
-//                    let buffer = 10 * metalWidthPerPixel
-//                    if minX - border / adjustment.x > -1 + buffer / adjustment.x { minX -= border / adjustment.x }
-//                    
-//                    if minY - border / adjustment.y > -1 + buffer / adjustment.y { minY -= border / adjustment.y }
-//                    
-//                    if maxX + border / adjustment.x < 1 - buffer / adjustment.x { maxX += border / adjustment.x }
-//                    
-//                    if maxY + border / adjustment.y < 1 - buffer / adjustment.y { maxY += border / adjustment.y }
-//                    
-//                    let topLeft: simd_float2 = simd_float2(x: minX, y: maxY)
-//                    let topRight = simd_float2(x: maxX, y: maxY)
-//                    let bottomLeft = simd_float2(x: minX, y: minY)
-//                    let bottomRight = simd_float2(x: maxX, y: minY)
                     guard let transformModeValues = drawingInfo.transformModeValues else {
                         return
                     }
+                    //Outline the selecion rectangle with "marching ants."
                     drawThickLine(p1: transformModeValues.topLeft,
                                   p2: transformModeValues.topRight,
                                   color: MetalColors.black,
@@ -742,6 +723,99 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                                   color: MetalColors.black,
                                   thickness: 1,
                                   drawWithTexture: true)
+                    
+                    // Draw the rotation center as a "target reticle"
+                    let centerRadius: Float = 6
+                    let hLineWidth = 10  * metalWidthPerPixel / adjustment.x
+                    let vLineHeight = 10  * metalWidthPerPixel / adjustment.y
+                    let circleWidth = (centerRadius+6) * metalWidthPerPixel / adjustment.x
+                    let circleHeight = (centerRadius+6)  * metalWidthPerPixel / adjustment.y
+                    //White outlines
+                    drawThickLine(
+                        p1: simd_float2(transformModeValues.rotationCenter.x - hLineWidth - circleWidth, transformModeValues.rotationCenter.y),
+                        p2: simd_float2(transformModeValues.rotationCenter.x - circleWidth, transformModeValues.rotationCenter.y),
+                        color: MetalColors.white,
+                        thickness: 4)
+                    drawThickLine(
+                        p1: simd_float2(transformModeValues.rotationCenter.x + hLineWidth + circleWidth, transformModeValues.rotationCenter.y),
+                        p2: simd_float2(transformModeValues.rotationCenter.x + circleWidth, transformModeValues.rotationCenter.y),
+                        color: MetalColors.white,
+                        thickness: 4)
+
+                    drawThickLine(
+                        p1: simd_float2(transformModeValues.rotationCenter.x, transformModeValues.rotationCenter.y - vLineHeight - circleHeight),
+                        p2: simd_float2(transformModeValues.rotationCenter.x, transformModeValues.rotationCenter.y - circleHeight),
+                        color: MetalColors.white,
+                        thickness: 4)
+                    drawThickLine(
+                        p1: simd_float2(transformModeValues.rotationCenter.x, transformModeValues.rotationCenter.y + vLineHeight + circleHeight),
+                        p2: simd_float2(transformModeValues.rotationCenter.x, transformModeValues.rotationCenter.y + circleHeight),
+                        color: MetalColors.white,
+                        thickness: 4)
+
+                    drawRing(
+                        center: transformModeValues.rotationCenter,
+                        color: MetalColors.white,
+                        radius: centerRadius,
+                        lineThickness: 3,
+                        drawWithTexture: false)
+                    
+                    //Black drawing
+                    
+                    drawThickLine(
+                        p1: simd_float2(transformModeValues.rotationCenter.x, transformModeValues.rotationCenter.y - vLineHeight - circleHeight),
+                        p2: simd_float2(transformModeValues.rotationCenter.x, transformModeValues.rotationCenter.y - circleHeight),
+                        color: MetalColors.black,
+                        thickness: 2)
+                    drawThickLine(
+                        p1: simd_float2(transformModeValues.rotationCenter.x, transformModeValues.rotationCenter.y + vLineHeight + circleHeight),
+                        p2: simd_float2(transformModeValues.rotationCenter.x, transformModeValues.rotationCenter.y + circleHeight),
+                        color: MetalColors.black,
+                        thickness: 2)
+
+
+                    drawRing(
+                        center: transformModeValues.rotationCenter,
+                        color: MetalColors.black,
+                        radius: centerRadius,
+                        lineThickness: 1,
+                        drawWithTexture: false)
+                    drawThickLine(
+                        p1: simd_float2(transformModeValues.rotationCenter.x - hLineWidth - circleWidth, transformModeValues.rotationCenter.y),
+                        p2: simd_float2(transformModeValues.rotationCenter.x - circleWidth, transformModeValues.rotationCenter.y),
+                        color: MetalColors.black,
+                        thickness: 2)
+                    drawThickLine(
+                        p1: simd_float2(transformModeValues.rotationCenter.x + hLineWidth + circleWidth, transformModeValues.rotationCenter.y),
+                        p2: simd_float2(transformModeValues.rotationCenter.x + circleWidth, transformModeValues.rotationCenter.y),
+                        color: MetalColors.black,
+                        thickness: 2)
+                    drawSquare(center: transformModeValues.rotationCenter, color: MetalColors.black, width: 2, orthoMatrix: orthoMatrix)
+
+
+                    // Now draw the corner drag handles
+                    let middleX = (transformModeValues.topLeft.x + transformModeValues.bottomRight.x) / 2.0
+                    let middleY = (transformModeValues.topLeft.y + transformModeValues.bottomRight.y) / 2.0
+                    
+
+                    let topMiddle = simd_float2(x: middleX, y: transformModeValues.topLeft.y)
+                    let bottomMiddle = simd_float2(x: middleX, y: transformModeValues.bottomRight.y)
+                    let middleLeft = simd_float2(x: transformModeValues.topLeft.x, y: middleY)
+                    let middleRight = simd_float2(x: transformModeValues.topRight.x, y: middleY)
+//                    let dragHandles = [
+//                        transformModeValues.topLeft,
+//                        topMiddle,
+//                        transformModeValues.topRight,
+//                        
+//                        middleLeft,
+//                        middleRight,
+//                        
+//                        transformModeValues.bottomLeft,
+//                        bottomMiddle,
+//                        transformModeValues.bottomRight,
+//                    ]
+                    drawOutlinedBoxes(at: transformModeValues.dragHandles)
+
                 }
             }
         }
@@ -754,13 +828,14 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             hardness: Float = 1.0,
             drawWithTexture: Bool = false,
         ) {
-            drawWedge(                center: center,
-                                      color: color,
-                                      radius: radius,
-                                      steps: steps,
-                                      hardness: hardness,
-                                      drawWithTexture: drawWithTexture,
-                                      )
+            drawWedge(
+                center: center,
+                color: color,
+                radius: radius,
+                steps: steps,
+                hardness: hardness,
+                drawWithTexture: drawWithTexture,
+            )
         }
         
         func drawWedge(
@@ -933,7 +1008,40 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
                 encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: vertexes.count)
             }
-        
+
+        struct Endpoints {
+            let p1: simd_float2
+            let p2: simd_float2
+        }
+
+        func drawBox(
+            center: simd_float2,
+            color: SIMD4<Float>,
+            width: Float,
+            lineThickness: Float,
+            orthoMatrix: float4x4,
+            asDiamond: Bool = false) {
+                let aspect = drawingInfo.imageAspectRatio
+                let landscape = aspect > 1
+                let adjustment: simd_float2 = landscape ?  simd_float2(1, 1/aspect) : simd_float2(1*aspect, 1)
+                
+                let diagonal = simd_float2(x: width / adjustment.x * metalWidthPerPixel, y: width / adjustment.y  * metalWidthPerPixel)
+                let bottomLeft = center - diagonal
+                let topRight = center + diagonal
+                let topLeft = simd_float2(bottomLeft.x, topRight.y)
+                let bottomRight = simd_float2(topRight.x, bottomLeft.y)
+                let lines = [
+                    Endpoints(p1: topLeft, p2: topRight),
+                    Endpoints(p1: bottomLeft, p2: bottomRight),
+                    Endpoints(p1: topLeft, p2: bottomLeft),
+                    Endpoints(p1: topRight, p2: bottomRight),
+                ]
+                for line in lines {
+                    drawThickLine(p1: line.p1, p2: line.p2, color: MetalColors.white, thickness: 4)
+                    drawThickLine(p1: line.p1, p2: line.p2, color: MetalColors.black, thickness: 2)
+                }
+            }
+
         func drawSquare(
             center: simd_float2,
             color: SIMD4<Float>,

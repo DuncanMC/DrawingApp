@@ -19,12 +19,28 @@ struct MetalColors {
     static let white: SIMD4<Float> = SIMD4<Float>(1, 1, 1, 1)
 }
 
+enum Position: Int {
+    case topLeft
+    case topMiddle
+    case topRight
+    case middleLeft
+    case middleRight
+    case bottomLeft
+    case bottomMiddle
+    case bottomRight
+}
+struct DragHandle {
+    var coord: simd_float2
+    let position: Position
+}
 struct TransformModeValues {
     var rotationCenter: simd_float2
     var topLeft: simd_float2
     var topRight: simd_float2
     var bottomLeft: simd_float2
     var bottomRight: simd_float2
+    var dragHandles: [DragHandle]
+    
 }
 
 enum Mode: Int, Codable {
@@ -400,13 +416,32 @@ final class DrawingInfo: ObservableObject, Codable {
             let topRight = simd_float2(x: maxX, y: maxY)
             let bottomLeft = simd_float2(x: minX, y: minY)
             let bottomRight = simd_float2(x: maxX, y: minY)
-            let rotationCenter = simd_float2(x: (topRight.x - topLeft.x) / 2, y: (topRight.y - bottomRight.y) / 2)
+            let rotationCenter = simd_float2(x: (topRight.x + topLeft.x) / 2, y: (topRight.y + bottomRight.y) / 2)
+            let middleX = (topLeft.x + bottomRight.x) / 2.0
+            let middleY = (topLeft.y + bottomRight.y) / 2.0
+
+            let topMiddle = simd_float2(x: middleX, y: topLeft.y)
+            let bottomMiddle = simd_float2(x: middleX, y: bottomRight.y)
+            let middleLeft = simd_float2(x: topLeft.x, y: middleY)
+            let middleRight = simd_float2(x: topRight.x, y: middleY)
+            let dragHandles = [
+                DragHandle(coord: topLeft, position: .topLeft),
+                DragHandle(coord: topMiddle, position: .topMiddle),
+                DragHandle(coord: topRight, position: .topRight),
+                DragHandle(coord: middleLeft, position: .middleLeft),
+                DragHandle(coord: middleRight, position: .middleRight),
+                DragHandle(coord: bottomLeft, position: .bottomLeft),
+                DragHandle(coord: bottomMiddle, position: .bottomMiddle),
+                DragHandle(coord: bottomRight, position: .bottomRight),
+            ]
+            
             transformModeValues = TransformModeValues(
                 rotationCenter: rotationCenter,
                 topLeft: topLeft,
                 topRight: topRight,
                 bottomLeft: bottomLeft,
-                bottomRight: bottomRight)
+                bottomRight: bottomRight,
+                dragHandles: dragHandles)
         }
     }
     @Published var texture: MTLTexture?
