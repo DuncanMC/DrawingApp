@@ -42,21 +42,21 @@ struct DrawingView: NSViewRepresentable {
         mtkView.frame = container.bounds
         container.addSubview(mtkView)
 
-        let coord = context.coordinator
+        let coordinator = context.coordinator
         let tap = TapRecognizer()
-        tap.onTap = { [weak coord] loc, event in coord?.onTap?(loc, event) }
-        tap.onDoubleTap = { [weak coord] loc, event in coord?.onDoubleTap?(loc, event) }
+        tap.onTap = { [weak coordinator] loc, event in coordinator?.onTap?(loc, event) }
+        tap.onDoubleTap = { [weak coordinator] loc, event in coordinator?.onDoubleTap?(loc, event) }
 
         let drag = DragRecognizer()
-        drag.onDragBegan = { [weak coord] loc, event in coord?.onDragBegan?(loc, event) }
-        drag.onDragChanged = { [weak coord] loc, event in coord?.onDragChanged?(loc, event) }
-        drag.onDragEnded = { [weak coord] loc, event in coord?.onDragEnded?(loc, event) }
+        drag.onDragBegan = { [weak coordinator] loc, event in coordinator?.onDragBegan?(loc, event) }
+        drag.onDragChanged = { [weak coordinator] loc, event in coordinator?.onDragChanged?(loc, event) }
+        drag.onDragEnded = { [weak coordinator] loc, event in coordinator?.onDragEnded?(loc, event) }
 
         container.eventRecognizers = [tap, drag]
 
-        container.onPinchRotateBegan = { [weak coord] center in coord?.onPinchRotateBegan?(center) }
-        container.onPinchRotateChanged = { [weak coord] scale, rotation, center in coord?.onPinchRotateChanged?(scale, rotation, center) }
-        container.onPinchRotateEnded = { [weak coord] in coord?.onPinchRotateEnded?() }
+        container.onPinchRotateBegan = { [weak coordinator] center in coordinator?.onPinchRotateBegan?(center) }
+        container.onPinchRotateChanged = { [weak coordinator] scale, rotation, center in coordinator?.onPinchRotateChanged?(scale, rotation, center) }
+        container.onPinchRotateEnded = { [weak coordinator] in coordinator?.onPinchRotateEnded?() }
 
         return container
     }
@@ -137,7 +137,9 @@ struct DrawingView: UIViewRepresentable {
 
         let pinchRotate = PinchRotateRecognizer()
         pinchRotate.onPinchRotateBegan = { [weak coord] center in coord?.onPinchRotateBegan?(center) }
-        pinchRotate.onPinchRotateChanged = { [weak coord] scale, rotation, center in coord?.onPinchRotateChanged?(scale, rotation, center) }
+        pinchRotate.onPinchRotateChanged = { [weak coord] scale, rotation, center in
+            coord?.onPinchRotateChanged?(scale, rotation, center)
+        }
         pinchRotate.onPinchRotateEnded = { [weak coord] in coord?.onPinchRotateEnded?() }
 
         let drag = DragRecognizer()

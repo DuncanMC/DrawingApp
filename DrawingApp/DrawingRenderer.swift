@@ -802,18 +802,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     let bottomMiddle = simd_float2(x: middleX, y: transformModeValues.bottomRight.y)
                     let middleLeft = simd_float2(x: transformModeValues.topLeft.x, y: middleY)
                     let middleRight = simd_float2(x: transformModeValues.topRight.x, y: middleY)
-//                    let dragHandles = [
-//                        transformModeValues.topLeft,
-//                        topMiddle,
-//                        transformModeValues.topRight,
-//                        
-//                        middleLeft,
-//                        middleRight,
-//                        
-//                        transformModeValues.bottomLeft,
-//                        bottomMiddle,
-//                        transformModeValues.bottomRight,
-//                    ]
+
                     drawOutlinedBoxes(at: transformModeValues.dragHandles)
 
                 }

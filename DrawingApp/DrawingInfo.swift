@@ -19,7 +19,7 @@ struct MetalColors {
     static let white: SIMD4<Float> = SIMD4<Float>(1, 1, 1, 1)
 }
 
-enum Position: Int {
+enum TransformHandle: String {
     case topLeft
     case topMiddle
     case topRight
@@ -28,10 +28,13 @@ enum Position: Int {
     case bottomLeft
     case bottomMiddle
     case bottomRight
+    case transformRect
+    case rotationCenter
+    case outside
 }
 struct DragHandle {
     var coord: simd_float2
-    let position: Position
+    let handleType: TransformHandle
 }
 struct TransformModeValues {
     var rotationCenter: simd_float2
@@ -425,14 +428,14 @@ final class DrawingInfo: ObservableObject, Codable {
             let middleLeft = simd_float2(x: topLeft.x, y: middleY)
             let middleRight = simd_float2(x: topRight.x, y: middleY)
             let dragHandles = [
-                DragHandle(coord: topLeft, position: .topLeft),
-                DragHandle(coord: topMiddle, position: .topMiddle),
-                DragHandle(coord: topRight, position: .topRight),
-                DragHandle(coord: middleLeft, position: .middleLeft),
-                DragHandle(coord: middleRight, position: .middleRight),
-                DragHandle(coord: bottomLeft, position: .bottomLeft),
-                DragHandle(coord: bottomMiddle, position: .bottomMiddle),
-                DragHandle(coord: bottomRight, position: .bottomRight),
+                DragHandle(coord: topLeft, handleType: .topLeft),
+                DragHandle(coord: topMiddle, handleType: .topMiddle),
+                DragHandle(coord: topRight, handleType: .topRight),
+                DragHandle(coord: middleLeft, handleType: .middleLeft),
+                DragHandle(coord: middleRight, handleType: .middleRight),
+                DragHandle(coord: bottomLeft, handleType: .bottomLeft),
+                DragHandle(coord: bottomMiddle, handleType: .bottomMiddle),
+                DragHandle(coord: bottomRight, handleType: .bottomRight),
             ]
             
             transformModeValues = TransformModeValues(

@@ -10,6 +10,7 @@ import SwiftUI
 
 enum GestureLocation: CustomStringConvertible {
     case inControlPoint(curveIndex: Int, pointIndex: Int)
+    case inTransformHandle(handleType: TransformHandle)
     case outside
     
     var description: String {
@@ -18,6 +19,8 @@ enum GestureLocation: CustomStringConvertible {
             return "inControlPoint(curveIndex: \(curveIndex), pointIndex: \(pointIndex))"
         case .outside:
             return "outside"
+        case .inTransformHandle:
+            return "inTransformHandle"
         }
     }
 }
@@ -37,7 +40,7 @@ struct ViewModel {
 
     @ObservedObject var drawingInfo: DrawingInfo
     
-    var points: [GesturePointTuple]  {
+    var curvePoints: [GesturePointTuple]  {
         var result: [GesturePointTuple] = []
         let curvesCount = drawingInfo.curves.count - 1
         
@@ -48,6 +51,18 @@ struct ViewModel {
         }
         return result
     }
+    
+    var tranformHandlePoints: [GesturePointTuple] {
+        var result: [GesturePointTuple] = []
+        guard let transformModeValue = drawingInfo.transformModeValues else { return result }
+        result.append( GesturePointTuple(metalPointToView(transformModeValue.rotationCenter), .inTransformHandle(handleType: .rotationCenter)))
+        let dragHandles = transformModeValue.dragHandles
+        for aHandle in dragHandles {
+            result.append( GesturePointTuple(metalPointToView(aHandle.coord), .inTransformHandle(handleType: aHandle.handleType)))
+        }
+      return result
+    }
+    
     func handleTap(location: CGPoint, modifiers: GestureModifierKeys = []) {
 
         if let target = getGestureLocation(touchLocation: location) {
@@ -70,6 +85,8 @@ struct ViewModel {
                     drawingInfo.drawingMode = .editingCurve
                     drawingInfo.selectedPoints = [tappedPoint]
                 }
+            case .inTransformHandle:
+                break;
             case .outside: break
             }
         } else {
@@ -95,7 +112,6 @@ struct ViewModel {
                     let coords = thisCurve.points[selectedPoint.pointIndex].coord
                     let firstPoint = thisCurve.points[selectedPoint.pointIndex]
 
-//                    let firstPoint =  CatmullRomPoint(coord: coords, pointType: .corner, hardness: 1.0, pointRadius: 10.0)
                     let newCurve = CatmullRomCurve(color: thisCurve.color,
                                                    radius: drawingInfo.brushSettings.size,
                                                    outlineColor: nil,
@@ -136,6 +152,8 @@ struct ViewModel {
                     newSelection.insert(SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex))
                 }
                 drawingInfo.selectedPoints = newSelection
+            case .inTransformHandle:
+                print("Two-finger tapped on a transform handle")
             case .outside:
                 break
             }
@@ -183,6 +201,7 @@ struct ViewModel {
         drawingInfo.suppressUndo = true
     }
 
+    // rotation in radians
     func handlePinchRotateChanged(scale: CGFloat, rotation: CGFloat, center: CGPoint) {
         
         func transformPoint(_ point: simd_float2) -> simd_float2 {
@@ -196,6 +215,9 @@ struct ViewModel {
             let newViewPt = CGPoint(x: sx + center.x, y: sy + center.y)
             return viewPointToMetal(newViewPt)
         }
+        
+        //TODO: Put this test back
+//        guard !drawingInfo.transformSelection && !drawingInfo.selectedPoints.isEmpty else { return }
 
         guard !drawingInfo.selectedPoints.isEmpty else { return }
 
@@ -218,7 +240,7 @@ struct ViewModel {
             transformModeValues.bottomRight = transformPoint(transformModeValues.bottomRight)
             transformModeValues.rotationCenter = transformPoint(transformModeValues.rotationCenter)
             for index in 0 ..< transformModeValues.dragHandles.count {
-                transformModeValues.dragHandles[index] = DragHandle(coord: transformPoint(transformModeValues.dragHandles[index].coord), position: transformModeValues.dragHandles[index].position)
+                transformModeValues.dragHandles[index] = DragHandle(coord: transformPoint(transformModeValues.dragHandles[index].coord), handleType: transformModeValues.dragHandles[index].handleType)
             }
             drawingInfo.transformModeValues = transformModeValues
         }
@@ -246,6 +268,11 @@ struct ViewModel {
                 } else if !drawingInfo.selectedPoints.contains(newPoint) {
                     drawingInfo.selectedPoints = [newPoint]
                 }
+            case .inTransformHandle(let handleType):
+                    drawingInfo.isDragging = true
+                    drawingInfo.lastDragLocation = location
+                    drawingInfo.draggingState = target.gestureLocation
+
             default:
                 break
             }
@@ -302,6 +329,29 @@ struct ViewModel {
     func handleDragChanged(location: CGPoint, event: GestureEvent) {
         guard let lastDragLocation = drawingInfo.lastDragLocation else { return }
 
+        func dragSelectionBy(_ vector: SIMD2<Float>, moveRotationCenter: Bool = true) {
+            for aPoint in drawingInfo.selectedPoints {
+                let theCurve = drawingInfo.curves[aPoint.curveIndex]
+                var thePoint = theCurve.points[aPoint.pointIndex]
+                thePoint.coord += vector
+                drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex] = thePoint
+            }
+            if drawingInfo.transformSelection, var transformModeValues = drawingInfo.transformModeValues {
+                transformModeValues.topLeft +=  vector
+                transformModeValues.topRight +=  vector
+                transformModeValues.bottomLeft +=  vector
+                transformModeValues.bottomRight +=  vector
+                if moveRotationCenter {
+                    transformModeValues.rotationCenter += vector
+                }
+                for index in 0 ..< transformModeValues.dragHandles.count {
+                    transformModeValues.dragHandles[index] = DragHandle(coord: transformModeValues.dragHandles[index].coord + vector, handleType: transformModeValues.dragHandles[index].handleType)
+                }
+                drawingInfo.transformModeValues = transformModeValues
+            }
+            drawingInfo.lastDragLocation = location
+
+        }
         switch drawingInfo.drawingMode {
 
         case .creatingCurve:
@@ -337,24 +387,105 @@ struct ViewModel {
 
             switch drawingInfo.draggingState {
             case .inControlPoint:
-                for aPoint in drawingInfo.selectedPoints {
-                    let theCurve = drawingInfo.curves[aPoint.curveIndex]
-                    var thePoint = theCurve.points[aPoint.pointIndex]
-                    thePoint.coord += vector
-                    drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex] = thePoint
-                }
-                if drawingInfo.transformSelection, var transformModeValues = drawingInfo.transformModeValues {
-                    transformModeValues.topLeft +=  vector
-                    transformModeValues.topRight +=  vector
-                    transformModeValues.bottomLeft +=  vector
-                    transformModeValues.bottomRight +=  vector
+                dragSelectionBy(vector)
+            case .inTransformHandle(let handleType):
+                switch handleType {
+                case .transformRect:
+                    let rotationCenter = metalPointToView(drawingInfo.transformModeValues!.rotationCenter)
+                    dragSelectionBy(vector, moveRotationCenter: pointIsInTransformRect(rotationCenter))
+                    
+                case .rotationCenter:
+                    guard var transformModeValues = drawingInfo.transformModeValues else { return }
                     transformModeValues.rotationCenter += vector
-                    for index in 0 ..< transformModeValues.dragHandles.count {
-                        transformModeValues.dragHandles[index] = DragHandle(coord: transformModeValues.dragHandles[index].coord + vector, position: transformModeValues.dragHandles[index].position)
-                    }
                     drawingInfo.transformModeValues = transformModeValues
+                    drawingInfo.lastDragLocation = location
+                case .outside:
+                    guard let transformModeValues = drawingInfo.transformModeValues else { return }
+                    let rotationCenter = metalPointToView(transformModeValues.rotationCenter)
+                    let oldAngle = atan2(Double(rotationCenter.y - lastDragLocation.y), Double(rotationCenter.x - lastDragLocation.x))
+                    let newAngle = atan2(Double(rotationCenter.y - location.y), Double(rotationCenter.x - location.x))
+                    let angleDelta = CGFloat(newAngle - oldAngle)
+                    handlePinchRotateChanged(scale: 1.0, rotation: angleDelta, center: rotationCenter)
+                    drawingInfo.lastDragLocation = location
+                case .topLeft, .topMiddle, .topRight, .middleLeft, .middleRight, .bottomLeft, .bottomMiddle, .bottomRight:
+                    guard var transformModeValues = drawingInfo.transformModeValues else { return }
+
+                    // Basis vectors of the bounding parallelogram in metal space
+                    let u = transformModeValues.topRight - transformModeValues.topLeft
+                    let v = transformModeValues.bottomLeft - transformModeValues.topLeft
+                    let det = u.x * v.y - v.x * u.y
+                    guard abs(det) > 1e-6 else { return }
+                    let invDet = 1.0 / det
+
+                    let anchor: simd_float2
+                    let scaleLocalX: Bool
+                    let scaleLocalY: Bool
+
+                    let midBottom = (transformModeValues.bottomLeft + transformModeValues.bottomRight) * 0.5
+                    let midTop = (transformModeValues.topLeft + transformModeValues.topRight) * 0.5
+                    let midLeft = (transformModeValues.topLeft + transformModeValues.bottomLeft) * 0.5
+                    let midRight = (transformModeValues.topRight + transformModeValues.bottomRight) * 0.5
+
+                    switch handleType {
+                    case .topLeft:
+                        anchor = transformModeValues.bottomRight; scaleLocalX = true; scaleLocalY = true
+                    case .topRight:
+                        anchor = transformModeValues.bottomLeft; scaleLocalX = true; scaleLocalY = true
+                    case .bottomLeft:
+                        anchor = transformModeValues.topRight; scaleLocalX = true; scaleLocalY = true
+                    case .bottomRight:
+                        anchor = transformModeValues.topLeft; scaleLocalX = true; scaleLocalY = true
+                    case .topMiddle:
+                        anchor = midBottom; scaleLocalX = false; scaleLocalY = true
+                    case .bottomMiddle:
+                        anchor = midTop; scaleLocalX = false; scaleLocalY = true
+                    case .middleLeft:
+                        anchor = midRight; scaleLocalX = true; scaleLocalY = false
+                    case .middleRight:
+                        anchor = midLeft; scaleLocalX = true; scaleLocalY = false
+                    default:
+                        return
+                    }
+
+                    // Decompose offset into (u, v) basis using the matrix inverse
+                    func decompose(_ offset: simd_float2) -> (s: Float, t: Float) {
+                        let s = (offset.x * v.y - offset.y * v.x) * invDet
+                        let t = (offset.y * u.x - offset.x * u.y) * invDet
+                        return (s, t)
+                    }
+
+                    guard let handleIndex = transformModeValues.dragHandles.firstIndex(where: { $0.handleType == handleType }) else { return }
+                    let handleLocal = decompose(transformModeValues.dragHandles[handleIndex].coord - anchor)
+                    let vectorLocal = decompose(vector)
+
+                    let sx: Float = scaleLocalX && abs(handleLocal.s) > 1e-6 ? (handleLocal.s + vectorLocal.s) / handleLocal.s : 1.0
+                    let sy: Float = scaleLocalY && abs(handleLocal.t) > 1e-6 ? (handleLocal.t + vectorLocal.t) / handleLocal.t : 1.0
+
+                    func scalePoint(_ pt: simd_float2) -> simd_float2 {
+                        let local = decompose(pt - anchor)
+                        return anchor + (local.s * sx) * u + (local.t * sy) * v
+                    }
+
+                    for aPoint in drawingInfo.selectedPoints {
+                        let coord = drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex].coord
+                        drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex].coord = scalePoint(coord)
+                    }
+
+                    transformModeValues.topLeft = scalePoint(transformModeValues.topLeft)
+                    transformModeValues.topRight = scalePoint(transformModeValues.topRight)
+                    transformModeValues.bottomLeft = scalePoint(transformModeValues.bottomLeft)
+                    transformModeValues.bottomRight = scalePoint(transformModeValues.bottomRight)
+
+                    for index in 0 ..< transformModeValues.dragHandles.count {
+                        let handle = transformModeValues.dragHandles[index]
+                        transformModeValues.dragHandles[index] = DragHandle(coord: scalePoint(handle.coord), handleType: handle.handleType)
+                    }
+
+                    drawingInfo.transformModeValues = transformModeValues
+                    drawingInfo.lastDragLocation = location
+                default:
+                    break
                 }
-                drawingInfo.lastDragLocation = location
             default:
                 break
             }
@@ -398,12 +529,21 @@ struct ViewModel {
                 tapPoint.y > $0.point.y - slopDistance && tapPoint.y < $0.point.y + slopDistance
             }
         
-        //Calculate the distance of each matching point from the tap point
+        //If the rotation center is in the list, return that.
+        if let rotationCenter = matches.first( where: { point in
+            if case .inTransformHandle(handleType: .rotationCenter) = point.gestureLocation {
+                return true
+            }
+            return false
+        }) {
+            return rotationCenter
+        }
+        return matches
+            //Calculate the distance of each matching point from the tap point
             .map { ($0, distanceSquardBetween(p1: tapPoint, p2: $0.point)) }
-        
-        // Sort the points closest-to-farthest
+            //Sort the points closest-to-furthest
             .sorted(by: { $0.1 < $1.1 })
-        return matches.first?.0
+            .first?.0
     }
 
     func metalPointToView(_ metalPoint: SIMD2<Float>) -> CGPoint {
@@ -421,15 +561,54 @@ struct ViewModel {
     }
 
 
+    // Returns true if point p is inside the convex quadrilateral defined by vertices a, b, c, d (in order).
+    func pointInQuad(_ p: CGPoint, a: CGPoint, b: CGPoint, c: CGPoint, d: CGPoint) -> Bool {
+        func cross(_ origin: CGPoint, _ v1: CGPoint, _ v2: CGPoint) -> CGFloat {
+            (v1.x - origin.x) * (v2.y - origin.y) - (v1.y - origin.y) * (v2.x - origin.x)
+        }
+        let c0 = cross(a, b, p)
+        let c1 = cross(b, c, p)
+        let c2 = cross(c, d, p)
+        let c3 = cross(d, a, p)
+        return (c0 >= 0 && c1 >= 0 && c2 >= 0 && c3 >= 0) ||
+               (c0 <= 0 && c1 <= 0 && c2 <= 0 && c3 <= 0)
+    }
+
+    func pointIsInTransformRect(_ point: CGPoint) -> Bool {
+        
+        guard let tmv = drawingInfo.transformModeValues  else { return false }
+            let a = metalPointToView(tmv.topLeft)
+            let b = metalPointToView(tmv.topRight)
+            let c = metalPointToView(tmv.bottomRight)
+            let d = metalPointToView(tmv.bottomLeft)
+            return pointInQuad(point, a: a, b: b, c: c, d: d)
+    }
+    
     func getGestureLocation(touchLocation: CGPoint) -> GesturePointTuple? {
 
-        let aspect = drawingInfo.viewportSize.width / drawingInfo.viewportSize.height
-        let adjusted = CGPoint(x: touchLocation.x * aspect, y: touchLocation.y)
-        //print("Adjusted tap point = \(adjusted)")
-        let result = matchPoint(touchLocation, inPoints: points)
+        var result: GesturePointTuple?
+        if drawingInfo.transformSelection {
+            result = matchPoint(touchLocation, inPoints: tranformHandlePoints)
+            if let result,
+               case .inTransformHandle(let handleType) = result.gestureLocation
+            {
+                print("Gesture \(handleType.rawValue)")
+            }
+            else {
+                if pointIsInTransformRect(touchLocation) {
+                    result = GesturePointTuple(touchLocation, .inTransformHandle(handleType: .transformRect))
+                    print("Gesture .\(result!.gestureLocation), .transformRect")
+                } else {
+                    result = GesturePointTuple(touchLocation, .inTransformHandle(handleType: .outside))
+                }
+            }
+        } else {
+            result = matchPoint(touchLocation, inPoints: curvePoints)
+            if let result {
+                print("Gesture \(result.gestureLocation)")
+            }
+        }
         return result
-
-
     }
 
     // MARK: - Point Reduction (Ramer–Douglas–Peucker)

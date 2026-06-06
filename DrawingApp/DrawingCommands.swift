@@ -39,6 +39,7 @@ struct DrawingCommands: Commands {
                 get: {  drawingInfo?.transformSelection ?? false },
                 set: {  newValue in drawingInfo?.transformSelection = newValue } ))
             .disabled(drawingInfo?.drawingMode != .editingCurve || drawingInfo?.selectedPoints.count ?? 0 < 2)
+            .keyboardShortcut("t", modifiers: .command)
 
             Button("Deselect All") {
                 drawingInfo?.selectedPoints = []

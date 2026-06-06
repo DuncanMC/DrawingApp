@@ -58,6 +58,7 @@ import Combine
                         viewModel.handlePinchRotateBegan(center: center)
                     },
                     onPinchRotateChanged: { scale, rotation, center in
+                        // TODO: Put test here to ignore pinch/rotate when in transform mode?
                         viewModel.handlePinchRotateChanged(scale: scale, rotation: rotation, center: center)
                     },
                     onPinchRotateEnded: {
@@ -129,6 +130,7 @@ import Combine
             SettingsView(doneButtonuttonAction: { showSettings = false } )
         }
         #if os(iOS)
+        // MARK: hidden buttons for keyboard shortcuts.
         .background {
             VStack {
                 Button("") { undoManager?.undo() }
@@ -209,7 +211,6 @@ import Combine
 
                     Button("Deselect All") {
                         drawingInfo.selectedPoints = []
-//                      //drawingMode = .idle
                     }
                     .disabled(drawingInfo.selectedPoints.isEmpty)
 
