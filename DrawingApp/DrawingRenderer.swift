@@ -274,8 +274,14 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         // MARK: - nested drawing functions
         func drawOutlinedBoxes(at points: [DragHandle]) {
             for aPoint in points {
-                drawBox(center: aPoint.coord, color: MetalColors.white, width: 10, lineThickness: 3, orthoMatrix: orthoMatrix)
-                drawBox(center: aPoint.coord, color: MetalColors.black, width: 10, lineThickness: 1, orthoMatrix: orthoMatrix)
+                if aPoint.handleType != drawingInfo.transformModeValues?.selectedTransformHandle {
+                    drawBox(center: aPoint.coord, color: MetalColors.white, width: 10, lineThickness: 3, orthoMatrix: orthoMatrix)
+                    drawBox(center: aPoint.coord, color: MetalColors.black, width: 10, lineThickness: 1, orthoMatrix: orthoMatrix)
+                } else {
+                    drawBox(center: aPoint.coord, color: MetalColors.blue, width: 10, lineThickness: 3, orthoMatrix: orthoMatrix)
+                    drawSquare(center: aPoint.coord, color: MetalColors.red, width: 8, orthoMatrix: orthoMatrix)
+
+                }
             }
         }
         func curveToCatmullRomPoints(_ curve: CatmullRomCurve) -> [SmoothedCurvePoint] {

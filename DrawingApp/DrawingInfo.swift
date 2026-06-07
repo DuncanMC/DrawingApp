@@ -42,6 +42,7 @@ struct TransformModeValues {
     var topRight: simd_float2
     var bottomLeft: simd_float2
     var bottomRight: simd_float2
+    var selectedTransformHandle: TransformHandle? = nil
     var dragHandles: [DragHandle]
     
 }

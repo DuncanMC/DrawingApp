@@ -165,13 +165,24 @@ struct ViewModel {
 
     func handleDoubleTap(location: CGPoint) {
         if let target = getGestureLocation(touchLocation: location) {
-            print("Double-tap in \(target.gestureLocation.description)")
+            //print("Double-tap in \(target.gestureLocation.description)")
             let gestureLocation = target.gestureLocation
             switch gestureLocation {
             case .inControlPoint(let curveIndex, let pointIndex):
                 var changed = drawingInfo.curves[curveIndex].points[pointIndex]
                 changed.pointType = (changed.pointType == .corner) ? .smooth : .corner
                 drawingInfo.curves[curveIndex].points[pointIndex] = changed
+            case .inTransformHandle(let handleType):
+                if handleType != .transformRect && handleType != .rotationCenter && handleType != .outside {
+                    if drawingInfo.transformModeValues?.selectedTransformHandle == handleType {
+                        print("drawing handle \(drawingInfo.transformModeValues!.selectedTransformHandle!) deselected.")
+                        drawingInfo.transformModeValues?.selectedTransformHandle = nil
+                    } else {
+                        drawingInfo.transformModeValues?.selectedTransformHandle = handleType
+                        print("drawing handle \(handleType) selected.")
+                    }
+                    
+                }
             default:
                 break
             }
@@ -416,80 +427,7 @@ struct ViewModel {
                     handlePinchRotateChanged(scale: 1.0, rotation: angleDelta, center: rotationCenter)
                     drawingInfo.lastDragLocation = location
                 case .topLeft, .topMiddle, .topRight, .middleLeft, .middleRight, .bottomLeft, .bottomMiddle, .bottomRight:
-                    guard var transformModeValues = drawingInfo.transformModeValues else { return }
-
-                    // Basis vectors of the bounding parallelogram in metal space
-                    let u = transformModeValues.topRight - transformModeValues.topLeft
-                    let v = transformModeValues.bottomLeft - transformModeValues.topLeft
-                    let det = u.x * v.y - v.x * u.y
-                    guard abs(det) > 1e-6 else { return }
-                    let invDet = 1.0 / det
-
-                    let anchor: simd_float2
-                    let scaleLocalX: Bool
-                    let scaleLocalY: Bool
-
-                    let midBottom = (transformModeValues.bottomLeft + transformModeValues.bottomRight) * 0.5
-                    let midTop = (transformModeValues.topLeft + transformModeValues.topRight) * 0.5
-                    let midLeft = (transformModeValues.topLeft + transformModeValues.bottomLeft) * 0.5
-                    let midRight = (transformModeValues.topRight + transformModeValues.bottomRight) * 0.5
-
-                    switch handleType {
-                    case .topLeft:
-                        anchor = transformModeValues.bottomRight; scaleLocalX = true; scaleLocalY = true
-                    case .topRight:
-                        anchor = transformModeValues.bottomLeft; scaleLocalX = true; scaleLocalY = true
-                    case .bottomLeft:
-                        anchor = transformModeValues.topRight; scaleLocalX = true; scaleLocalY = true
-                    case .bottomRight:
-                        anchor = transformModeValues.topLeft; scaleLocalX = true; scaleLocalY = true
-                    case .topMiddle:
-                        anchor = midBottom; scaleLocalX = false; scaleLocalY = true
-                    case .bottomMiddle:
-                        anchor = midTop; scaleLocalX = false; scaleLocalY = true
-                    case .middleLeft:
-                        anchor = midRight; scaleLocalX = true; scaleLocalY = false
-                    case .middleRight:
-                        anchor = midLeft; scaleLocalX = true; scaleLocalY = false
-                    default:
-                        return
-                    }
-
-                    // Decompose offset into (u, v) basis using the matrix inverse
-                    func decompose(_ offset: simd_float2) -> (s: Float, t: Float) {
-                        let s = (offset.x * v.y - offset.y * v.x) * invDet
-                        let t = (offset.y * u.x - offset.x * u.y) * invDet
-                        return (s, t)
-                    }
-
-                    guard let handleIndex = transformModeValues.dragHandles.firstIndex(where: { $0.handleType == handleType }) else { return }
-                    let handleLocal = decompose(transformModeValues.dragHandles[handleIndex].coord - anchor)
-                    let vectorLocal = decompose(vector)
-
-                    let sx: Float = scaleLocalX && abs(handleLocal.s) > 1e-6 ? (handleLocal.s + vectorLocal.s) / handleLocal.s : 1.0
-                    let sy: Float = scaleLocalY && abs(handleLocal.t) > 1e-6 ? (handleLocal.t + vectorLocal.t) / handleLocal.t : 1.0
-
-                    func scalePoint(_ pt: simd_float2) -> simd_float2 {
-                        let local = decompose(pt - anchor)
-                        return anchor + (local.s * sx) * u + (local.t * sy) * v
-                    }
-
-                    for aPoint in drawingInfo.selectedPoints {
-                        let coord = drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex].coord
-                        drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex].coord = scalePoint(coord)
-                    }
-
-                    transformModeValues.topLeft = scalePoint(transformModeValues.topLeft)
-                    transformModeValues.topRight = scalePoint(transformModeValues.topRight)
-                    transformModeValues.bottomLeft = scalePoint(transformModeValues.bottomLeft)
-                    transformModeValues.bottomRight = scalePoint(transformModeValues.bottomRight)
-
-                    for index in 0 ..< transformModeValues.dragHandles.count {
-                        let handle = transformModeValues.dragHandles[index]
-                        transformModeValues.dragHandles[index] = DragHandle(coord: scalePoint(handle.coord), handleType: handle.handleType)
-                    }
-
-                    drawingInfo.transformModeValues = transformModeValues
+                    adjustSelection(by: vector, forHandleType: handleType)
                     drawingInfo.lastDragLocation = location
                 default:
                     break
@@ -499,21 +437,103 @@ struct ViewModel {
             }
         }
     }
+    
+    func adjustSelection(by vector: SIMD2<Float>, forHandleType handleType:  TransformHandle ) {
+        guard var transformModeValues = drawingInfo.transformModeValues else { return }
+
+        // Basis vectors of the bounding parallelogram in metal space
+        let u = transformModeValues.topRight - transformModeValues.topLeft
+        let v = transformModeValues.bottomLeft - transformModeValues.topLeft
+        let det = u.x * v.y - v.x * u.y
+        guard abs(det) > 1e-6 else { return }
+        let invDet = 1.0 / det
+
+        let anchor: simd_float2
+        let scaleLocalX: Bool
+        let scaleLocalY: Bool
+
+        let midBottom = (transformModeValues.bottomLeft + transformModeValues.bottomRight) * 0.5
+        let midTop = (transformModeValues.topLeft + transformModeValues.topRight) * 0.5
+        let midLeft = (transformModeValues.topLeft + transformModeValues.bottomLeft) * 0.5
+        let midRight = (transformModeValues.topRight + transformModeValues.bottomRight) * 0.5
+
+        switch handleType {
+        case .topLeft:
+            anchor = transformModeValues.bottomRight; scaleLocalX = true; scaleLocalY = true
+        case .topRight:
+            anchor = transformModeValues.bottomLeft; scaleLocalX = true; scaleLocalY = true
+        case .bottomLeft:
+            anchor = transformModeValues.topRight; scaleLocalX = true; scaleLocalY = true
+        case .bottomRight:
+            anchor = transformModeValues.topLeft; scaleLocalX = true; scaleLocalY = true
+        case .topMiddle:
+            anchor = midBottom; scaleLocalX = false; scaleLocalY = true
+        case .bottomMiddle:
+            anchor = midTop; scaleLocalX = false; scaleLocalY = true
+        case .middleLeft:
+            anchor = midRight; scaleLocalX = true; scaleLocalY = false
+        case .middleRight:
+            anchor = midLeft; scaleLocalX = true; scaleLocalY = false
+        default:
+            return
+        }
+
+        // Decompose offset into (u, v) basis using the matrix inverse
+        func decompose(_ offset: simd_float2) -> (s: Float, t: Float) {
+            let s = (offset.x * v.y - offset.y * v.x) * invDet
+            let t = (offset.y * u.x - offset.x * u.y) * invDet
+            return (s, t)
+        }
+
+        guard let handleIndex = transformModeValues.dragHandles.firstIndex(where: { $0.handleType == handleType }) else { return }
+        let handleLocal = decompose(transformModeValues.dragHandles[handleIndex].coord - anchor)
+        let vectorLocal = decompose(vector)
+
+        let sx: Float = scaleLocalX && abs(handleLocal.s) > 1e-6 ? (handleLocal.s + vectorLocal.s) / handleLocal.s : 1.0
+        let sy: Float = scaleLocalY && abs(handleLocal.t) > 1e-6 ? (handleLocal.t + vectorLocal.t) / handleLocal.t : 1.0
+
+        func scalePoint(_ pt: simd_float2) -> simd_float2 {
+            let local = decompose(pt - anchor)
+            return anchor + (local.s * sx) * u + (local.t * sy) * v
+        }
+
+        for aPoint in drawingInfo.selectedPoints {
+            let coord = drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex].coord
+            drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex].coord = scalePoint(coord)
+        }
+
+        transformModeValues.topLeft = scalePoint(transformModeValues.topLeft)
+        transformModeValues.topRight = scalePoint(transformModeValues.topRight)
+        transformModeValues.bottomLeft = scalePoint(transformModeValues.bottomLeft)
+        transformModeValues.bottomRight = scalePoint(transformModeValues.bottomRight)
+
+        for index in 0 ..< transformModeValues.dragHandles.count {
+            let handle = transformModeValues.dragHandles[index]
+            transformModeValues.dragHandles[index] = DragHandle(coord: scalePoint(handle.coord), handleType: handle.handleType)
+        }
+
+        drawingInfo.transformModeValues = transformModeValues
+
+    }
 
     func handleArrowKey(_ keyPress: KeyPress) {
         let  metalWidthPerPixel = drawingInfo.scale / Float(max(drawingInfo.drawableSize.width, drawingInfo.drawableSize.height))
+
+        let aspect = drawingInfo.imageAspectRatio
+        let landscape = aspect > 1
+        let adjustment: simd_float2 = landscape ?  simd_float2(1, 1/aspect) : simd_float2(1*aspect, 1)
 
         let shift = keyPress.modifiers.contains(.shift)
         var vector: SIMD2<Float>
         switch keyPress.key {
         case .leftArrow:
-            vector = .init(x: Float(-metalWidthPerPixel), y: 0)
+            vector = .init(x: Float(-metalWidthPerPixel)/adjustment.x, y: 0)
         case .rightArrow:
-            vector = .init(x: Float(metalWidthPerPixel), y: 0)
+            vector = .init(x: Float(metalWidthPerPixel)/adjustment.x, y: 0)
         case .upArrow:
-            vector = .init(x: 0, y: Float(metalWidthPerPixel))
+            vector = .init(x: 0, y: Float(metalWidthPerPixel)/adjustment.y)
         case .downArrow:
-            vector = .init(x: 0, y: Float(-metalWidthPerPixel))
+            vector = .init(x: 0, y: Float(-metalWidthPerPixel)/adjustment.y)
         default:
             return
             
@@ -521,8 +541,40 @@ struct ViewModel {
         if shift {
             vector *= 10
         }
-        Task { @MainActor in
-            dragSelectionBy(vector)
+        /*
+         case topLeft
+         case topMiddle
+         case topRight
+         case middleLeft
+         case middleRight
+         case bottomLeft
+         case bottomMiddle
+         case bottomRight
+         case transformRect
+         case rotationCenter
+         case outside
+
+         */
+        if let transformHandle = drawingInfo.transformModeValues?.selectedTransformHandle {
+            // ignore left an right arrow for bottomMiddle and topMiddle
+            if (keyPress.key == .leftArrow || keyPress.key == .rightArrow ) &&
+                transformHandle == .bottomMiddle || transformHandle == .topMiddle {
+                return
+            }
+                
+            // Ignore up and down arrow for middleLeft and middleRight
+            if (keyPress.key == .upArrow || keyPress.key == .downArrow) &&
+                transformHandle == .middleLeft || transformHandle == .middleRight {
+                return
+            }
+            
+            Task { @MainActor in
+                adjustSelection(by: vector, forHandleType: transformHandle)
+            }
+        } else {
+            Task { @MainActor in
+                dragSelectionBy(vector)
+            }
         }
     }
     
@@ -626,12 +678,12 @@ struct ViewModel {
             if let result,
                case .inTransformHandle(let handleType) = result.gestureLocation
             {
-                print("Gesture \(handleType.rawValue)")
+                //print("Gesture \(handleType.rawValue)")
             }
             else {
                 if pointIsInTransformRect(touchLocation) {
                     result = GesturePointTuple(touchLocation, .inTransformHandle(handleType: .transformRect))
-                    print("Gesture .\(result!.gestureLocation), .transformRect")
+                    //print("Gesture .\(result!.gestureLocation), .transformRect")
                 } else {
                     result = GesturePointTuple(touchLocation, .inTransformHandle(handleType: .outside))
                 }
@@ -639,7 +691,7 @@ struct ViewModel {
         } else {
             result = matchPoint(touchLocation, inPoints: curvePoints)
             if let result {
-                print("Gesture \(result.gestureLocation)")
+                //print("Gesture \(result.gestureLocation)")
             }
         }
         return result
