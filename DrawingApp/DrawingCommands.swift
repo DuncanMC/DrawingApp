@@ -10,6 +10,7 @@ import SwiftUI
 struct DrawingCommands: Commands {
     @FocusedObject var drawingInfo: DrawingInfo?
 
+    // MacOS menus
     var body: some Commands {
         CommandGroup(replacing: .pasteboard) {
             Button("Cut") {
@@ -70,6 +71,7 @@ struct DrawingCommands: Commands {
             Button("Join Curves") {
                 drawingInfo?.joinCurves()
             }
+            .keyboardShortcut("j", modifiers: [.command])
             .disabled(drawingInfo?.enableJoinCurves != true)
 
         }

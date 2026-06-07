@@ -68,6 +68,10 @@ import Combine
                         undoManager?.undo()
                     }
                 )
+                .onKeyPress(keys: [.upArrow, .downArrow, .leftArrow, .rightArrow]) { press in
+                    viewModel.handleArrowKey(press)
+                    return .handled
+                }
                 .frame(width: DrawingInfo.defaultSize.width, height: DrawingInfo.defaultSize.height)
                 .border(Color.blue, width: 4)
                 .aspectRatio(drawingInfo.imageSize, contentMode: .fit)
@@ -156,6 +160,27 @@ import Combine
                 Button("") { drawingInfo.deletePoints(deleteEntireCurve: true) }
                     .keyboardShortcut(.delete, modifiers: .command)
                     .disabled(!drawingInfo.enableDeletePointButton)
+                // Transform Selection
+                Button("") {drawingInfo.transformSelection.toggle()}
+                .disabled(drawingInfo.drawingMode != .editingCurve || drawingInfo.selectedPoints.count ?? 0 < 2)
+                .keyboardShortcut("t", modifiers: .command)
+
+                //Show control points
+                Button("Show Control Points (⌥C)") { drawingInfo.showControlPoints.toggle() }
+                    .keyboardShortcut("c", modifiers: .option)
+                
+                //Smooth Curves
+                Button("Smooth Curves (⌥S)") { drawingInfo.smoothCurves.toggle() }
+                    .keyboardShortcut("s", modifiers: .option)
+
+
+                Button("Show Smoothing Points (⌥⇧S)") { drawingInfo.showSmoothingPoints.toggle() }
+                    .keyboardShortcut("s", modifiers: [.option, .shift])
+                //⌥
+                Button("Show Quads (⌥Q)") { drawingInfo.showQuads.toggle() }
+                    .keyboardShortcut("q", modifiers: [.option])
+
+
             }
             .frame(width: 0, height: 0)
             .opacity(0)
@@ -174,54 +199,54 @@ import Combine
         .toolbar {
             ToolbarItem(placement: .secondaryAction) {
                 Menu("Edit", systemImage: "scissors") {
-                    Button("Undo") {
+                    Button("Undo  (⌘Z)") {
                         undoManager?.undo()
                     }
                     .disabled(!(undoManager?.canUndo ?? false))
 
-                    Button("Redo") {
+                    Button("Redo (⌘Shift+Z)") {
                         undoManager?.redo()
                     }
                     .disabled(!(undoManager?.canRedo ?? false))
 
                     Divider()
 
-                    Button("Cut") {
+                    Button("Cut (⌘X)") {
                         drawingInfo.cutSelectedPoints()
                     }
                     .disabled(drawingInfo.selectedPoints.isEmpty)
 
-                    Button("Copy") {
+                    Button("Copy (⌘C)") {
                         drawingInfo.copySelectedPoints()
                     }
                     .disabled(drawingInfo.selectedPoints.isEmpty)
 
-                    Button("Paste") {
+                    Button("Paste (⌘P)") {
                         drawingInfo.pastePoints()
                     }
                     .disabled(!drawingInfo.canPaste)
 
-                    Button("Select All") {
+                    Button("Select All (⌘A)") {
                         drawingInfo.selectAll()
                     }
-                    Toggle("Transform Selection", isOn: Binding(
+                    Toggle("Transform Selection (⌘T)", isOn: Binding(
                         get: {  drawingInfo.transformSelection},
                         set: {  newValue in drawingInfo.transformSelection = newValue } ))
                     .disabled(drawingInfo.drawingMode != .editingCurve || drawingInfo.selectedPoints.count ?? 0 < 2)
 
-                    Button("Deselect All") {
+                    Button("Deselect All (⌘D)") {
                         drawingInfo.selectedPoints = []
                     }
                     .disabled(drawingInfo.selectedPoints.isEmpty)
 
                     Divider()
 
-                    Button("Delete Point", role: .destructive) {
+                    Button("Delete Point (⌦)", role: .destructive) {
                         drawingInfo.deletePoints()
                     }
                     .disabled(!drawingInfo.enableDeletePointButton)
 
-                    Button("Delete Entire Curve", role: .destructive) {
+                    Button("Delete Entire Curve (⌘⌦)", role: .destructive) {
                         drawingInfo.deletePoints(deleteEntireCurve: true)
                     }
                     .disabled(!drawingInfo.enableDeletePointButton)
@@ -241,10 +266,10 @@ import Combine
             }
             ToolbarItem(placement: .secondaryAction) {
                 Menu("View Options", systemImage: "eye") {
-                    Toggle("Smooth Curves", isOn: $drawingInfo.smoothCurves)
-                    Toggle("Show Smoothing Points", isOn: $drawingInfo.showSmoothingPoints)
-                    Toggle("Show Control Points", isOn: $drawingInfo.showControlPoints)
-                    Toggle("Show Quads", isOn: $drawingInfo.showQuads)
+                    Toggle("Smooth Curves (⌥S)", isOn: $drawingInfo.smoothCurves)
+                    Toggle("Show Smoothing Points (⌥⇧S)", isOn: $drawingInfo.showSmoothingPoints)
+                    Toggle("Show Control Points (⌥C)", isOn: $drawingInfo.showControlPoints)
+                    Toggle("Show Quads (⌥Q)", isOn: $drawingInfo.showQuads)
                 }
             }
         }

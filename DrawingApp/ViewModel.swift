@@ -255,6 +255,9 @@ struct ViewModel {
         drawingInfo.registerUndo()
         drawingInfo.suppressUndo = true
 
+        if event.modifierKeys.contains(GestureModifierKeys.shift) {
+            print("Shift drag begun")
+        }
         if let target = getGestureLocation(touchLocation: location) {
             drawingInfo.drawingMode = .editingCurve
             switch target.gestureLocation {
@@ -326,32 +329,36 @@ struct ViewModel {
         }
     }
 
+    func dragSelectionBy(_ vector: SIMD2<Float>, moveRotationCenter: Bool = true) {
+        for aPoint in drawingInfo.selectedPoints {
+            let theCurve = drawingInfo.curves[aPoint.curveIndex]
+            var thePoint = theCurve.points[aPoint.pointIndex]
+            thePoint.coord += vector
+            drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex] = thePoint
+        }
+        if drawingInfo.transformSelection, var transformModeValues = drawingInfo.transformModeValues {
+            transformModeValues.topLeft +=  vector
+            transformModeValues.topRight +=  vector
+            transformModeValues.bottomLeft +=  vector
+            transformModeValues.bottomRight +=  vector
+            if moveRotationCenter {
+                transformModeValues.rotationCenter += vector
+            }
+            for index in 0 ..< transformModeValues.dragHandles.count {
+                transformModeValues.dragHandles[index] = DragHandle(coord: transformModeValues.dragHandles[index].coord + vector, handleType: transformModeValues.dragHandles[index].handleType)
+            }
+            drawingInfo.transformModeValues = transformModeValues
+        }
+
+    }
+    
     func handleDragChanged(location: CGPoint, event: GestureEvent) {
         guard let lastDragLocation = drawingInfo.lastDragLocation else { return }
 
-        func dragSelectionBy(_ vector: SIMD2<Float>, moveRotationCenter: Bool = true) {
-            for aPoint in drawingInfo.selectedPoints {
-                let theCurve = drawingInfo.curves[aPoint.curveIndex]
-                var thePoint = theCurve.points[aPoint.pointIndex]
-                thePoint.coord += vector
-                drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex] = thePoint
-            }
-            if drawingInfo.transformSelection, var transformModeValues = drawingInfo.transformModeValues {
-                transformModeValues.topLeft +=  vector
-                transformModeValues.topRight +=  vector
-                transformModeValues.bottomLeft +=  vector
-                transformModeValues.bottomRight +=  vector
-                if moveRotationCenter {
-                    transformModeValues.rotationCenter += vector
-                }
-                for index in 0 ..< transformModeValues.dragHandles.count {
-                    transformModeValues.dragHandles[index] = DragHandle(coord: transformModeValues.dragHandles[index].coord + vector, handleType: transformModeValues.dragHandles[index].handleType)
-                }
-                drawingInfo.transformModeValues = transformModeValues
-            }
-            drawingInfo.lastDragLocation = location
-
+        if event.modifierKeys.contains(GestureModifierKeys.shift) {
+            print("Shift drag in progress")
         }
+
         switch drawingInfo.drawingMode {
 
         case .creatingCurve:
@@ -388,6 +395,7 @@ struct ViewModel {
             switch drawingInfo.draggingState {
             case .inControlPoint:
                 dragSelectionBy(vector)
+                drawingInfo.lastDragLocation = location
             case .inTransformHandle(let handleType):
                 switch handleType {
                 case .transformRect:
@@ -492,6 +500,32 @@ struct ViewModel {
         }
     }
 
+    func handleArrowKey(_ keyPress: KeyPress) {
+        let  metalWidthPerPixel = drawingInfo.scale / Float(max(drawingInfo.drawableSize.width, drawingInfo.drawableSize.height))
+
+        let shift = keyPress.modifiers.contains(.shift)
+        var vector: SIMD2<Float>
+        switch keyPress.key {
+        case .leftArrow:
+            vector = .init(x: Float(-metalWidthPerPixel), y: 0)
+        case .rightArrow:
+            vector = .init(x: Float(metalWidthPerPixel), y: 0)
+        case .upArrow:
+            vector = .init(x: 0, y: Float(metalWidthPerPixel))
+        case .downArrow:
+            vector = .init(x: 0, y: Float(-metalWidthPerPixel))
+        default:
+            return
+            
+        }
+        if shift {
+            vector *= 10
+        }
+        Task { @MainActor in
+            dragSelectionBy(vector)
+        }
+    }
+    
     func handleDragEnded() {
         defer {
             drawingInfo.suppressUndo = false
