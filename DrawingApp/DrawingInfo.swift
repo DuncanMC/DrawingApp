@@ -47,9 +47,22 @@ struct TransformModeValues {
     var transformRectCenter: simd_float2 {
         let diagonalOne = equationForLine(from: topLeft, to: bottomRight)
         let diagonalTwo = equationForLine(from: topRight, to: bottomLeft)
-        return intersection(line1: diagonalOne, line2: diagonalTwo) ?? .zero // xxx
+        return intersection(line1: diagonalOne, line2: diagonalTwo) ?? .zero
+    }
+    var topMiddle: simd_float2 {
+        (topLeft + topRight) / 2
+    }
+    var middleLeft: simd_float2 {
+        (topLeft + bottomLeft) / 2
+    }
+    var middleRight: simd_float2 {
+        (topRight + bottomRight) / 2
+    }
+    var bottomMiddle: simd_float2 {
+        (bottomLeft + bottomRight) / 2
     }
 }
+
 
 enum Mode: Int, Codable {
     case idle
@@ -259,6 +272,9 @@ final class DrawingInfo: ObservableObject, Codable {
         return Float(imageSize.width / imageSize.height)
     }
     
+    var landscape: Bool { imageAspectRatio > 1}
+
+    
     var lastDragLocation: CGPoint? = nil
     var isDragging: Bool = false
     var draggingState: GestureLocation? = nil
@@ -387,6 +403,26 @@ final class DrawingInfo: ObservableObject, Codable {
         return true
     }
     
+    var selectedPointsInfo: (center: simd_float2, size: simd_float2)? {
+        if selectedPoints.isEmpty { return nil }
+        var minX: Float = Float.infinity
+        var maxX: Float = -Float.infinity
+        var minY: Float = Float.infinity
+        var maxY: Float = -Float.infinity
+        for aPoint in selectedPoints {
+            let coords: simd_float2 = curves[aPoint.curveIndex].points[aPoint.pointIndex].coord
+            if coords.x < minX { minX = coords.x }
+            if coords.x > maxX { maxX = coords.x }
+            if coords.y < minY { minY = coords.y }
+            if coords.y > maxY { maxY = coords.y }
+        }
+        let topLeft: simd_float2 = simd_float2(x: minX, y: maxY)
+        let topRight = simd_float2(x: maxX, y: maxY)
+        let bottomRight = simd_float2(x: maxX, y: minY)
+        let rotationCenter = simd_float2(x: (topRight.x + topLeft.x) / 2, y: (topRight.y + bottomRight.y) / 2)
+        return (rotationCenter, simd_float2(x: topRight.x - topLeft.x, y: topRight.y - bottomRight.y))
+    }
+    
     @Published var marchingAnts: Bool = true
     @Published var transformSelection: Bool = false {
         didSet {
@@ -398,7 +434,6 @@ final class DrawingInfo: ObservableObject, Codable {
              var maxX: Float = -Float.infinity
              var minY: Float = Float.infinity
              var maxY: Float = -Float.infinity
-            let  metalWidthPerPixel = scale / Float(max(drawableSize.width, drawableSize.height))
             let aspect = imageAspectRatio
             let landscape = aspect > 1
             let adjustment: simd_float2 = landscape ?  simd_float2(1, 1/aspect) : simd_float2(1*aspect, 1)
@@ -458,10 +493,16 @@ final class DrawingInfo: ObservableObject, Codable {
     var scale: Float = 1.0
     var transformModeValues: TransformModeValues? = nil
     
-    var   metalWidthPerPixel: Float {
+    var metalWidthPerPixel: Float {
         scale / Float(max(drawableSize.width, drawableSize.height))
     }
 
+    /*
+     */
+    var metalPixelSize: simd_float2  {
+        let adjustment: simd_float2 = landscape ?  simd_float2(1, 1/imageAspectRatio) : simd_float2(1*imageAspectRatio, 1)
+        return simd_float2(x: metalWidthPerPixel/adjustment.x, y: metalWidthPerPixel/adjustment.y)
+    }
     
     var enableJoinCurves: Bool {
         // Only enable the join curves menu item if exactly 2 points are selected

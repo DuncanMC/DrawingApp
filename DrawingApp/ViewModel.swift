@@ -546,25 +546,78 @@ struct ViewModel {
         drawingInfo.transformModeValues = transformModeValues
 
     }
+    func handlePlusOrMinusKey(_ keyPress: KeyPress) {
+        
+        let shift = keyPress.modifiers.contains(.shift)
+        let changeSign: Float = (keyPress.key == .plus || keyPress.key == .equals) ? 1.0 : -1.0
+        let pixelChange: Float = changeSign * (shift ? 20.0 : 2.0)
 
+        if drawingInfo.transformSelection,
+            let transformModeValues = drawingInfo.transformModeValues {
+            
+            let selectionWidth  = (transformModeValues.topRight.x - transformModeValues.topLeft.x) / drawingInfo.metalPixelSize.x
+            let newWidth = selectionWidth + pixelChange
+            let scaleChange = CGFloat(newWidth/selectionWidth)
+            
+            if let transformHandle = transformModeValues.selectedTransformHandle {
+                let scalingPoint: simd_float2 = switch transformHandle {
+                case .topLeft:
+                    transformModeValues.bottomRight
+                case .topMiddle:
+                    transformModeValues.bottomMiddle
+                case .topRight:
+                    transformModeValues.bottomLeft
+                case .middleLeft:
+                    transformModeValues.middleRight
+                case .middleRight:
+                    transformModeValues.middleLeft
+                case .bottomLeft:
+                    transformModeValues.topRight
+                case .bottomMiddle:
+                    transformModeValues.topMiddle
+                case .bottomRight:
+                    transformModeValues.topLeft
+                default:
+                    transformModeValues.transformRectCenter
+                }
+                Task { @MainActor in
+                    handlePinchRotateChanged(scale: scaleChange, rotation: .zero, center: metalPointToView(scalingPoint))
+                }
+            } else {
+                //Scale everything around the rotationPoint
+                Task { @MainActor in
+                    handlePinchRotateChanged(scale: scaleChange, rotation: .zero, center: metalPointToView(transformModeValues.rotationPoint))
+                }
+            }
+        } else {
+            if let selectedPointsInfo = drawingInfo.selectedPointsInfo {
+                let selectionWidth  = selectedPointsInfo.size.x / drawingInfo.metalPixelSize.x
+                let newWidth = selectionWidth + pixelChange
+                let scaleChange = CGFloat(newWidth/selectionWidth)
+
+                Task { @MainActor in
+                    handlePinchRotateChanged(scale: scaleChange, rotation: .zero, center: metalPointToView(selectedPointsInfo.center))
+                }
+            }
+
+        }
+    }
+    
     func handleArrowKey(_ keyPress: KeyPress) {
         let  metalWidthPerPixel = drawingInfo.scale / Float(max(drawingInfo.drawableSize.width, drawingInfo.drawableSize.height))
 
-        let aspect = drawingInfo.imageAspectRatio
-        let landscape = aspect > 1
-        let adjustment: simd_float2 = landscape ?  simd_float2(1, 1/aspect) : simd_float2(1*aspect, 1)
 
         let shift = keyPress.modifiers.contains(.shift)
         var vector: SIMD2<Float>
         switch keyPress.key {
         case .leftArrow:
-            vector = .init(x: Float(-metalWidthPerPixel)/adjustment.x, y: 0)
+            vector = .init(x: -drawingInfo.metalPixelSize.x, y: 0)
         case .rightArrow:
-            vector = .init(x: Float(metalWidthPerPixel)/adjustment.x, y: 0)
+            vector = .init(x: drawingInfo.metalPixelSize.x, y: 0)
         case .upArrow:
-            vector = .init(x: 0, y: Float(metalWidthPerPixel)/adjustment.y)
+            vector = .init(x: 0, y: drawingInfo.metalPixelSize.y)
         case .downArrow:
-            vector = .init(x: 0, y: Float(-metalWidthPerPixel)/adjustment.y)
+            vector = .init(x: 0, y: -drawingInfo  .metalPixelSize.y)
         default:
             return
             
@@ -592,11 +645,6 @@ struct ViewModel {
                 if let rotationPoint = drawingInfo.transformModeValues?.rotationPoint,
                 let transformRectCenter = drawingInfo.transformModeValues?.transformRectCenter {
                     let distanceToCenter = distanceBetween(p1: rotationPoint, p2: transformRectCenter)
-                    if distanceToCenter < metalWidthPerPixel {
-                        print("rotation point is in center of transform rect. distance = \(distanceToCenter)")
-                    } else  {
-                        print("rotation point is NOT in center of transform rect. distance = \(distanceToCenter)")
-                    }
                 }
             }
         } else {
@@ -624,7 +672,7 @@ struct ViewModel {
                 let paredCurvePointCount = paredCurve.points.count
                 let percent = Float(startingPointCount - paredCurvePointCount) / Float(startingPointCount) * 100
                 let percentString = String(format: "%.1f", percent)
-                print("pared curve from \(curve.points.count) to \(paredCurve.points.count). \(percentString)% reduction.")
+                print("pared curve from \(curve.points.count) to \(paredCurve.points.count) points. \(percentString)% reduction.")
                 drawingInfo.curves[activeCurveIndex] = paredCurve
             }
         }

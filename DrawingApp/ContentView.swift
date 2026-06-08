@@ -9,6 +9,13 @@
 import SwiftUI
 import Combine
 
+extension KeyEquivalent {
+    static let plus: Self = KeyEquivalent(Character("+"))
+    static let equals: Self = KeyEquivalent(Character("="))
+    static let underscore: Self = KeyEquivalent(Character("_"))
+    static let minus: Self = KeyEquivalent(Character("-"))
+
+}
 
 @MainActor struct ContentView: View {
     
@@ -70,6 +77,11 @@ import Combine
                 )
                 .onKeyPress(keys: [.upArrow, .downArrow, .leftArrow, .rightArrow]) { press in
                     viewModel.handleArrowKey(press)
+                    return .handled
+                }
+                // xxx
+                .onKeyPress(keys: [.plus, .equals, .minus, .underscore]) { press in
+                    viewModel.handlePlusOrMinusKey(press)
                     return .handled
                 }
                 .frame(width: DrawingInfo.defaultSize.width, height: DrawingInfo.defaultSize.height)
