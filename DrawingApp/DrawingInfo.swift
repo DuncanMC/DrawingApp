@@ -37,14 +37,18 @@ struct DragHandle {
     let handleType: TransformHandle
 }
 struct TransformModeValues {
-    var rotationCenter: simd_float2
+    var rotationPoint: simd_float2
     var topLeft: simd_float2
     var topRight: simd_float2
     var bottomLeft: simd_float2
     var bottomRight: simd_float2
     var selectedTransformHandle: TransformHandle? = nil
     var dragHandles: [DragHandle]
-    
+    var transformRectCenter: simd_float2 {
+        let diagonalOne = equationForLine(from: topLeft, to: bottomRight)
+        let diagonalTwo = equationForLine(from: topRight, to: bottomLeft)
+        return intersection(line1: diagonalOne, line2: diagonalTwo) ?? .zero // xxx
+    }
 }
 
 enum Mode: Int, Codable {
@@ -440,7 +444,7 @@ final class DrawingInfo: ObservableObject, Codable {
             ]
             
             transformModeValues = TransformModeValues(
-                rotationCenter: rotationCenter,
+                rotationPoint: rotationCenter,
                 topLeft: topLeft,
                 topRight: topRight,
                 bottomLeft: bottomLeft,
@@ -453,6 +457,11 @@ final class DrawingInfo: ObservableObject, Codable {
     var drawableSize: CGSize = CGSizeZero
     var scale: Float = 1.0
     var transformModeValues: TransformModeValues? = nil
+    
+    var   metalWidthPerPixel: Float {
+        scale / Float(max(drawableSize.width, drawableSize.height))
+    }
+
     
     var enableJoinCurves: Bool {
         // Only enable the join curves menu item if exactly 2 points are selected

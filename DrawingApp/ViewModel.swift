@@ -55,7 +55,7 @@ struct ViewModel {
     var tranformHandlePoints: [GesturePointTuple] {
         var result: [GesturePointTuple] = []
         guard let transformModeValue = drawingInfo.transformModeValues else { return result }
-        result.append( GesturePointTuple(metalPointToView(transformModeValue.rotationCenter), .inTransformHandle(handleType: .rotationCenter)))
+        result.append( GesturePointTuple(metalPointToView(transformModeValue.rotationPoint), .inTransformHandle(handleType: .rotationCenter)))
         let dragHandles = transformModeValue.dragHandles
         for aHandle in dragHandles {
             result.append( GesturePointTuple(metalPointToView(aHandle.coord), .inTransformHandle(handleType: aHandle.handleType)))
@@ -63,15 +63,51 @@ struct ViewModel {
       return result
     }
     
-    func handleTap(location: CGPoint, modifiers: GestureModifierKeys = []) {
+    func brushSizeForEvent(_ event: GestureEvent) -> Float? {
+        var brushSize: Float?  = nil
+        guard useForceTouch else { return nil }
+        if let pressure = event.pressure {
+            if let pencilData = event.pencilData {
+                let force = pressure / sin(pencilData.altitudeAngle)
+                brushSize = Float(force) * (maxThickness - minThickness) + minThickness
+            } else {
+                brushSize = Float(pressure) * (maxThickness - minThickness) + minThickness
+            }
+        }
+        return brushSize
+    }
+
+    func dragSelectionBy(_ vector: SIMD2<Float>, moveRotationCenter: Bool = true) {
+        for aPoint in drawingInfo.selectedPoints {
+            let theCurve = drawingInfo.curves[aPoint.curveIndex]
+            var thePoint = theCurve.points[aPoint.pointIndex]
+            thePoint.coord += vector
+            drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex] = thePoint
+        }
+        if drawingInfo.transformSelection, var transformModeValues = drawingInfo.transformModeValues {
+            transformModeValues.topLeft +=  vector
+            transformModeValues.topRight +=  vector
+            transformModeValues.bottomLeft +=  vector
+            transformModeValues.bottomRight +=  vector
+            if moveRotationCenter {
+                transformModeValues.rotationPoint += vector
+            }
+            for index in 0 ..< transformModeValues.dragHandles.count {
+                transformModeValues.dragHandles[index] = DragHandle(coord: transformModeValues.dragHandles[index].coord + vector, handleType: transformModeValues.dragHandles[index].handleType)
+            }
+            drawingInfo.transformModeValues = transformModeValues
+        }
+    }
+    
+    // MARK: - Gesture recognizer callbacks
+    
+   func handleTap(location: CGPoint, modifiers: GestureModifierKeys = []) {
 
         if let target = getGestureLocation(touchLocation: location) {
             switch target.gestureLocation {
             case .inControlPoint(let curveIndex, let pointIndex):
                 let tappedPoint = SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex)
-                let toggleSelection = drawingInfo.drawingMode == .editingCurve
 
-                if toggleSelection {
                     if drawingInfo.selectedPoints.contains(tappedPoint) {
                         drawingInfo.selectedPoints.remove(tappedPoint)
                         if drawingInfo.selectedPoints.isEmpty {
@@ -79,12 +115,12 @@ struct ViewModel {
                         }
                     } else {
                         drawingInfo.drawingMode = .editingCurve
-                        drawingInfo.selectedPoints.insert(tappedPoint)
+                        if modifiers.contains(.shift) {
+                            drawingInfo.selectedPoints.insert(tappedPoint)
+                        } else {
+                            drawingInfo.selectedPoints = [tappedPoint]
+                        }
                     }
-                } else {
-                    drawingInfo.drawingMode = .editingCurve
-                    drawingInfo.selectedPoints = [tappedPoint]
-                }
             case .inTransformHandle:
                 break;
             case .outside: break
@@ -142,16 +178,31 @@ struct ViewModel {
     }
     
     func handleTwoFingerTap(location: CGPoint) {
-        if let target = getGestureLocation(touchLocation: location) {
+        if let target = getGestureLocation(touchLocation: location, slopDistance: 40) {
             switch target.gestureLocation {
-            case .inControlPoint(let curveIndex, _):
+            case .inControlPoint(let curveIndex, let pointIndex):
+                let tappedPoint = SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex)
                 let curve = drawingInfo.curves[curveIndex]
+                
                 drawingInfo.drawingMode = .editingCurve
-                var newSelection = Set<SelectedPoint>()
-                for pointIndex in 0..<curve.points.count {
-                    newSelection.insert(SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex))
+                
+                //If the point was already selected, deselect it.
+                if drawingInfo.selectedPoints.contains(tappedPoint) {
+                    drawingInfo.selectedPoints.remove(tappedPoint)
+                    if drawingInfo.selectedPoints.isEmpty {
+                        drawingInfo.drawingMode = .idle
+                    }
+                } else {
+                    //Insert the point in the list of selected points.
+                    drawingInfo.drawingMode = .editingCurve
+                    drawingInfo.selectedPoints.insert(tappedPoint)
                 }
-                drawingInfo.selectedPoints = newSelection
+
+//                var newSelection = Set<SelectedPoint>()
+//                for pointIndex in 0..<curve.points.count {
+//                    newSelection.insert(SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex))
+//                }
+//                drawingInfo.selectedPoints = newSelection
             case .inTransformHandle:
                 print("Two-finger tapped on a transform handle")
             case .outside:
@@ -190,23 +241,7 @@ struct ViewModel {
             print("double-tap location not found")
         }
     }
-    
-    func brushSizeForEvent(_ event: GestureEvent) -> Float? {
-        var brushSize: Float?  = nil
-        guard useForceTouch else { return nil }
-        if let pressure = event.pressure {
-            if let pencilData = event.pencilData {
-                let force = pressure / sin(pencilData.altitudeAngle)
-//                print("Dragging, force = \(force). altitudeAngle = \(pencilData.altitudeAngle)")
-//                print("Dragging, trackpad pressure = \(force)")
-                brushSize = Float(force) * (maxThickness - minThickness) + minThickness
-            } else {
-                brushSize = Float(pressure) * (maxThickness - minThickness) + minThickness
-            }
-        }
-        return brushSize
-    }
-    
+        
     func handlePinchRotateBegan(center: CGPoint) {
         drawingInfo.registerUndo()
         drawingInfo.suppressUndo = true
@@ -249,7 +284,7 @@ struct ViewModel {
             transformModeValues.topRight = transformPoint(transformModeValues.topRight)
             transformModeValues.bottomLeft = transformPoint(transformModeValues.bottomLeft)
             transformModeValues.bottomRight = transformPoint(transformModeValues.bottomRight)
-            transformModeValues.rotationCenter = transformPoint(transformModeValues.rotationCenter)
+            transformModeValues.rotationPoint = transformPoint(transformModeValues.rotationPoint)
             for index in 0 ..< transformModeValues.dragHandles.count {
                 transformModeValues.dragHandles[index] = DragHandle(coord: transformPoint(transformModeValues.dragHandles[index].coord), handleType: transformModeValues.dragHandles[index].handleType)
             }
@@ -340,29 +375,6 @@ struct ViewModel {
         }
     }
 
-    func dragSelectionBy(_ vector: SIMD2<Float>, moveRotationCenter: Bool = true) {
-        for aPoint in drawingInfo.selectedPoints {
-            let theCurve = drawingInfo.curves[aPoint.curveIndex]
-            var thePoint = theCurve.points[aPoint.pointIndex]
-            thePoint.coord += vector
-            drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex] = thePoint
-        }
-        if drawingInfo.transformSelection, var transformModeValues = drawingInfo.transformModeValues {
-            transformModeValues.topLeft +=  vector
-            transformModeValues.topRight +=  vector
-            transformModeValues.bottomLeft +=  vector
-            transformModeValues.bottomRight +=  vector
-            if moveRotationCenter {
-                transformModeValues.rotationCenter += vector
-            }
-            for index in 0 ..< transformModeValues.dragHandles.count {
-                transformModeValues.dragHandles[index] = DragHandle(coord: transformModeValues.dragHandles[index].coord + vector, handleType: transformModeValues.dragHandles[index].handleType)
-            }
-            drawingInfo.transformModeValues = transformModeValues
-        }
-
-    }
-    
     func handleDragChanged(location: CGPoint, event: GestureEvent) {
         guard let lastDragLocation = drawingInfo.lastDragLocation else { return }
 
@@ -393,8 +405,6 @@ struct ViewModel {
                 pointRadius: brushSize)
             drawingInfo.curves[curveIndex].points.append(newPoint)
             drawingInfo.lastDragLocation = location
-            //MARK: - Force handling
-            //MARK: -
         case .idle:
             break
         case .editingCurve:
@@ -410,17 +420,28 @@ struct ViewModel {
             case .inTransformHandle(let handleType):
                 switch handleType {
                 case .transformRect:
-                    let rotationCenter = metalPointToView(drawingInfo.transformModeValues!.rotationCenter)
+                    let rotationCenter = metalPointToView(drawingInfo.transformModeValues!.rotationPoint)
                     dragSelectionBy(vector, moveRotationCenter: pointIsInTransformRect(rotationCenter))
-                    
+                    drawingInfo.lastDragLocation = location
+
                 case .rotationCenter:
+
                     guard var transformModeValues = drawingInfo.transformModeValues else { return }
-                    transformModeValues.rotationCenter += vector
+                    let newRotationCenter = transformModeValues.rotationPoint + vector
+                    let transformRectCenter = transformModeValues.transformRectCenter
+                    let pointsToCheck = [transformRectCenter] + transformModeValues.dragHandles.map { $0.coord }
+                    var pointToUse: simd_float2? = nil
+                    for aPoint in pointsToCheck {
+                        if distanceBetween(p1: newRotationCenter, p2: aPoint) < drawingInfo.metalWidthPerPixel * 30 {
+                            pointToUse = aPoint
+                        }
+                    }
+                    transformModeValues.rotationPoint = pointToUse ?? newRotationCenter
                     drawingInfo.transformModeValues = transformModeValues
                     drawingInfo.lastDragLocation = location
                 case .outside:
                     guard let transformModeValues = drawingInfo.transformModeValues else { return }
-                    let rotationCenter = metalPointToView(transformModeValues.rotationCenter)
+                    let rotationCenter = metalPointToView(transformModeValues.rotationPoint)
                     let oldAngle = atan2(Double(rotationCenter.y - lastDragLocation.y), Double(rotationCenter.x - lastDragLocation.x))
                     let newAngle = atan2(Double(rotationCenter.y - location.y), Double(rotationCenter.x - location.x))
                     let angleDelta = CGFloat(newAngle - oldAngle)
@@ -439,7 +460,12 @@ struct ViewModel {
     }
     
     func adjustSelection(by vector: SIMD2<Float>, forHandleType handleType:  TransformHandle ) {
+        
+        // xxx
         guard var transformModeValues = drawingInfo.transformModeValues else { return }
+        let distanceToCenter = distanceBetween(p1: transformModeValues.rotationPoint, p2: transformModeValues.transformRectCenter)
+        let rotationPointWasInCenter = distanceToCenter < metalWidthPerPixel
+
 
         // Basis vectors of the bounding parallelogram in metal space
         let u = transformModeValues.topRight - transformModeValues.topLeft
@@ -512,6 +538,11 @@ struct ViewModel {
             transformModeValues.dragHandles[index] = DragHandle(coord: scalePoint(handle.coord), handleType: handle.handleType)
         }
 
+        // If the rotation point was in the center of the transform rect when we started,
+        // keep it in the center of the transform rect
+        if rotationPointWasInCenter {
+            transformModeValues.rotationPoint = transformModeValues.transformRectCenter
+        }
         drawingInfo.transformModeValues = transformModeValues
 
     }
@@ -541,35 +572,32 @@ struct ViewModel {
         if shift {
             vector *= 10
         }
-        /*
-         case topLeft
-         case topMiddle
-         case topRight
-         case middleLeft
-         case middleRight
-         case bottomLeft
-         case bottomMiddle
-         case bottomRight
-         case transformRect
-         case rotationCenter
-         case outside
-
-         */
         if let transformHandle = drawingInfo.transformModeValues?.selectedTransformHandle {
             // ignore left an right arrow for bottomMiddle and topMiddle
             if (keyPress.key == .leftArrow || keyPress.key == .rightArrow ) &&
-                transformHandle == .bottomMiddle || transformHandle == .topMiddle {
+                (transformHandle == .bottomMiddle || transformHandle == .topMiddle) {
                 return
             }
                 
             // Ignore up and down arrow for middleLeft and middleRight
             if (keyPress.key == .upArrow || keyPress.key == .downArrow) &&
-                transformHandle == .middleLeft || transformHandle == .middleRight {
+                (transformHandle == .middleLeft || transformHandle == .middleRight) {
                 return
             }
             
             Task { @MainActor in
                 adjustSelection(by: vector, forHandleType: transformHandle)
+                let  metalWidthPerPixel = drawingInfo.scale / Float(max(drawingInfo.drawableSize.width, drawingInfo.drawableSize.height))
+
+                if let rotationPoint = drawingInfo.transformModeValues?.rotationPoint,
+                let transformRectCenter = drawingInfo.transformModeValues?.transformRectCenter {
+                    let distanceToCenter = distanceBetween(p1: rotationPoint, p2: transformRectCenter)
+                    if distanceToCenter < metalWidthPerPixel {
+                        print("rotation point is in center of transform rect. distance = \(distanceToCenter)")
+                    } else  {
+                        print("rotation point is NOT in center of transform rect. distance = \(distanceToCenter)")
+                    }
+                }
             }
         } else {
             Task { @MainActor in
@@ -670,11 +698,11 @@ struct ViewModel {
             return pointInQuad(point, a: a, b: b, c: c, d: d)
     }
     
-    func getGestureLocation(touchLocation: CGPoint) -> GesturePointTuple? {
+    func getGestureLocation(touchLocation: CGPoint, slopDistance: CGFloat = 20) -> GesturePointTuple? {
 
         var result: GesturePointTuple?
         if drawingInfo.transformSelection {
-            result = matchPoint(touchLocation, inPoints: tranformHandlePoints)
+            result = matchPoint(touchLocation, inPoints: tranformHandlePoints, slopDistance: slopDistance)
             if let result,
                case .inTransformHandle(let handleType) = result.gestureLocation
             {
@@ -689,7 +717,7 @@ struct ViewModel {
                 }
             }
         } else {
-            result = matchPoint(touchLocation, inPoints: curvePoints)
+            result = matchPoint(touchLocation, inPoints: curvePoints, slopDistance: slopDistance)
             if let result {
                 //print("Gesture \(result.gestureLocation)")
             }

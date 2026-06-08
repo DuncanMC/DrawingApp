@@ -738,29 +738,29 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     let circleHeight = (centerRadius+6)  * metalWidthPerPixel / adjustment.y
                     //White outlines
                     drawThickLine(
-                        p1: simd_float2(transformModeValues.rotationCenter.x - hLineWidth - circleWidth, transformModeValues.rotationCenter.y),
-                        p2: simd_float2(transformModeValues.rotationCenter.x - circleWidth, transformModeValues.rotationCenter.y),
+                        p1: simd_float2(transformModeValues.rotationPoint.x - hLineWidth - circleWidth, transformModeValues.rotationPoint.y),
+                        p2: simd_float2(transformModeValues.rotationPoint.x - circleWidth, transformModeValues.rotationPoint.y),
                         color: MetalColors.white,
                         thickness: 4)
                     drawThickLine(
-                        p1: simd_float2(transformModeValues.rotationCenter.x + hLineWidth + circleWidth, transformModeValues.rotationCenter.y),
-                        p2: simd_float2(transformModeValues.rotationCenter.x + circleWidth, transformModeValues.rotationCenter.y),
+                        p1: simd_float2(transformModeValues.rotationPoint.x + hLineWidth + circleWidth, transformModeValues.rotationPoint.y),
+                        p2: simd_float2(transformModeValues.rotationPoint.x + circleWidth, transformModeValues.rotationPoint.y),
                         color: MetalColors.white,
                         thickness: 4)
 
                     drawThickLine(
-                        p1: simd_float2(transformModeValues.rotationCenter.x, transformModeValues.rotationCenter.y - vLineHeight - circleHeight),
-                        p2: simd_float2(transformModeValues.rotationCenter.x, transformModeValues.rotationCenter.y - circleHeight),
+                        p1: simd_float2(transformModeValues.rotationPoint.x, transformModeValues.rotationPoint.y - vLineHeight - circleHeight),
+                        p2: simd_float2(transformModeValues.rotationPoint.x, transformModeValues.rotationPoint.y - circleHeight),
                         color: MetalColors.white,
                         thickness: 4)
                     drawThickLine(
-                        p1: simd_float2(transformModeValues.rotationCenter.x, transformModeValues.rotationCenter.y + vLineHeight + circleHeight),
-                        p2: simd_float2(transformModeValues.rotationCenter.x, transformModeValues.rotationCenter.y + circleHeight),
+                        p1: simd_float2(transformModeValues.rotationPoint.x, transformModeValues.rotationPoint.y + vLineHeight + circleHeight),
+                        p2: simd_float2(transformModeValues.rotationPoint.x, transformModeValues.rotationPoint.y + circleHeight),
                         color: MetalColors.white,
                         thickness: 4)
 
                     drawRing(
-                        center: transformModeValues.rotationCenter,
+                        center: transformModeValues.rotationPoint,
                         color: MetalColors.white,
                         radius: centerRadius,
                         lineThickness: 3,
@@ -769,34 +769,34 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     //Black drawing
                     
                     drawThickLine(
-                        p1: simd_float2(transformModeValues.rotationCenter.x, transformModeValues.rotationCenter.y - vLineHeight - circleHeight),
-                        p2: simd_float2(transformModeValues.rotationCenter.x, transformModeValues.rotationCenter.y - circleHeight),
+                        p1: simd_float2(transformModeValues.rotationPoint.x, transformModeValues.rotationPoint.y - vLineHeight - circleHeight),
+                        p2: simd_float2(transformModeValues.rotationPoint.x, transformModeValues.rotationPoint.y - circleHeight),
                         color: MetalColors.black,
                         thickness: 2)
                     drawThickLine(
-                        p1: simd_float2(transformModeValues.rotationCenter.x, transformModeValues.rotationCenter.y + vLineHeight + circleHeight),
-                        p2: simd_float2(transformModeValues.rotationCenter.x, transformModeValues.rotationCenter.y + circleHeight),
+                        p1: simd_float2(transformModeValues.rotationPoint.x, transformModeValues.rotationPoint.y + vLineHeight + circleHeight),
+                        p2: simd_float2(transformModeValues.rotationPoint.x, transformModeValues.rotationPoint.y + circleHeight),
                         color: MetalColors.black,
                         thickness: 2)
 
 
                     drawRing(
-                        center: transformModeValues.rotationCenter,
+                        center: transformModeValues.rotationPoint,
                         color: MetalColors.black,
                         radius: centerRadius,
                         lineThickness: 1,
                         drawWithTexture: false)
                     drawThickLine(
-                        p1: simd_float2(transformModeValues.rotationCenter.x - hLineWidth - circleWidth, transformModeValues.rotationCenter.y),
-                        p2: simd_float2(transformModeValues.rotationCenter.x - circleWidth, transformModeValues.rotationCenter.y),
+                        p1: simd_float2(transformModeValues.rotationPoint.x - hLineWidth - circleWidth, transformModeValues.rotationPoint.y),
+                        p2: simd_float2(transformModeValues.rotationPoint.x - circleWidth, transformModeValues.rotationPoint.y),
                         color: MetalColors.black,
                         thickness: 2)
                     drawThickLine(
-                        p1: simd_float2(transformModeValues.rotationCenter.x + hLineWidth + circleWidth, transformModeValues.rotationCenter.y),
-                        p2: simd_float2(transformModeValues.rotationCenter.x + circleWidth, transformModeValues.rotationCenter.y),
+                        p1: simd_float2(transformModeValues.rotationPoint.x + hLineWidth + circleWidth, transformModeValues.rotationPoint.y),
+                        p2: simd_float2(transformModeValues.rotationPoint.x + circleWidth, transformModeValues.rotationPoint.y),
                         color: MetalColors.black,
                         thickness: 2)
-                    drawSquare(center: transformModeValues.rotationCenter, color: MetalColors.black, width: 2, orthoMatrix: orthoMatrix)
+                    drawSquare(center: transformModeValues.rotationPoint, color: MetalColors.black, width: 2, orthoMatrix: orthoMatrix)
 
 
                     // Now draw the corner drag handles

@@ -14,6 +14,7 @@ class GestureCapturingView: UIView {
     var eventRecognizers: [GestureRecognizer] = []
     var onShake: (() -> Void)?
     private var trackedTouches: [UITouch] = []
+    private var currentModifiers: UIKeyModifierFlags = []
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -32,6 +33,43 @@ class GestureCapturingView: UIView {
             onShake?()
         }
         super.motionEnded(motion, with: event)
+    }
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        for press in presses {
+            if let key = press.key {
+                currentModifiers.formUnion(Self.modifierFlag(for: key.keyCode))
+            }
+        }
+        super.pressesBegan(presses, with: event)
+    }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        for press in presses {
+            if let key = press.key {
+                currentModifiers.subtract(Self.modifierFlag(for: key.keyCode))
+            }
+        }
+        super.pressesEnded(presses, with: event)
+    }
+
+    override func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        for press in presses {
+            if let key = press.key {
+                currentModifiers.subtract(Self.modifierFlag(for: key.keyCode))
+            }
+        }
+        super.pressesCancelled(presses, with: event)
+    }
+
+    private static func modifierFlag(for keyCode: UIKeyboardHIDUsage) -> UIKeyModifierFlags {
+        switch keyCode {
+        case .keyboardLeftShift, .keyboardRightShift: return .shift
+        case .keyboardLeftControl, .keyboardRightControl: return .control
+        case .keyboardLeftAlt, .keyboardRightAlt: return .alternate
+        case .keyboardLeftGUI, .keyboardRightGUI: return .command
+        default: return []
+        }
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -85,7 +123,7 @@ class GestureCapturingView: UIView {
         return GestureEvent(
             location: location,
             timestamp: primaryTouch.timestamp,
-            modifierKeys: [],
+            modifierKeys: GestureModifierKeys(uiKeyModifierFlags: currentModifiers),
             pressure: pressure,
             pencilData: pencil,
             touchCount: removingTouches != nil ? remainingCount : trackedTouches.count,
