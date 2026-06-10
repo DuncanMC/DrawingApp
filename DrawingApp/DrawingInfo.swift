@@ -219,11 +219,25 @@ final class DrawingInfo: ObservableObject, Codable {
         if pointCountChanged || drawingMode != .editingCurve {
             transformSelection = false
         }
+        
+        // Update the properties singleCurveSelectedAndNotFirst and singleCurveSelectedAndNotLast (used to enable/disable menu items
+        singleCurveSelectedAndNotLast = {
+            guard singleCurveSelected else { return false }
+            let firstPoint = selectedPoints.first!
+            return firstPoint.curveIndex != curves.count - 1
+        }()
+        singleCurveSelectedAndNotFirst = {
+            guard singleCurveSelected else { return false }
+            let firstPoint = selectedPoints.first!
+            return firstPoint.curveIndex != 0
+        }()
     }
     
     var drawingMode: Mode = .idle {
         didSet {
-            handleChangeInSelectedPoints(pointCountChanged: false)
+            if oldValue != drawingMode {
+                handleChangeInSelectedPoints(pointCountChanged: false)
+            }
         }
     }
     private var _selectedPoints: Set<SelectedPoint> = []
@@ -238,12 +252,6 @@ final class DrawingInfo: ObservableObject, Codable {
             return _selectedPoints
         }
     }
-//    var activeCurveIndex: Int? = nil
-//    {
-//        didSet {
-//            setEnableDeletePointButtonState()
-//        }
-//    }
 
     var selectedCurveIsClosed: Bool {
         get {
@@ -388,13 +396,16 @@ final class DrawingInfo: ObservableObject, Codable {
             }
         }
     }
+    @Published var singleCurveSelectedAndNotFirst: Bool = false
+    
+    @Published var singleCurveSelectedAndNotLast: Bool = false
     
     var singleCurveSelected: Bool {
         if selectedPoints.count == 1 { return true}
         if selectedPoints.count == 0 { return false}
         var selectedPointsArray = Array(selectedPoints)
         let firstPoint = selectedPointsArray.removeFirst()
-        var firstCurveIndex = firstPoint.curveIndex
+        let firstCurveIndex = firstPoint.curveIndex
         for aPoint in selectedPointsArray {
             if aPoint.curveIndex != firstCurveIndex {
                 return false
@@ -574,7 +585,7 @@ final class DrawingInfo: ObservableObject, Codable {
         try container.encode(showControlPoints, forKey: .showControlPoints)
     }
     
-    init(title: String, text: String) {
+    init() {
         self.imageSize = DrawingInfo.defaultSize
         self.showSmoothingPoints = false
         self.backgroundColor = .white
@@ -583,6 +594,62 @@ final class DrawingInfo: ObservableObject, Codable {
 
     // MARK: - Editing Actions
 
+    
+    // The last curve is drawn on top, so put it at the end.
+    func bringCurveToFront() {
+        guard singleCurveSelected,
+              let selectedPoint = selectedPoints.first else { return }
+        let selectedCurveIndex = selectedPoint.curveIndex
+        guard curves.count > 1, selectedCurveIndex != curves.count-1 else { return }
+        let selectedCurve = curves.remove(at: selectedCurveIndex)
+        curves.append(selectedCurve)
+        let newSelectedPoints = selectedPoints.map { point in
+            SelectedPoint(curveIndex: curves.count-1, pointIndex: point.pointIndex)
+        }
+        selectedPoints = Set(newSelectedPoints)
+    }
+    
+    func moveCurveForward() {
+        guard singleCurveSelected,
+              let selectedPoint = selectedPoints.first else { return }
+        let selectedCurveIndex = selectedPoint.curveIndex
+        guard selectedCurveIndex != curves.count-1 else { return }
+        let selectedCurve = curves[selectedCurveIndex]
+        curves.insert(selectedCurve, at: selectedCurveIndex + 2)
+        curves.remove(at: selectedCurveIndex)
+        selectedPoints = Set(selectedPoints.map { point in
+            SelectedPoint(curveIndex: selectedCurveIndex + 1, pointIndex: point.pointIndex
+            )
+        })
+    }
+
+    func moveCurveBackward() {
+        guard singleCurveSelected,
+              let selectedPoint = selectedPoints.first else { return }
+        let selectedCurveIndex = selectedPoint.curveIndex
+        guard selectedCurveIndex > 0 else { return }
+        let selectedCurve = curves.remove(at: selectedCurveIndex)
+        curves.insert(selectedCurve, at: selectedCurveIndex - 1)
+        let newSelectedPoints = selectedPoints.map { point in
+            SelectedPoint(curveIndex: selectedCurveIndex - 1, pointIndex: point.pointIndex)
+        }
+        selectedPoints = Set(newSelectedPoints)
+  }
+    
+    func sendCurveToBack() {
+        guard singleCurveSelected,
+              let selectedPoint = selectedPoints.first else { return }
+        let selectedCurveIndex = selectedPoint.curveIndex
+        guard selectedCurveIndex > 0 else { return }
+        let selectedCurve = curves.remove(at: selectedCurveIndex)
+        curves.insert(selectedCurve, at: 0)
+        let newSelectedPoints = selectedPoints.map { point in
+            SelectedPoint(curveIndex: 0, pointIndex: point.pointIndex)
+        }
+        selectedPoints = Set(newSelectedPoints)
+                                                                    
+    }
+    
     func joinCurves() {
         print("In \(#function)")
         performGroupedEdit {
@@ -634,14 +701,7 @@ final class DrawingInfo: ObservableObject, Codable {
             selectedPoints = []
         }
     }
-    
-    func toggleCloseCurve() {
-        guard curves.count == 1,
-        var curve = curves.first else { return }
-        curve.isClosedCurve.toggle()
-        curves[0] = curve
-    }
-    
+        
     func deletePoints(deleteEntireCurve: Bool = false) {
         performGroupedEdit {
             if deleteEntireCurve,

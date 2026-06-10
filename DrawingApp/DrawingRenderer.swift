@@ -435,7 +435,6 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                             let last = smoothedPoints[(index+1) % smoothedPoints.count].coord * adjustment
                             
                             let adjustedMiddle = middle/adjustment
-                            let adjustedLast = last/adjustment
                             
                             let vectorAB = middle - first
                             let vectorBC = last - middle
@@ -473,7 +472,6 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                                 leftIntersection = intersection(line1: firstLeftLine, line2: secondLeftLine) ?? midpoint(p1: secondLeftOne, p2: secondLeftTwo)
                                 // If this is a right-hand turn
                                 if crossProduct < 0 {
-                                    let squaredDistance = distanceSquaredBetween(p1: leftIntersection, p2: secondLeftOne)
                                     leftVertexes += [
                                         Vertex(position: secondLeftOne, alpha: 0),
                                         Vertex(position: adjustedMiddle, alpha: maxAlpha)
@@ -498,7 +496,6 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                                 rightIntersection = intersection(line1: firstRightLine, line2: secondRightLine) ?? midpoint(p1: secondRightOne, p2: secondRightTwo)
                                 if crossProduct > 0
                                 {
-                                    let squaredDistance = distanceSquaredBetween(p1: rightIntersection, p2: secondRightOne)
                                     rightVertexes += [
                                         Vertex(position: secondRightOne, alpha: 0),
                                         Vertex(position: adjustedMiddle, alpha: maxAlpha)
@@ -591,9 +588,9 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     )
                     if !leftLines.isEmpty {
                         
-                        var verticiesSize = MemoryLayout<Vertex>.stride * leftLines.count
-                        var offset = allocateVerticiesInRing(byteCount: verticiesSize)
-                        var dst = vertexBuffer.contents().advanced(by: offset)
+                        let verticiesSize = MemoryLayout<Vertex>.stride * leftLines.count
+                        let offset = allocateVerticiesInRing(byteCount: verticiesSize)
+                        let dst = vertexBuffer.contents().advanced(by: offset)
                         dst.copyMemory(from: leftLines, byteCount: verticiesSize)
                         encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
                         
@@ -803,12 +800,6 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     let middleX = (transformModeValues.topLeft.x + transformModeValues.bottomRight.x) / 2.0
                     let middleY = (transformModeValues.topLeft.y + transformModeValues.bottomRight.y) / 2.0
                     
-
-                    let topMiddle = simd_float2(x: middleX, y: transformModeValues.topLeft.y)
-                    let bottomMiddle = simd_float2(x: middleX, y: transformModeValues.bottomRight.y)
-                    let middleLeft = simd_float2(x: transformModeValues.topLeft.x, y: middleY)
-                    let middleRight = simd_float2(x: transformModeValues.topRight.x, y: middleY)
-
                     drawOutlinedBoxes(at: transformModeValues.dragHandles)
 
                 }

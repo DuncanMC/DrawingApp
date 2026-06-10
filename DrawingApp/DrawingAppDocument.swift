@@ -22,7 +22,7 @@ final class DrawingAppDocument: ReferenceFileDocument {
     static var readableContentTypes: [UTType] = [.drawingDocument]
 
     init() {
-        self.drawingInfo = DrawingInfo(title: "Untitled", text: "")
+        self.drawingInfo = DrawingInfo()
     }
 
     required init(configuration: ReadConfiguration) throws {

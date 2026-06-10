@@ -555,7 +555,8 @@ struct ViewModel {
         if drawingInfo.transformSelection,
             let transformModeValues = drawingInfo.transformModeValues {
             
-            let selectionWidth  = (transformModeValues.topRight.x - transformModeValues.topLeft.x) / drawingInfo.metalPixelSize.x
+            let selectionWidth  = max( abs(transformModeValues.topRight.x - transformModeValues.topLeft.x) / drawingInfo.metalPixelSize.x,
+                                       abs(transformModeValues.topRight.y - transformModeValues.topLeft.y) / drawingInfo.metalPixelSize.y)
             let newWidth = selectionWidth + pixelChange
             let scaleChange = CGFloat(newWidth/selectionWidth)
             
@@ -591,7 +592,7 @@ struct ViewModel {
             }
         } else {
             if let selectedPointsInfo = drawingInfo.selectedPointsInfo {
-                let selectionWidth  = selectedPointsInfo.size.x / drawingInfo.metalPixelSize.x
+                let selectionWidth  = max(abs(selectedPointsInfo.size.x / drawingInfo.metalPixelSize.x), abs(selectedPointsInfo.size.y / drawingInfo.metalPixelSize.y))
                 let newWidth = selectionWidth + pixelChange
                 let scaleChange = CGFloat(newWidth/selectionWidth)
 

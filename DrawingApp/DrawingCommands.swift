@@ -36,18 +36,20 @@ struct DrawingCommands: Commands {
             .disabled(!(drawingInfo?.curves.isEmpty == false))
             .keyboardShortcut("a", modifiers: .command)
             
-            Toggle("Transform Selection", isOn: Binding(
-                get: {  drawingInfo?.transformSelection ?? false },
-                set: {  newValue in drawingInfo?.transformSelection = newValue } ))
-            .disabled(drawingInfo?.drawingMode != .editingCurve || drawingInfo?.selectedPoints.count ?? 0 < 2)
-            .keyboardShortcut("t", modifiers: .command)
 
             Button("Deselect All") {
                 drawingInfo?.selectedPoints = []
             }
             .keyboardShortcut("d", modifiers: .command)
             .disabled(drawingInfo?.selectedPoints.isEmpty == true)
+            
+            Divider()
 
+            Toggle("Transform Selection", isOn: Binding(
+                get: {  drawingInfo?.transformSelection ?? false },
+                set: {  newValue in drawingInfo?.transformSelection = newValue } ))
+            .disabled(drawingInfo?.drawingMode != .editingCurve || drawingInfo?.selectedPoints.count ?? 0 < 2)
+            .keyboardShortcut("t", modifiers: .command)
         }
 
         CommandGroup(after: .pasteboard) {
@@ -67,6 +69,33 @@ struct DrawingCommands: Commands {
                 set: {  newValue in drawingInfo?.selectedCurveIsClosed = newValue }
             ))
             .disabled(!(drawingInfo?.singleCurveSelected ?? false))
+
+            Section("Arrange Curves") {
+                Button("Move Forward") {
+                    drawingInfo?.moveCurveForward()
+                }
+                .keyboardShortcut(.pageUp, modifiers: [])
+                .disabled(drawingInfo?.singleCurveSelectedAndNotLast == false)
+
+                Button("Move to Front") {
+                    drawingInfo?.bringCurveToFront()
+                }
+                .keyboardShortcut(.home, modifiers: [])
+                .disabled(drawingInfo?.singleCurveSelectedAndNotLast == false)
+
+                Button("Move Backward") {
+                    drawingInfo?.moveCurveBackward()
+                }
+                .keyboardShortcut(.pageDown, modifiers: [])
+                .disabled(drawingInfo?.singleCurveSelectedAndNotFirst == false)
+
+                Button("Move to Back") {
+                    drawingInfo?.sendCurveToBack()
+                }
+                .keyboardShortcut(.end, modifiers: [])
+                .disabled(drawingInfo?.singleCurveSelectedAndNotFirst == false)
+            }
+
 
             Button("Join Curves") {
                 drawingInfo?.joinCurves()

@@ -79,7 +79,6 @@ extension KeyEquivalent {
                     viewModel.handleArrowKey(press)
                     return .handled
                 }
-                // xxx
                 .onKeyPress(keys: [.plus, .equals, .minus, .underscore]) { press in
                     viewModel.handlePlusOrMinusKey(press)
                     return .handled
@@ -174,14 +173,14 @@ extension KeyEquivalent {
                     .disabled(!drawingInfo.enableDeletePointButton)
                 // Transform Selection
                 Button("") {drawingInfo.transformSelection.toggle()}
-                .disabled(drawingInfo.drawingMode != .editingCurve || drawingInfo.selectedPoints.count ?? 0 < 2)
+                .disabled(drawingInfo.drawingMode != .editingCurve || drawingInfo.selectedPoints.count < 2)
                 .keyboardShortcut("t", modifiers: .command)
 
                 //Show control points
                 Button("Show Control Points (⌥C)") { drawingInfo.showControlPoints.toggle() }
                     .keyboardShortcut("c", modifiers: .option)
                 
-                //Smooth Curves
+                //Smooth Curves (hidden version with keyboard shortcut)
                 Button("Smooth Curves (⌥S)") { drawingInfo.smoothCurves.toggle() }
                     .keyboardShortcut("s", modifiers: .option)
 
@@ -191,12 +190,36 @@ extension KeyEquivalent {
                 //⌥
                 Button("Show Quads (⌥Q)") { drawingInfo.showQuads.toggle() }
                     .keyboardShortcut("q", modifiers: [.option])
+                
+                //Arrange curves menu items (hidden versions with keyboard shortcuts)
+                Button("Move Forward") {
+                    drawingInfo.moveCurveForward()
+                }
+                .keyboardShortcut(.pageUp, modifiers: [])
+                .disabled(drawingInfo.singleCurveSelectedAndNotLast == false)
 
+                Button("Move to Front") {
+                    drawingInfo.bringCurveToFront()
+                }
+                .keyboardShortcut(.home, modifiers: [])
+                .disabled(drawingInfo.singleCurveSelectedAndNotLast == false)
 
+                Button("Move Backward") {
+                    drawingInfo.moveCurveBackward()
+                }
+                .keyboardShortcut(.pageDown, modifiers: [])
+                .disabled(drawingInfo.singleCurveSelectedAndNotFirst == false)
+
+                Button("Move to Back") {
+                    drawingInfo.sendCurveToBack()
+                }
+                .keyboardShortcut(.end, modifiers: [])
+                .disabled(drawingInfo.singleCurveSelectedAndNotFirst == false)
             }
             .frame(width: 0, height: 0)
             .opacity(0)
-        }
+
+            }
         #endif
         .focusedSceneObject(drawingInfo)
         .onAppear {
@@ -241,17 +264,18 @@ extension KeyEquivalent {
                     Button("Select All (⌘A)") {
                         drawingInfo.selectAll()
                     }
-                    Toggle("Transform Selection (⌘T)", isOn: Binding(
-                        get: {  drawingInfo.transformSelection},
-                        set: {  newValue in drawingInfo.transformSelection = newValue } ))
-                    .disabled(drawingInfo.drawingMode != .editingCurve || drawingInfo.selectedPoints.count ?? 0 < 2)
-
                     Button("Deselect All (⌘D)") {
                         drawingInfo.selectedPoints = []
                     }
                     .disabled(drawingInfo.selectedPoints.isEmpty)
 
                     Divider()
+
+                    Toggle("Transform Selection (⌘T)", isOn: Binding(
+                        get: {  drawingInfo.transformSelection},
+                        set: {  newValue in drawingInfo.transformSelection = newValue } ))
+                    .disabled(drawingInfo.drawingMode != .editingCurve || drawingInfo.selectedPoints.count < 2)
+
 
                     Button("Delete Point (⌦)", role: .destructive) {
                         drawingInfo.deletePoints()
@@ -268,11 +292,36 @@ extension KeyEquivalent {
                         set: {  newValue in drawingInfo.selectedCurveIsClosed = newValue }
                     ))
                     .disabled(!drawingInfo.singleCurveSelected)
-                    // xxx
+                    
                     Button("Join Curves") {
                         drawingInfo.joinCurves()
                     }
                     .disabled(drawingInfo.enableJoinCurves != true)
+
+                    Menu("Arrange Curves") {
+                        
+                        Button("Move Forward") {
+                            drawingInfo.moveCurveForward()
+                        }
+                        .disabled(drawingInfo.singleCurveSelectedAndNotLast == false)
+
+                        Button("Move to Front") {
+                            drawingInfo.bringCurveToFront()
+                        }
+                        .disabled(drawingInfo.singleCurveSelectedAndNotLast == false)
+
+                        Button("Move Backward") {
+                            drawingInfo.moveCurveBackward()
+                        }
+                        .disabled(drawingInfo.singleCurveSelectedAndNotFirst == false)
+
+                        Button("Move to Back") {
+                            drawingInfo.sendCurveToBack()
+                        }
+                        .disabled(drawingInfo.singleCurveSelectedAndNotFirst == false)
+
+                    }
+
 
                 }
             }
@@ -295,5 +344,5 @@ extension KeyEquivalent {
 }
 
 #Preview {
-    ContentView(drawingInfo: DrawingInfo(title: "foo", text: "bar"))
+    ContentView(drawingInfo: DrawingInfo())
 }
