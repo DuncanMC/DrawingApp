@@ -238,29 +238,29 @@ extension KeyEquivalent {
                         undoManager?.undo()
                     }
                     .disabled(!(undoManager?.canUndo ?? false))
-
+                    
                     Button("Redo (⌘Shift+Z)") {
                         undoManager?.redo()
                     }
                     .disabled(!(undoManager?.canRedo ?? false))
-
+                    
                     Divider()
-
+                    
                     Button("Cut (⌘X)") {
                         drawingInfo.cutSelectedPoints()
                     }
                     .disabled(drawingInfo.selectedPoints.isEmpty)
-
+                    
                     Button("Copy (⌘C)") {
                         drawingInfo.copySelectedPoints()
                     }
                     .disabled(drawingInfo.selectedPoints.isEmpty)
-
+                    
                     Button("Paste (⌘P)") {
                         drawingInfo.pastePoints()
                     }
                     .disabled(!drawingInfo.canPaste)
-
+                    
                     Button("Select All (⌘A)") {
                         drawingInfo.selectAll()
                     }
@@ -268,63 +268,65 @@ extension KeyEquivalent {
                         drawingInfo.selectedPoints = []
                     }
                     .disabled(drawingInfo.selectedPoints.isEmpty)
-
-                    Divider()
-
-                    Toggle("Transform Selection (⌘T)", isOn: Binding(
-                        get: {  drawingInfo.transformSelection},
-                        set: {  newValue in drawingInfo.transformSelection = newValue } ))
-                    .disabled(drawingInfo.drawingMode != .editingCurve || drawingInfo.selectedPoints.count < 2)
-
-
-                    Button("Delete Point (⌦)", role: .destructive) {
-                        drawingInfo.deletePoints()
-                    }
-                    .disabled(!drawingInfo.enableDeletePointButton)
-
-                    Button("Delete Entire Curve (⌘⌦)", role: .destructive) {
-                        drawingInfo.deletePoints(deleteEntireCurve: true)
-                    }
-                    .disabled(!drawingInfo.enableDeletePointButton)
-
-                    Toggle("Close Curve", isOn: Binding(
-                        get: {  drawingInfo.selectedCurveIsClosed },
-                        set: {  newValue in drawingInfo.selectedCurveIsClosed = newValue }
-                    ))
-                    .disabled(!drawingInfo.singleCurveSelected)
                     
-                    Button("Join Curves") {
-                        drawingInfo.joinCurves()
-                    }
-                    .disabled(drawingInfo.enableJoinCurves != true)
-
-                    Menu("Arrange Curves") {
-                        
-                        Button("Move Forward") {
-                            drawingInfo.moveCurveForward()
-                        }
-                        .disabled(drawingInfo.singleCurveSelectedAndNotLast == false)
-
-                        Button("Move to Front") {
-                            drawingInfo.bringCurveToFront()
-                        }
-                        .disabled(drawingInfo.singleCurveSelectedAndNotLast == false)
-
-                        Button("Move Backward") {
-                            drawingInfo.moveCurveBackward()
-                        }
-                        .disabled(drawingInfo.singleCurveSelectedAndNotFirst == false)
-
-                        Button("Move to Back") {
-                            drawingInfo.sendCurveToBack()
-                        }
-                        .disabled(drawingInfo.singleCurveSelectedAndNotFirst == false)
-
-                    }
-
-
                 }
             }
+                ToolbarItem(placement: .secondaryAction) {
+                    Menu("Drawing controls", systemImage: "pencil.and.scribble") {
+                        Toggle("Transform Selection (⌘T)", isOn: Binding(
+                            get: {  drawingInfo.transformSelection},
+                            set: {  newValue in drawingInfo.transformSelection = newValue } ))
+                        .disabled(drawingInfo.drawingMode != .editingCurve || drawingInfo.selectedPoints.count < 2)
+                        
+                        
+                        Button("Delete Point (⌦)", role: .destructive) {
+                            drawingInfo.deletePoints()
+                        }
+                        .disabled(!drawingInfo.enableDeletePointButton)
+                        
+                        Button("Delete Entire Curve (⌘⌦)", role: .destructive) {
+                            drawingInfo.deletePoints(deleteEntireCurve: true)
+                        }
+                        .disabled(!drawingInfo.enableDeletePointButton)
+                        
+                        Toggle("Close Curve", isOn: Binding(
+                            get: {  drawingInfo.selectedCurveIsClosed },
+                            set: {  newValue in drawingInfo.selectedCurveIsClosed = newValue }
+                        ))
+                        .disabled(!drawingInfo.singleCurveSelected)
+                        
+                        Button("Join Curves") {
+                            drawingInfo.joinCurves()
+                        }
+                        .disabled(drawingInfo.enableJoinCurves != true)
+                        
+                        Menu("Arrange Curves") {
+                            
+                            Button("Move Forward") {
+                                drawingInfo.moveCurveForward()
+                            }
+                            .disabled(drawingInfo.singleCurveSelectedAndNotLast == false)
+                            
+                            Button("Move to Front") {
+                                drawingInfo.bringCurveToFront()
+                            }
+                            .disabled(drawingInfo.singleCurveSelectedAndNotLast == false)
+                            
+                            Button("Move Backward") {
+                                drawingInfo.moveCurveBackward()
+                            }
+                            .disabled(drawingInfo.singleCurveSelectedAndNotFirst == false)
+                            
+                            Button("Move to Back") {
+                                drawingInfo.sendCurveToBack()
+                            }
+                            .disabled(drawingInfo.singleCurveSelectedAndNotFirst == false)
+                            
+                        }
+                        
+                        
+                    }
+                }
             ToolbarItem(placement: .secondaryAction) {
                 Menu("View Options", systemImage: "eye") {
                     Toggle("Smooth Curves (⌥S)", isOn: $drawingInfo.smoothCurves)
