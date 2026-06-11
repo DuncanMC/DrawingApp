@@ -232,11 +232,15 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 
         // Drawing code goes here:
         
+        func hardnessForLinehardness(_ lineHardness: Float) -> Float {
+            pow(2,(2-lineHardness)) - 1
+        }
+        
         var uniforms = Uniforms(
             color: MetalColors.black,
             drawWithTetxure: false,
             orthoMatrix: orthoMatrix,
-            hardness: drawingInfo.hardness,
+            hardness: hardnessForLinehardness(drawingInfo.brushSettings.lineHardness),
             scale: scale,
             textureOffset: textureOffset
         )
@@ -332,6 +336,10 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             let landscape = aspect > 1
             let adjustment: simd_float2 = landscape ?  simd_float2(1, 1/aspect) : simd_float2(1*aspect, 1)
             
+            func hardnessForCurve(_ curve: CatmullRomCurve) -> Float {
+                let lineHardness = curve.hardness ?? drawingInfo.brushSettings.lineHardness
+                return hardnessForLinehardness(lineHardness)
+            }
             
             var leftIntersections: [simd_float2] = []
             var rightIntersections: [simd_float2] = []
@@ -362,7 +370,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 if smoothedPoints.count == 1  {
                     let point = smoothedPoints[0]
                     let size = curve.points[point.controlPointIndex].pointRadius ?? drawingInfo.brushSettings.size
-                    drawCircle(center: point.coord, color: curve.color, radius: size * 0.5, hardness: drawingInfo.hardness)
+                    drawCircle(center: point.coord, color: curve.color, radius: size * 0.5, hardness: hardnessForCurve(curve))
                 } else {
                     for index in 1 ..< smoothedPoints.count {
                         let first = smoothedPoints[index-1].coord * adjustment
@@ -533,7 +541,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     color: curve.color,
                     drawWithTetxure: false,
                     orthoMatrix: orthoMatrix,
-                    hardness: drawingInfo.hardness,
+                    hardness: hardnessForCurve(curve),
                     scale: scale,
                     textureOffset: textureOffset
                 )
@@ -556,7 +564,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     color: curve.color,
                     drawWithTetxure: false,
                     orthoMatrix: orthoMatrix,
-                    hardness: drawingInfo.hardness,
+                    hardness: hardnessForCurve(curve),
                     scale: scale,
                     textureOffset: textureOffset
                 )
@@ -925,6 +933,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             steps: Int = 24,
             lineThickness: Float,
             drawWithTexture: Bool = false,
+            hardness: Float = 0
             ) {
                 
                 let aspect = drawingInfo.imageAspectRatio
@@ -975,7 +984,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     color: color,
                     drawWithTetxure: drawWithTexture,
                     orthoMatrix: orthoMatrix,
-                    hardness: drawingInfo.hardness,
+                    hardness: hardness,
                     scale: scale,
                     textureOffset: textureOffset
                 )
@@ -1033,7 +1042,9 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             color: SIMD4<Float>,
             width: Float,
             orthoMatrix: float4x4,
-            asDiamond: Bool = false) {
+            asDiamond: Bool = false,
+            hardness: Float = 0
+        ) {
                 
                 let aspect = drawingInfo.imageAspectRatio
                 let landscape = aspect > 1
@@ -1071,7 +1082,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     color: color,
                     drawWithTetxure: false,
                     orthoMatrix: orthoMatrix,
-                    hardness: drawingInfo.hardness,
+                    hardness: hardness,
                     scale: scale,
                     textureOffset: textureOffset
                 )
@@ -1112,7 +1123,8 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             direction: ArrowHeadDirection,
             color: SIMD4<Float>,
             thickness: Float,
-            orthoMatrix: float4x4
+            orthoMatrix: float4x4,
+            hardness: Float = 0
         ) {
             let thickness = thickness * scale
 //            let metalWidthPerPixel: Float = scale / Float(max(drawableSize.width, drawableSize.height))
@@ -1162,7 +1174,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 color: color,
                 drawWithTetxure: false,
                 orthoMatrix: orthoMatrix,
-                hardness: drawingInfo.hardness,
+                hardness: hardness,
                 scale: scale,
                 textureOffset: textureOffset
             )
@@ -1188,6 +1200,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             color: SIMD4<Float>,
             thickness: Float,
             drawWithTexture: Bool = false,
+            hardness: Float = 0
         ) {
             
             let aspect = drawingInfo.imageAspectRatio
@@ -1227,7 +1240,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 color: color,
                 drawWithTetxure: drawWithTexture,
                 orthoMatrix: orthoMatrix,
-                hardness: drawingInfo.hardness,
+                hardness: hardness,
                 scale: scale,
                 textureOffset: textureOffset
             )

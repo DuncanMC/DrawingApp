@@ -117,7 +117,7 @@ struct CatmullRomCurve: Codable {
         outlineColor: simd_float4? = nil,
         isClosedCurve: Bool = false,
         points: [CatmullRomPoint],
-        hardness: Float?
+        hardness: Float? = nil
     ) {
         self.color = color
         self.radius = radius
@@ -188,21 +188,40 @@ final class DrawingInfo: ObservableObject, Codable {
     
     @Published var showSmoothingPoints: Bool = false
     @Published var showQuads: Bool = false
-    @Published var lineHardness: Float = 1 {
-        didSet {
-            hardness = pow(2,(2-lineHardness)) - 1
+    
+    // If one or more curves is selected, tie the slider to their value. Otherwise, use brushSettings.lineHardnes.
+    var lineHardness: Float {
+        get {
+            if let curveIndex = selectedPoints.first?.curveIndex {
+                return curves[curveIndex].hardness ?? brushSettings.lineHardness
+            } else {
+                return brushSettings.lineHardness
+            }
+        }
+        set {
+            if  !uniqueSelectedCurveIndexes.isEmpty {
+                for curveIndex in uniqueSelectedCurveIndexes {
+                    curves[curveIndex].hardness = newValue
+                }
+            } else {
+                brushSettings.lineHardness = newValue
+            }
         }
     }
     
     struct BrushSettings: Codable {
         var color: SIMD4<Float>
         var size: Float
-        var hardness: Float
+        var lineHardness: Float
     }
     
-    @Published var brushSettings: BrushSettings = .init(color: MetalColors.green, size: 10, hardness: 10)
+    @Published var brushSettings: BrushSettings = .init(
+        color: MetalColors.green,
+        size: 10,
+        lineHardness: 1
+    )
     
-    var hardness: Float = 1
+//    var hardness: Float = 1 // computed from lineHardness. 1 = linear transition. 0 = max no blending.
     
     @Published var showControlPoints: Bool = true
     
@@ -301,6 +320,17 @@ final class DrawingInfo: ObservableObject, Codable {
       blue: Float,
       alpha : Float)
 
+    // MARK: computed properties
+
+    var deleteSelectedPointString:String {
+        selectedPoints.count == 1 ? "Delete Selected Point" :
+        "Delete Selected Points"
+    }
+
+    var deleteSelectedCurveString:String {
+        singleCurveSelected ? "Delete Selected Curve" :
+        "Delete Selected Curves"
+    }
     var currentThickness: Float {
         get {
             guard !selectedPoints.isEmpty else { return brushSettings.size }
@@ -340,7 +370,7 @@ final class DrawingInfo: ObservableObject, Codable {
     var currentColor: Color {
         get {
             let metalColor: SIMD4<Float>
-            if selectedPoints.count == 1 {
+            if singleCurveSelected {
                 metalColor = curves[selectedPoints.first!.curveIndex].color
             } else {
                 metalColor = currentMetalColor
@@ -566,7 +596,7 @@ final class DrawingInfo: ObservableObject, Codable {
             self.backgroundColor = .white
         }
 //        self.lineThickness = try container.decodeIfPresent(Float.self, forKey: .lineThickness) ?? 5
-        self.lineHardness = try container.decodeIfPresent(Float.self, forKey: .lineHardness) ?? 2
+        self.brushSettings.lineHardness = try container.decodeIfPresent(Float.self, forKey: .lineHardness) ?? 2
         self.showControlPoints = try container.decode(Bool.self, forKey: .showControlPoints)
 
         self.viewportSize = DrawingInfo.defaultSize
@@ -579,8 +609,7 @@ final class DrawingInfo: ObservableObject, Codable {
         try container.encode(showSmoothingPoints, forKey: .showSmoothingPoints)
         try container.encode(smoothCurves, forKey: .smoothCurves)
         try container.encode(CodableColor(color: backgroundColor), forKey: .backgroundColor)
-//        try container.encode(lineThickness, forKey: .lineThickness)
-        try container.encode(lineHardness, forKey: .lineHardness)
+        try container.encode(brushSettings.lineHardness, forKey: .lineHardness)
         try container.encode(curves, forKey: .curves)
         try container.encode(showControlPoints, forKey: .showControlPoints)
     }
@@ -651,7 +680,6 @@ final class DrawingInfo: ObservableObject, Codable {
     }
     
     func joinCurves() {
-        print("In \(#function)")
         performGroupedEdit {
             let selectedPointsArray = Array(selectedPoints).sorted { $0.curveIndex < $1.curveIndex}
             let curve1Index = selectedPointsArray[0].curveIndex
@@ -702,18 +730,22 @@ final class DrawingInfo: ObservableObject, Codable {
         }
     }
         
+    var uniqueSelectedCurveIndexes: [Int] {
+         Array(Set(selectedPoints.map(\.curveIndex))).sorted{ $0 > $1 }
+    }
+    
     func deletePoints(deleteEntireCurve: Bool = false) {
         performGroupedEdit {
-            if deleteEntireCurve,
-             let selectedPoint = selectedPoints.first{
-                // TODO: Figure out what to do if more than one cruve is selected.
-                let curveIndex = selectedPoint.curveIndex
-                curves.remove(at: curveIndex)
-                selectedPoints.remove(selectedPoint)
-                drawingMode = .idle
-                return
-            }
-            if  selectedPoints.count == 1 {
+            if deleteEntireCurve {
+                // TODO: Figure out what to do if more than one curve is selected.
+                let curveIndexesToDelete = uniqueSelectedCurveIndexes
+                for curveIndex in curveIndexesToDelete {
+                    curves.remove(at: curveIndex)
+                    selectedPoints = []
+                    drawingMode = .idle
+
+                }
+            } else if  selectedPoints.count == 1 {
                 let selectedPoint = selectedPoints.first!
                 var pointIndex = selectedPoint.pointIndex
                 
@@ -736,27 +768,24 @@ final class DrawingInfo: ObservableObject, Codable {
                         selectedPoints =  [SelectedPoint(curveIndex: selectedPoint.curveIndex, pointIndex: curve.points.count - 1)]
                     }
                 }
-                return
-            }
-            let selectedPointsArray = Array(selectedPoints).sorted {
-                ($0.curveIndex, $0.pointIndex) > ($1.curveIndex, $1.pointIndex)
-            }
-                
-//            selectedPointsArray.forEach {
-//                print($0)
-//            }
-            for aPoint in selectedPointsArray {
-                var curve = curves[aPoint.curveIndex]
-                let pointIndex = aPoint.pointIndex
-                
-                curve.points.remove(at: pointIndex)
-                if curve.points.isEmpty {
-                    curves.remove(at: aPoint.curveIndex)
-                    selectedPoints = []
-                } else {
-                    curves[aPoint.curveIndex] = curve
+            } else {
+                let selectedPointsArray = Array(selectedPoints).sorted {
+                    ($0.curveIndex, $0.pointIndex) > ($1.curveIndex, $1.pointIndex)
                 }
-                selectedPoints.remove(aPoint)
+                
+                for aPoint in selectedPointsArray {
+                    var curve = curves[aPoint.curveIndex]
+                    let pointIndex = aPoint.pointIndex
+                    
+                    curve.points.remove(at: pointIndex)
+                    if curve.points.isEmpty {
+                        curves.remove(at: aPoint.curveIndex)
+                        selectedPoints = []
+                    } else {
+                        curves[aPoint.curveIndex] = curve
+                    }
+                    selectedPoints.remove(aPoint)
+                }
             }
         }
     }
@@ -895,7 +924,7 @@ final class DrawingInfo: ObservableObject, Codable {
         self.smoothCurves = restored.smoothCurves
         self.backgroundColor = restored.backgroundColor
 //        self.lineThickness = restored.lineThickness
-        self.lineHardness = restored.lineHardness
+        self.brushSettings.lineHardness = restored.brushSettings.lineHardness
         self.curves = restored.curves
         self.showControlPoints = restored.showControlPoints
         self.drawingMode = .idle

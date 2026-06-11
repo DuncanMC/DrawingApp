@@ -53,12 +53,12 @@ struct DrawingCommands: Commands {
         }
 
         CommandGroup(after: .pasteboard) {
-            Button("Delete Point") {
+            Button(drawingInfo?.deleteSelectedPointString ?? "Delete Selected Point") {
                 drawingInfo?.deletePoints()
             }
             .keyboardShortcut(.delete, modifiers: [])
             .disabled(drawingInfo?.enableDeletePointButton != true)
-            Button("Delete entire curve") {
+            Button(drawingInfo?.deleteSelectedCurveString ?? "Delete Selected Curve") {
                 drawingInfo?.deletePoints(deleteEntireCurve: true)
             }
             .keyboardShortcut(.delete, modifiers: .command)
@@ -75,25 +75,25 @@ struct DrawingCommands: Commands {
                     drawingInfo?.moveCurveForward()
                 }
                 .keyboardShortcut(.pageUp, modifiers: [])
-                .disabled(drawingInfo?.singleCurveSelectedAndNotLast == false)
+                .disabled(drawingInfo?.singleCurveSelectedAndNotLast != true)
 
                 Button("Move to Front") {
                     drawingInfo?.bringCurveToFront()
                 }
                 .keyboardShortcut(.home, modifiers: [])
-                .disabled(drawingInfo?.singleCurveSelectedAndNotLast == false)
+                .disabled(drawingInfo?.singleCurveSelectedAndNotLast != true)
 
                 Button("Move Backward") {
                     drawingInfo?.moveCurveBackward()
                 }
                 .keyboardShortcut(.pageDown, modifiers: [])
-                .disabled(drawingInfo?.singleCurveSelectedAndNotFirst == false)
+                .disabled(drawingInfo?.singleCurveSelectedAndNotFirst != true)
 
                 Button("Move to Back") {
                     drawingInfo?.sendCurveToBack()
                 }
                 .keyboardShortcut(.end, modifiers: [])
-                .disabled(drawingInfo?.singleCurveSelectedAndNotFirst == false)
+                .disabled(drawingInfo?.singleCurveSelectedAndNotFirst != true)
             }
 
 

@@ -75,7 +75,10 @@ extension KeyEquivalent {
                         undoManager?.undo()
                     }
                 )
-                .onKeyPress(keys: [.upArrow, .downArrow, .leftArrow, .rightArrow]) { press in
+                .onKeyPress(keys: [.upArrow, .downArrow, .leftArrow, .rightArrow], phases: [.down, .repeat]) { press in
+                    if press.modifiers.contains(.control) {
+                        return .ignored
+                    }
                     viewModel.handleArrowKey(press)
                     return .handled
                 }
@@ -92,7 +95,7 @@ extension KeyEquivalent {
                     ColorPicker("Curve color", selection: $drawingInfo.currentColor)
                         .frame(maxWidth: 150)
                     
-                    Button("Delete point") {
+                    Button(drawingInfo.deleteSelectedPointString) {
                         viewModel.handleDeletePoint()
                     }
                     .keyboardShortcut(.delete, modifiers: [])
@@ -113,7 +116,7 @@ extension KeyEquivalent {
                         Slider(value: $drawingInfo.lineHardness, in: 0...2)
                     }
                     .frame(maxWidth: 150)
-                    .onChange(of: drawingInfo.lineHardness) {
+                    .onChange(of: drawingInfo.brushSettings.lineHardness) {
                         //print("lineHardness = \(drawingInfo.lineHardness). Computed hardness = \(drawingInfo.hardness)")
                     }
                     //                    Spacer()
@@ -191,30 +194,31 @@ extension KeyEquivalent {
                 Button("Show Quads (⌥Q)") { drawingInfo.showQuads.toggle() }
                     .keyboardShortcut("q", modifiers: [.option])
                 
-                //Arrange curves menu items (hidden versions with keyboard shortcuts)
+                // MARK: - Arrange curves menu items (hidden versions with keyboard shortcuts)
                 Button("Move Forward") {
                     drawingInfo.moveCurveForward()
                 }
-                .keyboardShortcut(.pageUp, modifiers: [])
+                .keyboardShortcut(.upArrow, modifiers: [.control])
                 .disabled(drawingInfo.singleCurveSelectedAndNotLast == false)
-
+                //--------------------------
                 Button("Move to Front") {
                     drawingInfo.bringCurveToFront()
                 }
-                .keyboardShortcut(.home, modifiers: [])
+                .keyboardShortcut(.leftArrow, modifiers: [.control])
                 .disabled(drawingInfo.singleCurveSelectedAndNotLast == false)
-
+                //--------------------------
                 Button("Move Backward") {
                     drawingInfo.moveCurveBackward()
                 }
-                .keyboardShortcut(.pageDown, modifiers: [])
+                .keyboardShortcut(.downArrow, modifiers: [.control])
                 .disabled(drawingInfo.singleCurveSelectedAndNotFirst == false)
-
+                //--------------------------
                 Button("Move to Back") {
                     drawingInfo.sendCurveToBack()
                 }
-                .keyboardShortcut(.end, modifiers: [])
+                .keyboardShortcut(.rightArrow, modifiers: [.control])
                 .disabled(drawingInfo.singleCurveSelectedAndNotFirst == false)
+                //-------------------
             }
             .frame(width: 0, height: 0)
             .opacity(0)
@@ -279,12 +283,12 @@ extension KeyEquivalent {
                         .disabled(drawingInfo.drawingMode != .editingCurve || drawingInfo.selectedPoints.count < 2)
                         
                         
-                        Button("Delete Point (⌦)", role: .destructive) {
+                        Button("\(drawingInfo.deleteSelectedPointString) (⌦)", role: .destructive) {
                             drawingInfo.deletePoints()
                         }
                         .disabled(!drawingInfo.enableDeletePointButton)
                         
-                        Button("Delete Entire Curve (⌘⌦)", role: .destructive) {
+                        Button("\(drawingInfo.deleteSelectedCurveString) (⌘⌦)", role: .destructive) {
                             drawingInfo.deletePoints(deleteEntireCurve: true)
                         }
                         .disabled(!drawingInfo.enableDeletePointButton)
@@ -302,22 +306,22 @@ extension KeyEquivalent {
                         
                         Menu("Arrange Curves") {
                             
-                            Button("Move Forward") {
+                            Button("Move Forward (^↑") {
                                 drawingInfo.moveCurveForward()
                             }
                             .disabled(drawingInfo.singleCurveSelectedAndNotLast == false)
                             
-                            Button("Move to Front") {
+                            Button("Move to Front (^←)") {
                                 drawingInfo.bringCurveToFront()
                             }
                             .disabled(drawingInfo.singleCurveSelectedAndNotLast == false)
                             
-                            Button("Move Backward") {
+                            Button("Move Backward (^↓)") {
                                 drawingInfo.moveCurveBackward()
                             }
                             .disabled(drawingInfo.singleCurveSelectedAndNotFirst == false)
                             
-                            Button("Move to Back") {
+                            Button("Move to Back (^→)") {
                                 drawingInfo.sendCurveToBack()
                             }
                             .disabled(drawingInfo.singleCurveSelectedAndNotFirst == false)

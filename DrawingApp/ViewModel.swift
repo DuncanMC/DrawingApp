@@ -152,7 +152,7 @@ struct ViewModel {
                                                    radius: drawingInfo.brushSettings.size,
                                                    outlineColor: nil,
                                                    points: [firstPoint, newPoint],
-                                                   hardness: drawingInfo.brushSettings.hardness)
+                    )
                     drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 1)]
                     drawingInfo.curves.append(newCurve)
                     drawingInfo.drawingMode = .editingCurve
@@ -168,7 +168,7 @@ struct ViewModel {
                                                radius: drawingInfo.brushSettings.size,
                                                outlineColor: nil,
                                                points: [point],
-                                               hardness: drawingInfo.brushSettings.hardness)
+                )
                 drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 0)]
                 drawingInfo.curves.append(newCurve)
                 drawingInfo.drawingMode = .editingCurve
@@ -351,7 +351,7 @@ struct ViewModel {
                                                    radius: drawingInfo.brushSettings.size,
                                                    outlineColor: nil,
                                                    points: [activePoint, point],
-                                                   hardness: drawingInfo.brushSettings.hardness)
+                    )
                     drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 1)]
                     drawingInfo.curves.append(newCurve)
                     drawingInfo.drawingMode = .creatingCurve
@@ -366,7 +366,7 @@ struct ViewModel {
                                            radius: drawingInfo.brushSettings.size,
                                            outlineColor: nil,
                                            points: [point],
-                                           hardness: drawingInfo.brushSettings.hardness)
+            )
             drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 0)]
             drawingInfo.curves.append(newCurve)
             drawingInfo.drawingMode = .creatingCurve
