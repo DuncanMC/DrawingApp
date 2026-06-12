@@ -105,20 +105,23 @@ extension KeyEquivalent {
                         HStack {
                             Slider(value: $drawingInfo.currentThickness, in: minThickness...maxThickness)
                             Text(drawingInfo.currentThicknessString)
-                                .padding(.leading, 10)
+                                .padding(.leading, 5)
                         }
                     }
                     .frame(maxWidth: 150)
                     .padding(.trailing, 10)
-                    
-                    VStack(alignment: .center)   {
-                        Text("Line hardness")
-                        Slider(value: $drawingInfo.lineHardness, in: 0...2)
-                    }
-                    .frame(maxWidth: 150)
-                    .onChange(of: drawingInfo.brushSettings.lineHardness) {
-                        //print("lineHardness = \(drawingInfo.lineHardness). Computed hardness = \(drawingInfo.hardness)")
-                    }
+                        VStack(alignment: .center)   {
+                            Text("Line hardness")
+                            HStack {
+                                Slider(value: $drawingInfo.lineHardness, in: 0...2)
+                                Text(drawingInfo.lineHardnessString)
+                                    .padding(.leading, 5)
+                            }
+                        }
+                        .frame(maxWidth: 150)
+                        .onChange(of: drawingInfo.brushSettings.lineHardness) {
+                            //print("lineHardness = \(drawingInfo.lineHardness). Computed hardness = \(drawingInfo.hardness)")
+                        }
                     //                    Spacer()
                 }
                 .frame(maxWidth: .infinity)

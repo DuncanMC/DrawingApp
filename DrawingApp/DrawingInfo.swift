@@ -191,6 +191,10 @@ final class DrawingInfo: ObservableObject, Codable {
     @Published var showSmoothingPoints: Bool = false
     @Published var showQuads: Bool = false
     
+    
+    var lineHardnessString: String {
+        return String(format: "%.1f", lineHardness * 50)
+    }
     // If one or more curves is selected, tie the slider to their value. Otherwise, use brushSettings.lineHardnes.
     var lineHardness: Float {
         get {
