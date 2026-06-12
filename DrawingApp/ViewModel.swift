@@ -68,8 +68,10 @@ struct ViewModel {
     }
     
     func brushSizeForEvent(_ event: GestureEvent) -> Float? {
-        var brushSize: Float?  = nil
-        guard useForceTouch else { return nil }
+        var brushSize: Float?  = drawingInfo.brushSettings.size
+        guard useForceTouch else {
+            return drawingInfo.brushSettings.size
+        }
         if let pressure = event.pressure {
             if let pencilData = event.pencilData {
                 let force = pressure / sin(pencilData.altitudeAngle)
@@ -138,7 +140,8 @@ struct ViewModel {
                 let newlocation = viewPointToMetal(location)
                 let newPoint = CatmullRomPoint(
                     coord: newlocation,
-                    pointType: .smooth)
+                    pointType: .smooth,
+                    pointRadius: drawingInfo.brushSettings.size)
 
                 if selectedPoint.pointIndex == thisCurve.points.count - 1 {
                     //append point to end of curve.
@@ -156,6 +159,7 @@ struct ViewModel {
                                                    radius: drawingInfo.brushSettings.size,
                                                    outlineColor: nil,
                                                    points: [firstPoint, newPoint],
+                                                   hardness:  drawingInfo.brushSettings.lineHardness
                     )
                     drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 1)]
                     drawingInfo.curves.append(newCurve)
@@ -166,12 +170,15 @@ struct ViewModel {
                 //print("Single-tap not on a known location.")
                 
                 let coords = viewPointToMetal(location)
-                let point =  CatmullRomPoint(coord: coords, pointType: .smooth)
+                let point =  CatmullRomPoint(coord: coords,
+                                             pointType: .smooth,
+                                             pointRadius: drawingInfo.brushSettings.size)
 
                 let newCurve = CatmullRomCurve(color: drawingInfo.brushSettings.color,
                                                radius: drawingInfo.brushSettings.size,
                                                outlineColor: nil,
                                                points: [point],
+                                               hardness:  drawingInfo.brushSettings.lineHardness
                 )
                 drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 0)]
                 drawingInfo.curves.append(newCurve)
@@ -336,7 +343,10 @@ struct ViewModel {
                drawingInfo.selectedPoints.count == 1 {
                 let activeCurveIndex = drawingInfo.selectedPoints.first!.curveIndex
                 let activePointIndex = drawingInfo.selectedPoints.first!.pointIndex
-                let point = CatmullRomPoint(coord: coords, pointType: .smooth)
+                let point = CatmullRomPoint(coord: coords,
+                                            pointType: .smooth,
+                                            pointRadius: drawingInfo.brushSettings.size
+                )
 
                 switch activePointIndex {
                 case 0:
@@ -355,6 +365,7 @@ struct ViewModel {
                                                    radius: drawingInfo.brushSettings.size,
                                                    outlineColor: nil,
                                                    points: [activePoint, point],
+                                                   hardness:  drawingInfo.brushSettings.lineHardness
                     )
                     drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 1)]
                     drawingInfo.curves.append(newCurve)
@@ -365,11 +376,14 @@ struct ViewModel {
                 }
             }
 
-            let point = CatmullRomPoint(coord: coords, pointType: .smooth, pointRadius: brushSizeForEvent(event))
+            let point = CatmullRomPoint(coord: coords,
+                                        pointType: .smooth,
+                                        pointRadius: brushSizeForEvent(event))
             let newCurve = CatmullRomCurve(color: drawingInfo.brushSettings.color,
                                            radius: drawingInfo.brushSettings.size,
                                            outlineColor: nil,
                                            points: [point],
+                                           hardness:  drawingInfo.brushSettings.lineHardness
             )
             drawingInfo.selectedPoints = [SelectedPoint(curveIndex: drawingInfo.curves.count, pointIndex: 0)]
             drawingInfo.curves.append(newCurve)

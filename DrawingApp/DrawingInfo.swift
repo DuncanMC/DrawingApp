@@ -11,6 +11,8 @@ import Combine
 
 struct MetalColors {
     static let red: SIMD4<Float> = SIMD4<Float>(0.7, 0, 0, 1)
+    static let brightRed: SIMD4<Float> = SIMD4<Float>(1, 0, 0, 1)
+    static let pink: SIMD4<Float> = SIMD4<Float>(1, 0.3, 0.3, 1)
     static let yellow: SIMD4<Float> = SIMD4<Float>(1, 1, 0, 1)
     static let blue: SIMD4<Float> = SIMD4<Float>(0, 0, 1, 1)
     static let green: SIMD4<Float> = SIMD4<Float>(0, 1, 0, 1)
@@ -203,9 +205,8 @@ final class DrawingInfo: ObservableObject, Codable {
                 for curveIndex in uniqueSelectedCurveIndexes {
                     curves[curveIndex].hardness = newValue
                 }
-            } else {
-                brushSettings.lineHardness = newValue
             }
+            brushSettings.lineHardness = newValue
         }
     }
     
@@ -332,6 +333,10 @@ final class DrawingInfo: ObservableObject, Codable {
         singleCurveSelected ? "Delete Selected Curve" :
         "Delete Selected Curves"
     }
+    var currentThicknessString: String {
+        String(format: "%.1f", currentThickness)
+    }
+    
     var currentThickness: Float {
         get {
             guard !selectedPoints.isEmpty else { return brushSettings.size }
@@ -345,9 +350,7 @@ final class DrawingInfo: ObservableObject, Codable {
             return point.pointRadius ?? brushSettings.size
         }
         set {
-            if selectedPoints.count == 0 {
-                brushSettings.size = newValue
-            } else if selectedPoints.count == 1 {
+           if selectedPoints.count == 1 {
                 let selectedCurveIndex = selectedPoints.first!.curveIndex
                 let pointIndex = selectedPoints.first!.pointIndex
                 var curve = curves[selectedCurveIndex]
@@ -366,6 +369,7 @@ final class DrawingInfo: ObservableObject, Codable {
                     curves[selectedCurveIndex] = curve
                 }
             }
+            brushSettings.size = newValue
         }
     }
     var currentColor: Color {

@@ -102,7 +102,11 @@ extension KeyEquivalent {
                     
                     VStack(alignment: .center)   {
                         Text("Thickness")
-                        Slider(value: $drawingInfo.currentThickness, in: minThickness...maxThickness)
+                        HStack {
+                            Slider(value: $drawingInfo.currentThickness, in: minThickness...maxThickness)
+                            Text(drawingInfo.currentThicknessString)
+                                .padding(.leading, 10)
+                        }
                     }
                     .frame(maxWidth: 150)
                     .padding(.trailing, 10)

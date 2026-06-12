@@ -289,7 +289,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         drawCurves(drawingInfo.curves)
         
         if drawingInfo.showGridLines {
-            drawGridLines(even: true, color: MetalColors.red)
+            drawGridLines(even: true, color: MetalColors.pink)
             drawGridLines(even: false, color: MetalColors.black)
         }
         encoder.endEncoding()
