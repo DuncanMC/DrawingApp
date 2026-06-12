@@ -90,7 +90,6 @@ extension KeyEquivalent {
                 .border(Color.blue, width: 4)
                 .aspectRatio(drawingInfo.imageSize, contentMode: .fit)
                 HStack(spacing: 20) {
-                    //                    Spacer()
                     
                     ColorPicker("Curve color", selection: $drawingInfo.currentColor)
                         .frame(maxWidth: 150)
@@ -107,9 +106,6 @@ extension KeyEquivalent {
                     }
                     .frame(maxWidth: 150)
                     .padding(.trailing, 10)
-                    //                .onChange(of: drawingInfo.lineThickness) {
-                    //                    //print("Line thickness = \(drawingInfo.lineThickness)")
-                    //                }
                     
                     VStack(alignment: .center)   {
                         Text("Line hardness")

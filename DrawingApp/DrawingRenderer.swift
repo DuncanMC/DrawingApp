@@ -17,6 +17,8 @@ import UIKit
 
 class DrawingRenderer: NSObject, MTKViewDelegate {
     
+    var notificationToken: NSObjectProtocol?
+
     var maxAlpha: Float = 1
     var maxVerticiesSize = 3840
     
@@ -60,7 +62,11 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         let textureOffset: simd_float2
     }
 
+    var gridSpacing: Float = Float(UserDefaults.standard.double(forKey: UserDefaultsKeys.gridSpacing.rawValue))
+
     init(drawingInfo: DrawingInfo) {
+        
+
         self.drawingInfo = drawingInfo
         device = MTLCreateSystemDefaultDevice()
         guard let vertBuffer = device.makeBuffer(
@@ -71,9 +77,22 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         }
         vertexBuffer = vertBuffer
         vertexBuffer.label = "TransientVertexRingBuffer"
-        
+        gridSpacing = Float(UserDefaults.standard.double(forKey: UserDefaultsKeys.gridSpacing.rawValue))
+        if gridSpacing == 0 {
+            gridSpacing = 20
+        }
         super.init()
         
+        notificationToken = NotificationCenter.default
+            .addObserver(forName: settingsChangedNotification,
+                         object: nil,
+                         queue: nil) { notification in
+                            let userInfo = notification.userInfo
+                            if let change = userInfo?[UserDefaultsKeys.gridSpacing.rawValue] as? Double {
+                                self.gridSpacing = Float(change)
+                }
+        }
+
 
         //MARK: Oversampling
         if device.supportsTextureSampleCount(4) {
@@ -268,63 +287,10 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         }
         
         drawCurves(drawingInfo.curves)
-
-        let gridSpacing: Float  = 20
-        let gridAlpha: Float = 0.5
         
-        // MARK: - Draw gridlines, if requested
         if drawingInfo.showGridLines {
-            var y: Float = 0
-            let yStepSize = drawingInfo.metalPixelSize.y * gridSpacing
-            let ySteps = Int(ceil(2.0 / yStepSize))
-            let xStepSize = drawingInfo.metalPixelSize.x * gridSpacing
-            let xSteps = Int(ceil(2.0 / xStepSize))
-            
-            var vertexes = [Vertex]()
-            let expectedCapacity = ySteps * 2 + xSteps * 2
-            vertexes.reserveCapacity(expectedCapacity)
-            while y <= 1 {
-                vertexes += [Vertex(position: simd_float2(-1, y), alpha: gridAlpha),
-                             Vertex(position: simd_float2( 1, y), alpha: gridAlpha)]
-                y += yStepSize
-            }
-            y = -yStepSize
-            while y >= -1 {
-                vertexes += [Vertex(position: simd_float2(-1, y), alpha: gridAlpha),
-                             Vertex(position: simd_float2( 1, y), alpha: gridAlpha)]
-                y -= yStepSize
-            }
-            var x: Float = 0
-            while x <= 1 {
-                vertexes += [Vertex(position: simd_float2(x, -1), alpha: gridAlpha),
-                             Vertex(position: simd_float2(x, 1), alpha: gridAlpha)]
-                x += xStepSize
-            }
-            x = -xStepSize
-            while x >= -1 {
-                vertexes += [Vertex(position: simd_float2(x, -1), alpha: gridAlpha),
-                             Vertex(position: simd_float2(x, 1), alpha: gridAlpha)]
-                x -= xStepSize
-            }
-            
-            let verticiesSize = MemoryLayout<Vertex>.stride * vertexes.count
-            let offset = allocateVerticiesInRing(byteCount: verticiesSize)
-            let dst = vertexBuffer.contents().advanced(by: offset)
-            dst.copyMemory(from: vertexes, byteCount: verticiesSize)
-            encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
-
-            uniforms = Uniforms(
-                color: MetalColors.black,
-                drawWithTetxure: false,
-                orthoMatrix: orthoMatrix,
-                hardness: 1.0,
-                scale: scale,
-                textureOffset: simd_float2.zero
-            )
-            encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
-            encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
-            encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: vertexes.count)
-
+            drawGridLines(even: true, color: MetalColors.red)
+            drawGridLines(even: false, color: MetalColors.black)
         }
         encoder.endEncoding()
         commandBuffer.present(drawable)
@@ -332,6 +298,66 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 
 
         // MARK: - nested drawing functions
+        
+        func drawGridLines(even: Bool, color: simd_float4) {
+//            let gridSpacing: Float  = 20
+            let gridAlpha: Float = 1.0
+            
+            // MARK: - Draw gridlines, if requested
+            let yStepSize = drawingInfo.metalPixelSize.y * gridSpacing
+            let ySteps = Int(2.0 / yStepSize)
+            let xStepSize = drawingInfo.metalPixelSize.x * gridSpacing
+            let xSteps = Int(2.0 / xStepSize)
+            
+            var vertexes = [Vertex]()
+            let expectedCapacity = ySteps + xSteps + 4
+            vertexes.reserveCapacity(expectedCapacity)
+            var y: Float = even ? 0 : yStepSize
+            while y <= 1 {
+                vertexes += [Vertex(position: simd_float2(-1, y), alpha: gridAlpha),
+                             Vertex(position: simd_float2( 1, y), alpha: gridAlpha)]
+                y += yStepSize * 2
+            }
+            y = even ? -yStepSize * 2 : -yStepSize
+            while y >= -1 {
+                vertexes += [Vertex(position: simd_float2(-1, y), alpha: gridAlpha),
+                             Vertex(position: simd_float2( 1, y), alpha: gridAlpha)]
+                y -= yStepSize * 2
+            }
+            var x: Float =  even ? 0 : xStepSize
+            while x <= 1 {
+                vertexes += [Vertex(position: simd_float2(x, -1), alpha: gridAlpha),
+                             Vertex(position: simd_float2(x, 1), alpha: gridAlpha)]
+                x += xStepSize * 2
+            }
+            x = even ? -xStepSize * 2 : -xStepSize
+            while x >= -1 {
+                vertexes += [Vertex(position: simd_float2(x, -1), alpha: gridAlpha),
+                             Vertex(position: simd_float2(x, 1), alpha: gridAlpha)]
+                x -= xStepSize * 2
+            }
+            if vertexes.count > expectedCapacity {
+                print("vertexes.count = \(vertexes.count). expectedCapacity = \(expectedCapacity).")
+            }
+            let verticiesSize = MemoryLayout<Vertex>.stride * vertexes.count
+            let offset = allocateVerticiesInRing(byteCount: verticiesSize)
+            let dst = vertexBuffer.contents().advanced(by: offset)
+            dst.copyMemory(from: vertexes, byteCount: verticiesSize)
+            encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
+            
+            uniforms = Uniforms(
+                color: color,
+                drawWithTetxure: false,
+                orthoMatrix: orthoMatrix,
+                hardness: 0,
+                scale: scale,
+                textureOffset: simd_float2.zero
+            )
+            encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+            encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+            encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: vertexes.count)
+        }
+        
         func drawOutlinedBoxes(at points: [DragHandle]) {
             for aPoint in points {
                 if aPoint.handleType != drawingInfo.transformModeValues?.selectedTransformHandle {

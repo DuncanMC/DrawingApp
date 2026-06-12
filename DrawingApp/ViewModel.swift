@@ -33,6 +33,10 @@ struct ViewModel {
         self.drawingInfo = drawingInfo
     }
 
+    var gridSpacing: Float {
+        Float(UserDefaults.standard.double(forKey: UserDefaultsKeys.gridSpacing.rawValue))
+    }
+    
     var useForceTouch: Bool {
         let value = UserDefaults.standard.bool(forKey: UserDefaultsKeys.useForceTouch.rawValue)
         return value
