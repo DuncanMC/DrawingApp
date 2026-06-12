@@ -126,6 +126,15 @@ struct DrawingCommands: Commands {
             ))
             .keyboardShortcut("c", modifiers: [.option])
             .disabled(drawingInfo == nil)
+
+            Toggle("Show GridLines", isOn: Binding(
+                get: { drawingInfo?.showGridLines ?? false },
+                set: { newValue in drawingInfo?.showGridLines = newValue }
+            ))
+            .keyboardShortcut("g", modifiers: [.option])
+            .disabled(drawingInfo == nil)
+
+            //showGridLines
             
             Toggle("Show Quads", isOn: Binding(
                 get: { drawingInfo?.showQuads ?? false },

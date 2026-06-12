@@ -269,7 +269,63 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         
         drawCurves(drawingInfo.curves)
 
+        let gridSpacing: Float  = 20
+        let gridAlpha: Float = 0.5
+        
+        // MARK: - Draw gridlines, if requested
+        if drawingInfo.showGridLines {
+            var y: Float = 0
+            let yStepSize = drawingInfo.metalPixelSize.y * gridSpacing
+            let ySteps = Int(ceil(2.0 / yStepSize))
+            let xStepSize = drawingInfo.metalPixelSize.x * gridSpacing
+            let xSteps = Int(ceil(2.0 / xStepSize))
+            
+            var vertexes = [Vertex]()
+            let expectedCapacity = ySteps * 2 + xSteps * 2
+            vertexes.reserveCapacity(expectedCapacity)
+            while y <= 1 {
+                vertexes += [Vertex(position: simd_float2(-1, y), alpha: gridAlpha),
+                             Vertex(position: simd_float2( 1, y), alpha: gridAlpha)]
+                y += yStepSize
+            }
+            y = -yStepSize
+            while y >= -1 {
+                vertexes += [Vertex(position: simd_float2(-1, y), alpha: gridAlpha),
+                             Vertex(position: simd_float2( 1, y), alpha: gridAlpha)]
+                y -= yStepSize
+            }
+            var x: Float = 0
+            while x <= 1 {
+                vertexes += [Vertex(position: simd_float2(x, -1), alpha: gridAlpha),
+                             Vertex(position: simd_float2(x, 1), alpha: gridAlpha)]
+                x += xStepSize
+            }
+            x = -xStepSize
+            while x >= -1 {
+                vertexes += [Vertex(position: simd_float2(x, -1), alpha: gridAlpha),
+                             Vertex(position: simd_float2(x, 1), alpha: gridAlpha)]
+                x -= xStepSize
+            }
+            
+            let verticiesSize = MemoryLayout<Vertex>.stride * vertexes.count
+            let offset = allocateVerticiesInRing(byteCount: verticiesSize)
+            let dst = vertexBuffer.contents().advanced(by: offset)
+            dst.copyMemory(from: vertexes, byteCount: verticiesSize)
+            encoder.setVertexBuffer(vertexBuffer, offset: offset, index: 0)
 
+            uniforms = Uniforms(
+                color: MetalColors.black,
+                drawWithTetxure: false,
+                orthoMatrix: orthoMatrix,
+                hardness: 1.0,
+                scale: scale,
+                textureOffset: simd_float2.zero
+            )
+            encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+            encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+            encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: vertexes.count)
+
+        }
         encoder.endEncoding()
         commandBuffer.present(drawable)
         commandBuffer.commit()

@@ -224,7 +224,8 @@ final class DrawingInfo: ObservableObject, Codable {
 //    var hardness: Float = 1 // computed from lineHardness. 1 = linear transition. 0 = max no blending.
     
     @Published var showControlPoints: Bool = true
-    
+    @Published var showGridLines: Bool = false
+
     @Published var curves = [CatmullRomCurve]()
     
     // Items not saved with Codable

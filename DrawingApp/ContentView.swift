@@ -182,7 +182,12 @@ extension KeyEquivalent {
                 //Show control points
                 Button("Show Control Points (⌥C)") { drawingInfo.showControlPoints.toggle() }
                     .keyboardShortcut("c", modifiers: .option)
+                //showGridLines
                 
+                //Show grid lines
+                Button("Show grid lines (⌥g)") { drawingInfo.showGridLines.toggle() }
+                    .keyboardShortcut("g", modifiers: .option)
+
                 //Smooth Curves (hidden version with keyboard shortcut)
                 Button("Smooth Curves (⌥S)") { drawingInfo.smoothCurves.toggle() }
                     .keyboardShortcut("s", modifiers: .option)
@@ -336,6 +341,7 @@ extension KeyEquivalent {
                     Toggle("Smooth Curves (⌥S)", isOn: $drawingInfo.smoothCurves)
                     Toggle("Show Smoothing Points (⌥⇧S)", isOn: $drawingInfo.showSmoothingPoints)
                     Toggle("Show Control Points (⌥C)", isOn: $drawingInfo.showControlPoints)
+                    Toggle("Show Grid Lines (⌥G)", isOn: $drawingInfo.showGridLines)
                     Toggle("Show Quads (⌥Q)", isOn: $drawingInfo.showQuads)
                 }
             }
