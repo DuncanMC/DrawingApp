@@ -491,15 +491,33 @@ struct ViewModel {
                     drawingInfo.lastDragLocation = location
 
                 case .rotationCenter:
-
                     guard var transformModeValues = drawingInfo.transformModeValues else { return }
                     let newRotationCenter = transformModeValues.rotationPoint + vector
                     let transformRectCenter = transformModeValues.transformRectCenter
                     let pointsToCheck = [transformRectCenter] + transformModeValues.dragHandles.map { $0.coord }
                     var pointToUse: simd_float2? = nil
                     for aPoint in pointsToCheck {
-                        if distanceBetween(p1: newRotationCenter, p2: aPoint) < drawingInfo.metalWidthPerPixel * 30 {
+                        let distance = distanceBetween(p1: newRotationCenter, p2: aPoint)
+                        if drawingInfo.centerpointSnappedToHandle == nil && distance < drawingInfo.metalWidthPerPixel * 20 {
+                            // Snap point rotation center to a transform handle if it's close.
                             pointToUse = aPoint
+                            drawingInfo.centerpointSnappedToHandle = pointToUse
+                            //print("Snapped to handle. Distance = \(distance / drawingInfo.metalWidthPerPixel)")
+                            break
+                        } else if let previousSnap = drawingInfo.centerpointSnappedToHandle {
+                            let distanceFromSnap = distanceBetween(p1: viewPointToMetal(location), p2: previousSnap)
+                            if distanceFromSnap < drawingInfo.metalWidthPerPixel * 40 {
+                                // If we previously snapped to a handle and we're still within 40 pixels, stay snapped.
+                                pointToUse = previousSnap
+                                //print("dragging away from handle. distanceFromSnap = \(distanceFromSnap / drawingInfo.metalWidthPerPixel )")
+                                break
+                            } else {
+                                // We've moved out of range, so end the snap.
+                                drawingInfo.centerpointSnappedToHandle = nil
+                                pointToUse = viewPointToMetal(location)
+                                //print("Snap ended")
+                                break
+                            }
                         }
                     }
                     transformModeValues.rotationPoint = pointToUse ?? newRotationCenter
@@ -717,6 +735,7 @@ struct ViewModel {
     func handleDragEnded(event: GestureEvent) {
         defer {
             drawingInfo.suppressUndo = false
+            drawingInfo.centerpointSnappedToHandle = nil
         }
         if drawingInfo.drawingMode == .selecting {
             //TODO: Figure out how to do a deselect from an iPad without a keyboard

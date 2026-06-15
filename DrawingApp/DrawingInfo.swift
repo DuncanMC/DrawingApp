@@ -557,6 +557,8 @@ final class DrawingInfo: ObservableObject, Codable {
     var scale: Float = 1.0
     var transformModeValues: TransformModeValues? = nil
     
+    var centerpointSnappedToHandle: simd_float2? = nil
+    
     var metalWidthPerPixel: Float {
         scale / Float(max(drawableSize.width, drawableSize.height))
     }
