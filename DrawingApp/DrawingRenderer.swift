@@ -288,6 +288,35 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         
         drawCurves(drawingInfo.curves)
         
+        if drawingInfo.drawingMode == .selecting,
+           let firstCorner = drawingInfo.marqueeSelectionStartPoint,
+           let thirdCorner = drawingInfo.marqueeSelectionEndPoint {
+            let secondCorner = simd_float2(x: firstCorner.x, y: thirdCorner.y)
+            let forthCorner = simd_float2(x: thirdCorner.x, y: firstCorner.y)
+            drawThickLine(p1: firstCorner,
+                          p2: secondCorner,
+                          color: MetalColors.black,
+                          thickness: 2,
+                          drawWithTexture: true)
+            drawThickLine(p1: secondCorner,
+                          p2: thirdCorner,
+                          color: MetalColors.black,
+                          thickness: 2,
+                          drawWithTexture: true)
+            drawThickLine(p1: thirdCorner,
+                          p2: forthCorner,
+                          color: MetalColors.black,
+                          thickness: 2,
+                          drawWithTexture: true)
+            drawThickLine(p1: forthCorner,
+                          p2: firstCorner,
+                          color: MetalColors.black,
+                          thickness: 2,
+                          drawWithTexture: true)
+        }
+            //drawingInfo.marqueeSelectionEndPoint = viewPointToMetal(location)
+
+        
         if drawingInfo.showGridLines {
             drawGridLines(even: true, color: MetalColors.pink)
             drawGridLines(even: false, color: MetalColors.black)
@@ -782,7 +811,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     }
                 }
             }
-            if drawingInfo.drawingMode == .editingCurve
+            if drawingInfo.drawingMode == .editingCurve || drawingInfo.drawingMode == .selecting
             {
                 // If we have selected points, draw them
                 for aSelectedPoint in drawingInfo.selectedPoints {

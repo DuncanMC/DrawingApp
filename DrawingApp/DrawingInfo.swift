@@ -192,6 +192,15 @@ final class DrawingInfo: ObservableObject, Codable {
     @Published var showSmoothingPoints: Bool = false
     @Published var showQuads: Bool = false
     
+    var squeezeActive: Bool = false {
+        didSet {
+            if squeezeActive != oldValue {
+                print("squeezeActive = \(squeezeActive)")
+            }
+        }
+    }
+    
+    @Published var inMarqueeSelectionMode: Bool = false
     
     var lineHardnessString: String {
         return String(format: "%.1f", lineHardness * 50)
@@ -453,6 +462,10 @@ final class DrawingInfo: ObservableObject, Codable {
         }
         return true
     }
+    
+    var marqueeSelectionStartPoint: simd_float2? = nil
+    var marqueeSelectionEndPoint: simd_float2? = nil
+
     
     var selectedPointsInfo: (center: simd_float2, size: simd_float2)? {
         if selectedPoints.isEmpty { return nil }

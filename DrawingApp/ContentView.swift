@@ -59,7 +59,7 @@ extension KeyEquivalent {
                         viewModel.handleDragChanged(location: location, event: event)
                     },
                     onDragEnded: { location, event in
-                        viewModel.handleDragEnded()
+                        viewModel.handleDragEnded(event: event)
                     },
                     onPinchRotateBegan: { center in
                         viewModel.handlePinchRotateBegan(center: center)
@@ -75,6 +75,17 @@ extension KeyEquivalent {
                         undoManager?.undo()
                     }
                 )
+                .onPencilSqueeze { phase in
+                    switch phase {
+                    case .active(_):
+                        drawingInfo.squeezeActive = true
+                    case .ended:
+                        drawingInfo.squeezeActive = false
+                    default:
+                        drawingInfo.squeezeActive = false
+                    }
+                }
+
                 .onKeyPress(keys: [.upArrow, .downArrow, .leftArrow, .rightArrow], phases: [.down, .repeat]) { press in
                     if press.modifiers.contains(.control) {
                         return .ignored
@@ -103,12 +114,12 @@ extension KeyEquivalent {
                     VStack(alignment: .center)   {
                         Text("Thickness")
                         HStack {
-                            Slider(value: $drawingInfo.currentThickness, in: minThickness...maxThickness)
+                            Slider(value: $drawingInfo.currentThickness, in: minThickness...maxThickness, step: 1.0)
                             Text(drawingInfo.currentThicknessString)
                                 .padding(.leading, 5)
                         }
                     }
-                    .frame(maxWidth: 150)
+                    .frame(maxWidth: 250)
                     .padding(.trailing, 10)
                         VStack(alignment: .center)   {
                             Text("Line hardness")
@@ -118,7 +129,7 @@ extension KeyEquivalent {
                                     .padding(.leading, 5)
                             }
                         }
-                        .frame(maxWidth: 150)
+                        .frame(maxWidth: 250)
                         .onChange(of: drawingInfo.brushSettings.lineHardness) {
                             //print("lineHardness = \(drawingInfo.lineHardness). Computed hardness = \(drawingInfo.hardness)")
                         }
@@ -285,11 +296,23 @@ extension KeyEquivalent {
             }
                 ToolbarItem(placement: .secondaryAction) {
                     Menu("Drawing controls", systemImage: "pencil.and.scribble") {
+                                
+
                         Toggle("Transform Selection (⌘T)", isOn: Binding(
                             get: {  drawingInfo.transformSelection},
                             set: {  newValue in drawingInfo.transformSelection = newValue } ))
                         .disabled(drawingInfo.drawingMode != .editingCurve || drawingInfo.selectedPoints.count < 2)
-                        
+
+                        Toggle("Marquee Selection", isOn: Binding(
+                            get: {
+                                drawingInfo.inMarqueeSelectionMode
+                            },
+                            set: { newValue in
+                                drawingInfo.inMarqueeSelectionMode = newValue
+                                print("in Marquee Selection Mode toggle. drawingInfo.inMarqueeSelectionMode: \(drawingInfo.inMarqueeSelectionMode)")
+                            } )
+                        )
+
                         
                         Button("\(drawingInfo.deleteSelectedPointString) (⌦)", role: .destructive) {
                             drawingInfo.deletePoints()

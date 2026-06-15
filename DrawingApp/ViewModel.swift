@@ -105,6 +105,47 @@ struct ViewModel {
         }
     }
     
+    func updateSelectionUsingMarkquee(deselect: Bool) {
+        
+        defer {
+            if drawingInfo.selectedPoints.isEmpty {
+                drawingInfo.drawingMode = .idle
+            } else {
+                drawingInfo.drawingMode = .editingCurve
+            }
+
+        }
+        guard let point1 = drawingInfo.marqueeSelectionStartPoint,
+              let point2 = drawingInfo.marqueeSelectionEndPoint else {
+            drawingInfo.drawingMode = .selecting
+            drawingInfo.marqueeSelectionStartPoint = nil
+            drawingInfo.marqueeSelectionEndPoint = nil
+            return
+        }
+        guard !drawingInfo.curves.isEmpty else { return }
+        let minX = min(point1.x, point2.x)
+        let maxX = max(point1.x, point2.x)
+        let minY = min(point1.y, point2.y)
+        let maxY = max(point1.y, point2.y)
+        var marqueePoints = Set<SelectedPoint>()
+        for (curveIndex,curve )in drawingInfo.curves.enumerated() {
+            for (pointIndex, aPoint) in curve.points.enumerated() {
+                if aPoint.coord.x < maxX && aPoint.coord.x > minX && aPoint.coord.y < maxY && aPoint.coord.y > minY {
+                    marqueePoints.insert(SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex))
+                }
+            }
+        }
+        guard !marqueePoints.isEmpty else {
+            print("No marquee points selected")
+            return
+        }
+        if deselect {
+            drawingInfo.selectedPoints.subtract(marqueePoints)
+        } else {
+            drawingInfo.selectedPoints.formUnion(marqueePoints)
+        }
+    }
+    
     // MARK: - Gesture recognizer callbacks
     
    func handleTap(location: CGPoint, modifiers: GestureModifierKeys = []) {
@@ -310,10 +351,19 @@ struct ViewModel {
         drawingInfo.registerUndo()
         drawingInfo.suppressUndo = true
 
-        if event.modifierKeys.contains(GestureModifierKeys.shift) {
-            print("Shift drag begun")
+        if event.modifierKeys.contains(GestureModifierKeys.command) {
+            print("command drag begun")
         }
-        if let target = getGestureLocation(touchLocation: location) {
+        if (drawingInfo.inMarqueeSelectionMode ||
+            event.modifierKeys.contains(GestureModifierKeys.command) ||
+            drawingInfo.squeezeActive) &&
+            !drawingInfo.transformSelection {
+            print("being marquee selection")
+            drawingInfo.isDragging = true
+            drawingInfo.lastDragLocation = location
+            drawingInfo.marqueeSelectionStartPoint = viewPointToMetal(location)
+            drawingInfo.drawingMode = .selecting
+        } else if let target = getGestureLocation(touchLocation: location) {
             drawingInfo.drawingMode = .editingCurve
             switch target.gestureLocation {
             case .inControlPoint(let curveIndex, let pointIndex):
@@ -399,7 +449,7 @@ struct ViewModel {
         }
 
         switch drawingInfo.drawingMode {
-
+            
         case .creatingCurve:
 
             guard drawingInfo.selectedPoints.count == 1 else {
@@ -471,7 +521,7 @@ struct ViewModel {
                 break
             }
         case .selecting:
-            // TODO: Add code for marquee and/or lasso selection
+            drawingInfo.marqueeSelectionEndPoint = viewPointToMetal(location)
             break
         }
     }
@@ -664,11 +714,15 @@ struct ViewModel {
         }
     }
     
-    func handleDragEnded() {
+    func handleDragEnded(event: GestureEvent) {
         defer {
             drawingInfo.suppressUndo = false
         }
-        if drawingInfo.drawingMode == .creatingCurve {
+        if drawingInfo.drawingMode == .selecting {
+            //TODO: Figure out how to do a deselect from an iPad without a keyboard
+            let deselect = event.modifierKeys.contains(GestureModifierKeys.option)
+            updateSelectionUsingMarkquee(deselect: deselect)
+        } else  if drawingInfo.drawingMode == .creatingCurve {
             let activeCurveIndex = drawingInfo.selectedPoints.first!.curveIndex
             drawingInfo.drawingMode = .editingCurve
             let curvePointsCount = drawingInfo.curves[activeCurveIndex].points.count
