@@ -886,9 +886,6 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                     drawSquare(center: transformModeValues.rotationPoint, color: MetalColors.black, width: 2, orthoMatrix: orthoMatrix)
 
 
-                    // Now draw the corner drag handles
-                    let middleX = (transformModeValues.topLeft.x + transformModeValues.bottomRight.x) / 2.0
-                    let middleY = (transformModeValues.topLeft.y + transformModeValues.bottomRight.y) / 2.0
                     
                     drawOutlinedBoxes(at: transformModeValues.dragHandles)
 

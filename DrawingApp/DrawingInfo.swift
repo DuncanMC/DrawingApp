@@ -70,6 +70,7 @@ enum Mode: Int, Codable {
     case idle
     case creatingCurve
     case editingCurve
+    case selecting
 }
 
 enum PointType: Int, Codable {

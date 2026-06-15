@@ -152,7 +152,6 @@ struct ViewModel {
                     thisCurve.points.insert(newPoint, at: 0)
                     drawingInfo.curves[selectedPoint.curveIndex] = thisCurve
                 } else {
-                    let coords = thisCurve.points[selectedPoint.pointIndex].coord
                     let firstPoint = thisCurve.points[selectedPoint.pointIndex]
 
                     let newCurve = CatmullRomCurve(color: thisCurve.color,
@@ -193,7 +192,6 @@ struct ViewModel {
             switch target.gestureLocation {
             case .inControlPoint(let curveIndex, let pointIndex):
                 let tappedPoint = SelectedPoint(curveIndex: curveIndex, pointIndex: pointIndex)
-                let curve = drawingInfo.curves[curveIndex]
                 
                 drawingInfo.drawingMode = .editingCurve
                 
@@ -328,7 +326,7 @@ struct ViewModel {
                 } else if !drawingInfo.selectedPoints.contains(newPoint) {
                     drawingInfo.selectedPoints = [newPoint]
                 }
-            case .inTransformHandle(let handleType):
+            case .inTransformHandle(_):
                     drawingInfo.isDragging = true
                     drawingInfo.lastDragLocation = location
                     drawingInfo.draggingState = target.gestureLocation
@@ -468,12 +466,13 @@ struct ViewModel {
                 case .topLeft, .topMiddle, .topRight, .middleLeft, .middleRight, .bottomLeft, .bottomMiddle, .bottomRight:
                     adjustSelection(by: vector, forHandleType: handleType)
                     drawingInfo.lastDragLocation = location
-                default:
-                    break
                 }
             default:
                 break
             }
+        case .selecting:
+            // TODO: Add code for marquee and/or lasso selection
+            break
         }
     }
     
@@ -623,8 +622,6 @@ struct ViewModel {
     }
     
     func handleArrowKey(_ keyPress: KeyPress) {
-        let  metalWidthPerPixel = drawingInfo.scale / Float(max(drawingInfo.drawableSize.width, drawingInfo.drawableSize.height))
-
 
         let shift = keyPress.modifiers.contains(.shift)
         var vector: SIMD2<Float>
@@ -659,12 +656,6 @@ struct ViewModel {
             
             Task { @MainActor in
                 adjustSelection(by: vector, forHandleType: transformHandle)
-                let  metalWidthPerPixel = drawingInfo.scale / Float(max(drawingInfo.drawableSize.width, drawingInfo.drawableSize.height))
-
-                if let rotationPoint = drawingInfo.transformModeValues?.rotationPoint,
-                let transformRectCenter = drawingInfo.transformModeValues?.transformRectCenter {
-                    let distanceToCenter = distanceBetween(p1: rotationPoint, p2: transformRectCenter)
-                }
             }
         } else {
             Task { @MainActor in
@@ -771,7 +762,7 @@ struct ViewModel {
         if drawingInfo.transformSelection {
             result = matchPoint(touchLocation, inPoints: tranformHandlePoints, slopDistance: slopDistance)
             if let result,
-               case .inTransformHandle(let handleType) = result.gestureLocation
+               case .inTransformHandle(_) = result.gestureLocation
             {
                 //print("Gesture \(handleType.rawValue)")
             }
@@ -785,10 +776,8 @@ struct ViewModel {
             }
         } else {
             result = matchPoint(touchLocation, inPoints: curvePoints, slopDistance: slopDistance)
-            if let result {
-                //print("Gesture \(result.gestureLocation)")
-            }
         }
+
         return result
     }
 
