@@ -678,11 +678,14 @@ final class DrawingInfo: ObservableObject, Codable {
 
     func flipSelection(vertically: Bool) {
         
-        struct SelectedCurvePoints: Hashable {
+        struct SelectedCurvePoints: Hashable, Equatable {
             let curveIndex: Int
             var pointIndexes: Set<Int>
             func hash(into hasher: inout Hasher) {
                 hasher.combine(curveIndex)
+            }
+            static func == (lhs: Self, rhs: Self) -> Bool {
+                lhs.curveIndex == rhs.curveIndex
             }
         }
         
@@ -696,9 +699,8 @@ final class DrawingInfo: ObservableObject, Codable {
             let pointIndex = point.pointIndex
             if var selectedCurve = selectedCurvePoints.first(where: { $0.curveIndex == curveIndex }) {
                 // If this curve is already in selectedCurvePoints, add the new point to its list of points.
-                selectedCurvePoints.remove(selectedCurve)
                 selectedCurve.pointIndexes.insert(pointIndex)
-                selectedCurvePoints.insert(selectedCurve)
+                selectedCurvePoints.update( with: selectedCurve)
             } else {
                 // This is the first time we've seen this curve, so add it to selectedCurvePoints with this first point
                 selectedCurvePoints.insert(SelectedCurvePoints(
@@ -725,7 +727,7 @@ final class DrawingInfo: ObservableObject, Codable {
             let coord = dragHandle.coord
             transformModeValues.dragHandles[dragHandleIndex].coord = flipVertex(coord, vertically: vertically, around: transformModeValues.rotationPoint)
             
-            // If the drag handle is also one of the corners of the transform rect, update that.
+            // Also udpate teh selection rectagle corners (use the values we already calculated.)
             switch dragHandle.handleType {
             case .topLeft:
                 transformModeValues.topLeft = transformModeValues.dragHandles[dragHandleIndex].coord

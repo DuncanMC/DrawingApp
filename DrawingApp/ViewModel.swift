@@ -502,18 +502,17 @@ struct ViewModel {
                             // Snap point rotation center to a transform handle if it's close.
                             pointToUse = aPoint
                             drawingInfo.centerpointSnappedToHandle = pointToUse
-                            //print("Snapped to handle. Distance = \(distance / drawingInfo.metalWidthPerPixel)")
                             break
                         } else if let previousSnap = drawingInfo.centerpointSnappedToHandle {
                             let distanceFromSnap = distanceBetween(p1: viewPointToMetal(location), p2: previousSnap)
                             if distanceFromSnap < drawingInfo.metalWidthPerPixel * 40 {
                                 // If we previously snapped to a handle and we're still within 40 pixels, stay snapped.
                                 pointToUse = previousSnap
-                                //print("dragging away from handle. distanceFromSnap = \(distanceFromSnap / drawingInfo.metalWidthPerPixel )")
                                 break
                             } else {
                                 // We've moved out of range, so end the snap.
                                 drawingInfo.centerpointSnappedToHandle = nil
+                                // Use the "raw" mouse/touch location as the new rotation point.
                                 pointToUse = viewPointToMetal(location)
                                 //print("Snap ended")
                                 break
