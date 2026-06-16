@@ -50,8 +50,22 @@ struct DrawingCommands: Commands {
                 set: {  newValue in drawingInfo?.transformSelection = newValue } ))
             .disabled(drawingInfo?.drawingMode != .editingCurve || drawingInfo?.selectedPoints.count ?? 0 < 2)
             .keyboardShortcut("t", modifiers: .command)
+            Button("Flip Selection Vertically") {
+                drawingInfo?.flipSelection(vertically: true)
+            }
+            .disabled((drawingInfo==nil) ? true: drawingInfo?.transformSelection != true)
+            .keyboardShortcut("v", modifiers: [.option])
+            Button("Flip Selection Horizontally") {
+                drawingInfo?.flipSelection(vertically: false)
+            }
+            .disabled((drawingInfo==nil) ? true: drawingInfo?.transformSelection != true)
+            .keyboardShortcut("h", modifiers: [.option])
+            Divider()
+
         }
 
+
+        
         CommandGroup(after: .pasteboard) {
             Button(drawingInfo?.deleteSelectedPointString ?? "Delete Selected Point") {
                 drawingInfo?.deletePoints()

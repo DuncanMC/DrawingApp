@@ -144,7 +144,6 @@ extension KeyEquivalent {
                     HStack {
                         Spacer()
                         Button {
-                            print("Button tapped")
                             showSettings = true
                         } label:  {
                             Image(systemName: "gear")
@@ -192,6 +191,17 @@ extension KeyEquivalent {
                 Button("") {drawingInfo.transformSelection.toggle()}
                 .disabled(drawingInfo.drawingMode != .editingCurve || drawingInfo.selectedPoints.count < 2)
                 .keyboardShortcut("t", modifiers: .command)
+                Button("Flip Selection Vertically") {
+                    drawingInfo.flipSelection(vertically: true)
+                }
+                .disabled((drawingInfo==nil) ? true: drawingInfo.transformSelection != true)
+                .keyboardShortcut("v", modifiers: [.option])
+                Button("Flip Selection Horizontally") {
+                    drawingInfo.flipSelection(vertically: false)
+                }
+                .disabled(drawingInfo.transformSelection != true)
+                .keyboardShortcut("h", modifiers: [.option])
+                Divider()
 
                 //Show control points
                 Button("Show Control Points (⌥C)") { drawingInfo.showControlPoints.toggle() }
@@ -302,6 +312,17 @@ extension KeyEquivalent {
                             get: {  drawingInfo.transformSelection},
                             set: {  newValue in drawingInfo.transformSelection = newValue } ))
                         .disabled(drawingInfo.drawingMode != .editingCurve || drawingInfo.selectedPoints.count < 2)
+                        Button("Flip Selection Vertically (⌥v)") {
+                            drawingInfo.flipSelection(vertically: true)
+                        }
+                        .disabled(drawingInfo.transformSelection != true)
+                        .keyboardShortcut("v", modifiers: [.option])
+                        Button("Flip Selection Horizontally (⌥h)") {
+                            drawingInfo.flipSelection(vertically: false)
+                        }
+                        .disabled(drawingInfo.transformSelection != true)
+                        .keyboardShortcut("h", modifiers: [.option])
+                        Divider()
 
                         Toggle("Marquee Selection", isOn: Binding(
                             get: {

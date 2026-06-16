@@ -647,7 +647,99 @@ final class DrawingInfo: ObservableObject, Codable {
     }
 
     // MARK: - Editing Actions
+    
+    func flipHorizontally(vertex: SIMD2<Float>, around pivot: SIMD2<Float>) -> SIMD2<Float> {
+        SIMD2<Float>(
+            x: -vertex.x + 2 * pivot.x,
+            y: vertex.y
+        )
+    }
+    
+    func flipVertically(vertex: SIMD2<Float>, around pivot: SIMD2<Float>) -> SIMD2<Float> {
+        SIMD2<Float>(
+            x: vertex.x,
+            y: -vertex.y + 2 * pivot.y
+        )
+    }
+    
+    func flipVertex(_ vertex: SIMD2<Float>, vertically: Bool, around pivot: SIMD2<Float> ) -> SIMD2<Float> {
+        return vertically ?
+        SIMD2<Float>(
+            x: vertex.x,
+            y: -vertex.y + 2 * pivot.y
+        )
+        :
+        SIMD2<Float>(
+            x: -vertex.x + 2 * pivot.x,
+            y: vertex.y
+        )
 
+    }
+
+    func flipSelection(vertically: Bool) {
+        
+        struct SelectedCurvePoints: Hashable {
+            let curveIndex: Int
+            var pointIndexes: Set<Int>
+            func hash(into hasher: inout Hasher) {
+                hasher.combine(curveIndex)
+            }
+        }
+        
+        guard var transformModeValues else { return }
+
+        var selectedCurvePoints: Set<SelectedCurvePoints> = []
+        
+        // Loop through all the selected points
+        for point in selectedPoints {
+            let curveIndex = point.curveIndex
+            let pointIndex = point.pointIndex
+            if var selectedCurve = selectedCurvePoints.first(where: { $0.curveIndex == curveIndex }) {
+                // If this curve is already in selectedCurvePoints, add the new point to its list of points.
+                selectedCurvePoints.remove(selectedCurve)
+                selectedCurve.pointIndexes.insert(pointIndex)
+                selectedCurvePoints.insert(selectedCurve)
+            } else {
+                // This is the first time we've seen this curve, so add it to selectedCurvePoints with this first point
+                selectedCurvePoints.insert(SelectedCurvePoints(
+                    curveIndex: point.curveIndex,
+                    pointIndexes: [pointIndex]))
+            }
+        }
+        // Loop through each curve that has selected points.
+        for curvePoints in selectedCurvePoints {
+            var curve = curves[curvePoints.curveIndex]
+            
+            // Loop through the selected points for a curve
+            for selectedPointIndex in curvePoints.pointIndexes {
+                // Flip that point Horizontally or vertically around the rotation point
+                var point = curve.points[selectedPointIndex]
+                point.coord = flipVertex(point.coord, vertically: vertically, around: transformModeValues.rotationPoint)
+                curve.points[selectedPointIndex] = point
+            }
+            curves[curvePoints.curveIndex] = curve
+        }
+        // Now also flip all the drag handles
+        for dragHandleIndex in 0 ..< transformModeValues.dragHandles.count  {
+            let dragHandle = transformModeValues.dragHandles[dragHandleIndex]
+            let coord = dragHandle.coord
+            transformModeValues.dragHandles[dragHandleIndex].coord = flipVertex(coord, vertically: vertically, around: transformModeValues.rotationPoint)
+            
+            // If the drag handle is also one of the corners of the transform rect, update that.
+            switch dragHandle.handleType {
+            case .topLeft:
+                transformModeValues.topLeft = transformModeValues.dragHandles[dragHandleIndex].coord
+            case .topRight:
+                transformModeValues.topRight = transformModeValues.dragHandles[dragHandleIndex].coord
+            case .bottomLeft:
+                transformModeValues.bottomLeft = transformModeValues.dragHandles[dragHandleIndex].coord
+            case .bottomRight:
+                transformModeValues.bottomRight = transformModeValues.dragHandles[dragHandleIndex].coord
+            default: break
+            }
+        }
+        self.transformModeValues = transformModeValues
+    }
     
     // The last curve is drawn on top, so put it at the end.
     func bringCurveToFront() {
