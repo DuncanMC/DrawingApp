@@ -3,6 +3,7 @@
 //  DrawingApp
 //
 //  Created by Duncan Champney on 5/20/26.
+//  Copyright (c) 2026 Duncan Champney. All rights reserved.
 //
 
 import Foundation

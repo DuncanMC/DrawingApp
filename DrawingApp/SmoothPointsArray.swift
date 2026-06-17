@@ -3,7 +3,7 @@
 //  Catmull-Rom smoothing
 //
 //  Created by Duncan Champney on 12/30/16.
-//  Copyright © 2016 Duncan Champney. All rights reserved.
+//  Copyright © 2016-2026 Duncan Champney. All rights reserved.
 //
 
 import simd

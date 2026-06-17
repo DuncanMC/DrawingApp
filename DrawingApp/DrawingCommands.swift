@@ -2,8 +2,7 @@
 //  DrawingCommands.swift
 //  DrawingApp
 //
-//  Created by Assistant on 5/29/26.
-//
+//  Copyright (c) 2026 Duncan Champney. All rights reserved.
 
 import SwiftUI
 
