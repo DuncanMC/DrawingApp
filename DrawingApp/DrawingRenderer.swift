@@ -333,9 +333,9 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             let gridAlpha: Float = 1.0
             
             // MARK: - Draw gridlines, if requested
-            let yStepSize = drawingInfo.metalPixelSize.y * gridSpacing
+            let yStepSize = drawingInfo.metalPixelSize.y * gridSpacing * 2
             let ySteps = Int(2.0 / yStepSize)
-            let xStepSize = drawingInfo.metalPixelSize.x * gridSpacing
+            let xStepSize = drawingInfo.metalPixelSize.x * gridSpacing * 2
             let xSteps = Int(2.0 / xStepSize)
             
             var vertexes = [Vertex]()

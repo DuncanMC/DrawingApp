@@ -164,6 +164,11 @@ extension KeyEquivalent {
         // MARK: hidden buttons for keyboard shortcuts.
         .background {
             VStack {
+                Button("Snap Points to Grid (^s)") {
+                    drawingInfo.snapPointsToGrid()
+                }
+                .keyboardShortcut("s", modifiers: .control)
+                .disabled(drawingInfo.selectedPoints.isEmpty != false )
                 Button("") { undoManager?.undo() }
                     .keyboardShortcut("z", modifiers: .command)
                     .disabled(!(undoManager?.canUndo ?? false))
@@ -333,6 +338,11 @@ extension KeyEquivalent {
                                 print("in Marquee Selection Mode toggle. drawingInfo.inMarqueeSelectionMode: \(drawingInfo.inMarqueeSelectionMode)")
                             } )
                         )
+                        Button("Snap Points to Grid") {
+                            drawingInfo.snapPointsToGrid()
+                        }
+                        .keyboardShortcut("s", modifiers: .control)
+                        .disabled(drawingInfo.selectedPoints.isEmpty == false )
 
                         
                         Button("\(drawingInfo.deleteSelectedPointString) (⌦)", role: .destructive) {

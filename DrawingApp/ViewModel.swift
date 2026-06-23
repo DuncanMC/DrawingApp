@@ -51,7 +51,7 @@ struct ViewModel {
         
         for (curveIndex, aCurve) in drawingInfo.curves.reversed().enumerated() {
             for (pointIndex, aPoint) in aCurve.points.enumerated() {
-                result.append((metalPointToView(aPoint.coord), .inControlPoint(curveIndex: curvesCount - curveIndex, pointIndex: pointIndex)))
+                result.append((drawingInfo.metalPointToView(aPoint.coord), .inControlPoint(curveIndex: curvesCount - curveIndex, pointIndex: pointIndex)))
             }
         }
         return result
@@ -60,10 +60,10 @@ struct ViewModel {
     var tranformHandlePoints: [GesturePointTuple] {
         var result: [GesturePointTuple] = []
         guard let transformModeValue = drawingInfo.transformModeValues else { return result }
-        result.append( GesturePointTuple(metalPointToView(transformModeValue.rotationPoint), .inTransformHandle(handleType: .rotationCenter)))
+        result.append( GesturePointTuple(drawingInfo.metalPointToView(transformModeValue.rotationPoint), .inTransformHandle(handleType: .rotationCenter)))
         let dragHandles = transformModeValue.dragHandles
         for aHandle in dragHandles {
-            result.append( GesturePointTuple(metalPointToView(aHandle.coord), .inTransformHandle(handleType: aHandle.handleType)))
+            result.append( GesturePointTuple(drawingInfo.metalPointToView(aHandle.coord), .inTransformHandle(handleType: aHandle.handleType)))
         }
       return result
     }
@@ -179,7 +179,7 @@ struct ViewModel {
                let selectedPoint = drawingInfo.selectedPoints.first {
                 
                 var thisCurve = drawingInfo.curves[selectedPoint.curveIndex]
-                let newlocation = viewPointToMetal(location)
+                let newlocation = drawingInfo.viewPointToMetal(location)
                 let newPoint = CatmullRomPoint(
                     coord: newlocation,
                     pointType: .smooth,
@@ -210,7 +210,7 @@ struct ViewModel {
             } else {
                 //print("Single-tap not on a known location.")
                 
-                let coords = viewPointToMetal(location)
+                let coords = drawingInfo.viewPointToMetal(location)
                 let point =  CatmullRomPoint(coord: coords,
                                              pointType: .smooth,
                                              pointRadius: drawingInfo.brushSettings.size)
@@ -302,7 +302,7 @@ struct ViewModel {
     func handlePinchRotateChanged(scale: CGFloat, rotation: CGFloat, center: CGPoint) {
         
         func transformPoint(_ point: simd_float2) -> simd_float2 {
-            let viewPt = metalPointToView(point)
+            let viewPt = drawingInfo.metalPointToView(point)
             let dx = viewPt.x - center.x
             let dy = viewPt.y - center.y
             let rx = cosR * dx - sinR * dy
@@ -310,7 +310,7 @@ struct ViewModel {
             let sx = rx * scale
             let sy = ry * scale
             let newViewPt = CGPoint(x: sx + center.x, y: sy + center.y)
-            return viewPointToMetal(newViewPt)
+            return drawingInfo.viewPointToMetal(newViewPt)
         }
         
         //TODO: Put this test back
@@ -359,10 +359,9 @@ struct ViewModel {
             event.modifierKeys.contains(GestureModifierKeys.command) ||
             drawingInfo.squeezeActive) &&
             !drawingInfo.transformSelection {
-            print("being marquee selection")
             drawingInfo.isDragging = true
             drawingInfo.lastDragLocation = location
-            drawingInfo.marqueeSelectionStartPoint = viewPointToMetal(location)
+            drawingInfo.marqueeSelectionStartPoint = drawingInfo.viewPointToMetal(location)
             drawingInfo.drawingMode = .selecting
         } else if let target = getGestureLocation(touchLocation: location) {
             drawingInfo.drawingMode = .editingCurve
@@ -386,7 +385,7 @@ struct ViewModel {
                 break
             }
         } else {
-            let coords = viewPointToMetal(location)
+            let coords = drawingInfo.viewPointToMetal(location)
 
             if drawingInfo.drawingMode == .editingCurve,
                drawingInfo.selectedPoints.count == 1 {
@@ -463,7 +462,7 @@ struct ViewModel {
                 return
             }
 
-            let newlocation = viewPointToMetal(location)
+            let newlocation = drawingInfo.viewPointToMetal(location)
             let brushSize = brushSizeForEvent( event)
 
             let newPoint = CatmullRomPoint(
@@ -487,7 +486,7 @@ struct ViewModel {
             case .inTransformHandle(let handleType):
                 switch handleType {
                 case .transformRect:
-                    let rotationCenter = metalPointToView(drawingInfo.transformModeValues!.rotationPoint)
+                    let rotationCenter = drawingInfo.metalPointToView(drawingInfo.transformModeValues!.rotationPoint)
                     dragSelectionBy(vector, moveRotationCenter: pointIsInTransformRect(rotationCenter))
                     drawingInfo.lastDragLocation = location
 
@@ -505,7 +504,7 @@ struct ViewModel {
                             drawingInfo.centerpointSnappedToHandle = pointToUse
                             break
                         } else if let previousSnap = drawingInfo.centerpointSnappedToHandle {
-                            let distanceFromSnap = distanceBetween(p1: viewPointToMetal(location), p2: previousSnap)
+                            let distanceFromSnap = distanceBetween(p1: drawingInfo.viewPointToMetal(location), p2: previousSnap)
                             if distanceFromSnap < drawingInfo.metalWidthPerPixel * 40 {
                                 // If we previously snapped to a handle and we're still within 40 pixels, stay snapped.
                                 pointToUse = previousSnap
@@ -514,7 +513,7 @@ struct ViewModel {
                                 // We've moved out of range, so end the snap.
                                 drawingInfo.centerpointSnappedToHandle = nil
                                 // Use the "raw" mouse/touch location as the new rotation point.
-                                pointToUse = viewPointToMetal(location)
+                                pointToUse = drawingInfo.viewPointToMetal(location)
                                 //print("Snap ended")
                                 break
                             }
@@ -525,7 +524,7 @@ struct ViewModel {
                     drawingInfo.lastDragLocation = location
                 case .outside:
                     guard let transformModeValues = drawingInfo.transformModeValues else { return }
-                    let rotationCenter = metalPointToView(transformModeValues.rotationPoint)
+                    let rotationCenter = drawingInfo.metalPointToView(transformModeValues.rotationPoint)
                     let oldAngle = atan2(Double(rotationCenter.y - lastDragLocation.y), Double(rotationCenter.x - lastDragLocation.x))
                     let newAngle = atan2(Double(rotationCenter.y - location.y), Double(rotationCenter.x - location.x))
                     let angleDelta = CGFloat(newAngle - oldAngle)
@@ -539,7 +538,7 @@ struct ViewModel {
                 break
             }
         case .selecting:
-            drawingInfo.marqueeSelectionEndPoint = viewPointToMetal(location)
+            drawingInfo.marqueeSelectionEndPoint = drawingInfo.viewPointToMetal(location)
             break
         }
     }
@@ -667,12 +666,12 @@ struct ViewModel {
                     transformModeValues.transformRectCenter
                 }
                 Task { @MainActor in
-                    handlePinchRotateChanged(scale: scaleChange, rotation: .zero, center: metalPointToView(scalingPoint))
+                    handlePinchRotateChanged(scale: scaleChange, rotation: .zero, center: drawingInfo.metalPointToView(scalingPoint))
                 }
             } else {
                 //Scale everything around the rotationPoint
                 Task { @MainActor in
-                    handlePinchRotateChanged(scale: scaleChange, rotation: .zero, center: metalPointToView(transformModeValues.rotationPoint))
+                    handlePinchRotateChanged(scale: scaleChange, rotation: .zero, center: drawingInfo.metalPointToView(transformModeValues.rotationPoint))
                 }
             }
         } else {
@@ -682,16 +681,175 @@ struct ViewModel {
                 let scaleChange = CGFloat(newWidth/selectionWidth)
 
                 Task { @MainActor in
-                    handlePinchRotateChanged(scale: scaleChange, rotation: .zero, center: metalPointToView(selectedPointsInfo.center))
+                    handlePinchRotateChanged(scale: scaleChange, rotation: .zero, center: drawingInfo.metalPointToView(selectedPointsInfo.center))
                 }
             }
 
         }
     }
     
+    func nudgePoints(arrowKey: KeyEquivalent) {
+        enum Axis: Int {
+            case x, y
+        }
+        
+        func deltaForPoint(_ point: CatmullRomPoint) -> simd_float2? {
+            var newCoord =  simd_float2.zero
+            let viewCoord = drawingInfo.metalPointToView(point.coord)
+            if axis == .x {
+                var x: Int = 0
+                let nearestX = Int(round(viewCoord.x / 5)) * 5
+                var  metalX: Float = Float(nearestX).interpolated(from: 0.0...Float(drawingInfo.viewportSize.width), to: -1...1)
+                if abs(point.coord.x - metalX) < drawingInfo.metalPixelSize.x / 2 {
+                    print("No change needed")
+                    return nil
+                }
+                if increase {
+                    x = Int(ceil(viewCoord.x / 5)) * 5
+                } else {
+                    x = Int(floor(viewCoord.x / 5)) * 5
+                }
+                metalX = Float(x).interpolated(from: 0.0...Float(drawingInfo.viewportSize.width), to: -1...1)
+                
+                return simd_float2(x: metalX - point.coord.x, y: 0)
+//                newCoord.x = metalX
+//                newCoord.y = point.coord.y
+                
+//                point.coord = newCoord
+//                curve.points[pointIndex] = point
+                
+            } else {
+                var y: Int
+                let nearestY = Int(round(viewCoord.y / 5)) * 5
+                
+                var metalY = 0 - Float(nearestY).interpolated(from: 0.0...Float(drawingInfo.viewportSize.height), to: -1...1)
+                if abs(point.coord.y - metalY) < drawingInfo.metalPixelSize.y / 2 {
+                    print("No change needed.")
+                    return nil
+                }
+                if increase {
+                    y = Int(ceil(viewCoord.y / 5)) * 5
+                } else {
+                    y = Int(floor(viewCoord.y / 5)) * 5
+                }
+                metalY = 0 - Float(y).interpolated(from: 0.0...Float(drawingInfo.viewportSize.height), to: -1...1)
+                newCoord.x = point.coord.x
+                newCoord.y = metalY
+                
+                return simd_float2(x: 0, y: metalY - point.coord.y)
+
+//                point.coord = newCoord
+//                curve.points[pointIndex] = point
+            }
+        }
+        
+        let axis: Axis
+        let increase: Bool
+        switch arrowKey {
+        case .leftArrow:
+            print("In \(#function). leftArrow")
+            increase = false
+            axis = .x
+        case .rightArrow:
+            print("In \(#function). rightArrow")
+            increase = true
+            axis = .x
+        case .upArrow:
+            print("In \(#function). upArrow")
+            increase = false
+            axis = .y
+        case .downArrow:
+            print("In \(#function). downArrow")
+            increase = true
+            axis = .y
+            
+        default:
+            return
+        }
+        if drawingInfo.transformSelection {
+            var limit: Float
+            if arrowKey == .rightArrow || arrowKey == .upArrow {
+                limit = -Float.greatestFiniteMagnitude
+            } else {
+                limit = Float.greatestFiniteMagnitude
+            }
+            print("arrow key in transformSelection mode")
+            var curveIndex = 0
+            var pointIndex = 0
+            for pointIndexes in drawingInfo.selectedPoints {
+                
+                let point = drawingInfo.curves[pointIndexes.curveIndex].points[pointIndexes.pointIndex].coord
+                
+                switch arrowKey {
+                case .leftArrow:
+                    if point.x < limit {
+                        limit = point.x
+                        curveIndex = pointIndexes.curveIndex
+                        pointIndex = pointIndexes.pointIndex
+                    }
+                case .rightArrow:
+                    if point.x > limit {
+                        limit = point.x
+                        curveIndex = pointIndexes.curveIndex
+                        pointIndex = pointIndexes.pointIndex
+                    }
+                case .upArrow:
+                    if point.y > limit {
+                        limit = point.y
+                        curveIndex = pointIndexes.curveIndex
+                        pointIndex = pointIndexes.pointIndex
+                    }
+                case .downArrow:
+                    if point.y < limit {
+                        limit = point.y
+                        curveIndex = pointIndexes.curveIndex
+                        pointIndex = pointIndexes.pointIndex
+                    }
+
+                default:
+                    return
+                }
+            }
+            let point = drawingInfo.curves[curveIndex].points[pointIndex]
+            if let delta = deltaForPoint(point) {
+                Task { @MainActor in
+                    for pointIndex in drawingInfo.selectedPoints {
+                        var point = drawingInfo.curves[pointIndex.curveIndex].points[pointIndex.pointIndex]
+                        point.coord = point.coord + delta
+                        drawingInfo.curves[pointIndex.curveIndex].points[pointIndex.pointIndex] = point
+                    }
+                }
+            }
+        } else {
+            let selectedCurvePoints = drawingInfo.findSelectedCurvePoints()
+            for selectedCurvePoint in selectedCurvePoints {
+                var curve = drawingInfo.curves[selectedCurvePoint.curveIndex]
+                for pointIndex in selectedCurvePoint.pointIndexes {
+                    var point = curve.points[pointIndex]
+                    if let delta = deltaForPoint(point) {
+                        let newCoord = point.coord + delta
+                                        point.coord = newCoord
+                                        curve.points[pointIndex] = point
+                        let adjusted = drawingInfo.metalPointToView(newCoord)
+                        print("MetalPoint = \(point.coord), newCoord = \(newCoord)")
+                        let viewCoord = drawingInfo.metalPointToView(point.coord)
+                        print("ViewPoint = \(viewCoord). adjusted = \(adjusted)")
+                        Task { @MainActor in
+                            drawingInfo.curves[selectedCurvePoint.curveIndex] = curve
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     func handleArrowKey(_ keyPress: KeyPress) {
 
         let shift = keyPress.modifiers.contains(.shift)
+        if keyPress.modifiers.contains(.command) {
+            nudgePoints(arrowKey: keyPress.key)
+            return
+        }
         var vector: SIMD2<Float>
         switch keyPress.key {
         case .leftArrow:
@@ -791,19 +949,19 @@ struct ViewModel {
             .first?.0
     }
 
-    func metalPointToView(_ metalPoint: SIMD2<Float>) -> CGPoint {
-        return CGPoint(
-            x: CGFloat(metalPoint.x.interpolated(from: -1...1, to: 0...Float(drawingInfo.viewportSize.width))),
-            y: drawingInfo.viewportSize.height - CGFloat(metalPoint.y.interpolated(from: -1...1, to: 0...Float(drawingInfo.viewportSize.height))))
-    }
-
-    func viewPointToMetal(_ point: CGPoint) -> SIMD2<Float> {
-        let x = Float(point.x).interpolated(from: 0.0...Float(drawingInfo.viewportSize.width), to: -1...1)
-        let y = 0 - Float(point.y).interpolated(from: 0.0...Float(drawingInfo.viewportSize.height), to: -1...1)
-        return SIMD2<Float> (
-            x: x,
-            y: y)
-    }
+//    func metalPointToView(_ metalPoint: SIMD2<Float>) -> CGPoint {
+//        return CGPoint(
+//            x: CGFloat(metalPoint.x.interpolated(from: -1...1, to: 0...Float(drawingInfo.viewportSize.width))),
+//            y: drawingInfo.viewportSize.height - CGFloat(metalPoint.y.interpolated(from: -1...1, to: 0...Float(drawingInfo.viewportSize.height))))
+//    }
+//
+//    func drawingInfo.viewPointToMetal(_ point: CGPoint) -> SIMD2<Float> {
+//        let x = Float(point.x).interpolated(from: 0.0...Float(drawingInfo.viewportSize.width), to: -1...1)
+//        let y = 0 - Float(point.y).interpolated(from: 0.0...Float(drawingInfo.viewportSize.height), to: -1...1)
+//        return SIMD2<Float> (
+//            x: x,
+//            y: y)
+//    }
 
 
     // Returns true if point p is inside the convex quadrilateral defined by vertices a, b, c, d (in order).
@@ -822,10 +980,10 @@ struct ViewModel {
     func pointIsInTransformRect(_ point: CGPoint) -> Bool {
         
         guard let tmv = drawingInfo.transformModeValues  else { return false }
-            let a = metalPointToView(tmv.topLeft)
-            let b = metalPointToView(tmv.topRight)
-            let c = metalPointToView(tmv.bottomRight)
-            let d = metalPointToView(tmv.bottomLeft)
+            let a = drawingInfo.metalPointToView(tmv.topLeft)
+            let b = drawingInfo.metalPointToView(tmv.topRight)
+            let c = drawingInfo.metalPointToView(tmv.bottomRight)
+            let d = drawingInfo.metalPointToView(tmv.bottomLeft)
             return pointInQuad(point, a: a, b: b, c: c, d: d)
     }
     

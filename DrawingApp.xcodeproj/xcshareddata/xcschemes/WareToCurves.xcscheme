@@ -16,8 +16,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "AEA8DF512FA4DE0400DFF484"
-               BuildableName = "DrawingApp.app"
-               BlueprintName = "DrawingApp"
+               BuildableName = "WareToCurves.app"
+               BlueprintName = "WareToCurves"
                ReferencedContainer = "container:DrawingApp.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -31,7 +31,7 @@
       shouldAutocreateTestPlan = "YES">
    </TestAction>
    <LaunchAction
-      buildConfiguration = "Release"
+      buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       launchStyle = "0"
@@ -46,8 +46,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "AEA8DF512FA4DE0400DFF484"
-            BuildableName = "DrawingApp.app"
-            BlueprintName = "DrawingApp"
+            BuildableName = "WareToCurves.app"
+            BlueprintName = "WareToCurves"
             ReferencedContainer = "container:DrawingApp.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -63,8 +63,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "AEA8DF512FA4DE0400DFF484"
-            BuildableName = "DrawingApp.app"
-            BlueprintName = "DrawingApp"
+            BuildableName = "WareToCurves.app"
+            BlueprintName = "WareToCurves"
             ReferencedContainer = "container:DrawingApp.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

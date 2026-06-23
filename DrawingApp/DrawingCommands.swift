@@ -66,6 +66,12 @@ struct DrawingCommands: Commands {
 
         
         CommandGroup(after: .pasteboard) {
+            Button("Snap Points to Grid") {
+                drawingInfo?.snapPointsToGrid()
+            }
+            .keyboardShortcut("s", modifiers: .control)
+            .disabled(drawingInfo?.selectedPoints.isEmpty != false )
+            
             Button(drawingInfo?.deleteSelectedPointString ?? "Delete Selected Point") {
                 drawingInfo?.deletePoints()
             }

@@ -510,7 +510,7 @@ final class DrawingInfo: ObservableObject, Codable {
                  if coords.y < minY { minY = coords.y }
                  if coords.y > maxY { maxY = coords.y }
              }
-             let border = 40 * metalWidthPerPixel
+             let border = 0 * metalWidthPerPixel
              let buffer = 10 * metalWidthPerPixel
              if minX - border / adjustment.x > -1 + buffer / adjustment.x { minX -= border / adjustment.x }
              
@@ -677,21 +677,18 @@ final class DrawingInfo: ObservableObject, Codable {
 
     }
 
-    func flipSelection(vertically: Bool) {
-        
-        struct SelectedCurvePoints: Hashable, Equatable {
-            let curveIndex: Int
-            var pointIndexes: Set<Int>
-            func hash(into hasher: inout Hasher) {
-                hasher.combine(curveIndex)
-            }
-            static func == (lhs: Self, rhs: Self) -> Bool {
-                lhs.curveIndex == rhs.curveIndex
-            }
+    struct SelectedCurvePoints: Hashable, Equatable {
+        let curveIndex: Int
+        var pointIndexes: Set<Int>
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(curveIndex)
         }
-        
-        guard var transformModeValues else { return }
-
+        static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.curveIndex == rhs.curveIndex
+        }
+    }
+    
+    func findSelectedCurvePoints()  -> Set<SelectedCurvePoints> {
         var selectedCurvePoints: Set<SelectedCurvePoints> = []
         
         // Loop through all the selected points
@@ -709,6 +706,13 @@ final class DrawingInfo: ObservableObject, Codable {
                     pointIndexes: [pointIndex]))
             }
         }
+        return selectedCurvePoints
+    }
+    
+    func flipSelection(vertically: Bool) {
+        guard var transformModeValues else { return }
+        
+        let selectedCurvePoints = findSelectedCurvePoints()
         // Loop through each curve that has selected points.
         for curvePoints in selectedCurvePoints {
             var curve = curves[curvePoints.curveIndex]
@@ -852,6 +856,27 @@ final class DrawingInfo: ObservableObject, Codable {
         
     var uniqueSelectedCurveIndexes: [Int] {
          Array(Set(selectedPoints.map(\.curveIndex))).sorted{ $0 > $1 }
+    }
+    
+    
+    func snapPointsToGrid() {
+        guard !selectedPoints.isEmpty else { return }
+        print("In \(#function)")
+        let selectedCurvePoints = findSelectedCurvePoints()
+        for selectedCurvePoint in selectedCurvePoints {
+            var curve = curves[selectedCurvePoint.curveIndex]
+            for pointIndex in selectedCurvePoint.pointIndexes {
+                var point = curve.points[pointIndex]
+                let coord = metalPointToView( point.coord)
+                let x = Int(round(coord.x / 5)) * 5
+                let y = Int(round(coord.y / 5)) * 5
+                let adjusted = CGPoint(x: CGFloat(x), y: CGFloat(y))
+                print("MetalPoint = \(point.coord)", "ViewPoint = \(coord). adjusted = \(adjusted)")
+                point.coord = viewPointToMetal(adjusted)
+                curve.points[pointIndex] = point
+            }
+            curves[selectedCurvePoint.curveIndex] = curve
+        }
     }
     
     func deletePoints(deleteEntireCurve: Bool = false) {
@@ -1053,4 +1078,21 @@ final class DrawingInfo: ObservableObject, Codable {
             self?.suppressUndo = false
         }
     }
+    
+    // MARK: - conversion functions
+
+    func metalPointToView(_ metalPoint: SIMD2<Float>) -> CGPoint {
+        return CGPoint(
+            x: CGFloat(metalPoint.x.interpolated(from: -1...1, to: 0...Float(viewportSize.width))),
+            y: viewportSize.height - CGFloat(metalPoint.y.interpolated(from: -1...1, to: 0...Float(viewportSize.height))))
+    }
+
+    func viewPointToMetal(_ point: CGPoint) -> SIMD2<Float> {
+        let x = Float(point.x).interpolated(from: 0.0...Float(viewportSize.width), to: -1...1)
+        let y = 0 - Float(point.y).interpolated(from: 0.0...Float(viewportSize.height), to: -1...1)
+        return SIMD2<Float> (
+            x: x,
+            y: y)
+    }
 }
+

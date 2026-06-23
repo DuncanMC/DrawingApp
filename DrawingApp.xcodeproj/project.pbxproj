@@ -12,17 +12,17 @@
 
 /* Begin PBXFileReference section */
 		AE6A92F02FB39E75005ABC68 /* DrawingApp-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "DrawingApp-Bridging-Header.h"; sourceTree = "<group>"; };
-		AEA8DF522FA4DE0400DFF484 /* DrawingApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DrawingApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AEA8DF522FA4DE0400DFF484 /* WareToCurves.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WareToCurves.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AEA8DF6E2FA93FCE00DFF484 /* Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utils.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		AEA8DF5E2FA4DE0600DFF484 /* Exceptions for "DrawingApp" folder in "DrawingApp" target */ = {
+		AEA8DF5E2FA4DE0600DFF484 /* Exceptions for "DrawingApp" folder in "WareToCurves" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = AEA8DF512FA4DE0400DFF484 /* DrawingApp */;
+			target = AEA8DF512FA4DE0400DFF484 /* WareToCurves */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -30,7 +30,7 @@
 		AEA8DF542FA4DE0400DFF484 /* DrawingApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				AEA8DF5E2FA4DE0600DFF484 /* Exceptions for "DrawingApp" folder in "DrawingApp" target */,
+				AEA8DF5E2FA4DE0600DFF484 /* Exceptions for "DrawingApp" folder in "WareToCurves" target */,
 			);
 			path = DrawingApp;
 			sourceTree = "<group>";
@@ -61,7 +61,7 @@
 		AEA8DF532FA4DE0400DFF484 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				AEA8DF522FA4DE0400DFF484 /* DrawingApp.app */,
+				AEA8DF522FA4DE0400DFF484 /* WareToCurves.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -69,9 +69,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		AEA8DF512FA4DE0400DFF484 /* DrawingApp */ = {
+		AEA8DF512FA4DE0400DFF484 /* WareToCurves */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = AEA8DF5F2FA4DE0600DFF484 /* Build configuration list for PBXNativeTarget "DrawingApp" */;
+			buildConfigurationList = AEA8DF5F2FA4DE0600DFF484 /* Build configuration list for PBXNativeTarget "WareToCurves" */;
 			buildPhases = (
 				AEA8DF4E2FA4DE0400DFF484 /* Sources */,
 				AEA8DF4F2FA4DE0400DFF484 /* Frameworks */,
@@ -84,11 +84,11 @@
 			fileSystemSynchronizedGroups = (
 				AEA8DF542FA4DE0400DFF484 /* DrawingApp */,
 			);
-			name = DrawingApp;
+			name = WareToCurves;
 			packageProductDependencies = (
 			);
 			productName = DrawingApp;
-			productReference = AEA8DF522FA4DE0400DFF484 /* DrawingApp.app */;
+			productReference = AEA8DF522FA4DE0400DFF484 /* WareToCurves.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -121,7 +121,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				AEA8DF512FA4DE0400DFF484 /* DrawingApp */,
+				AEA8DF512FA4DE0400DFF484 /* WareToCurves */,
 			);
 		};
 /* End PBXProject section */
@@ -163,6 +163,7 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DrawingApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = WareToCurves;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -213,6 +214,7 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DrawingApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = WareToCurves;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -375,7 +377,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		AEA8DF5F2FA4DE0600DFF484 /* Build configuration list for PBXNativeTarget "DrawingApp" */ = {
+		AEA8DF5F2FA4DE0600DFF484 /* Build configuration list for PBXNativeTarget "WareToCurves" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				AEA8DF602FA4DE0600DFF484 /* Debug */,
