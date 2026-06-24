@@ -1013,17 +1013,27 @@ final class DrawingInfo: ObservableObject, Codable {
         #if os(macOS)
         guard let data = NSPasteboard.general.data(forType: NSPasteboard.PasteboardType(Self.pasteboardType)) else { return }
         #else
-        guard let data = UIPasteboard.general.data(forPasteboardType: Self.pasteboardType) else { return }
+        guard let data = UIPasteboard.general.data(forPasteboardType: Self.pasteboardType) else {
+            return
+        }
         #endif
+        let dataHash = data.hashValue
+        if dataHash != lastPasteHashValue {
+            pasteOffsetMultipler = 1
+        } else {
+            pasteOffsetMultipler += 1
+        }
+        lastPasteHashValue = dataHash
+        
+        guard let copiedCurves = try? JSONDecoder().decode([CatmullRomCurve].self, from: data) else {
+            return
+        }
 
-        guard let copiedCurves = try? JSONDecoder().decode([CatmullRomCurve].self, from: data) else { return }
-
-        let offset: Float = 0.05
         selectedPoints = []
         for var curve in copiedCurves {
             for i in curve.points.indices {
-                curve.points[i].coord.x += offset
-                curve.points[i].coord.y -= offset
+                curve.points[i].coord.x += metalPixelSize.x * 20 * Float(pasteOffsetMultipler)
+                curve.points[i].coord.y -= metalPixelSize.y * 20 * Float(pasteOffsetMultipler)
             }
             let newIndex = curves.count
             curves.append(curve)
@@ -1034,6 +1044,9 @@ final class DrawingInfo: ObservableObject, Codable {
         drawingMode = .editingCurve
     }
 
+    var lastPasteHashValue: Int? = nil
+    var pasteOffsetMultipler: Int = 1
+    
     var canPaste: Bool {
         #if os(macOS)
         return NSPasteboard.general.data(forType: NSPasteboard.PasteboardType(Self.pasteboardType)) != nil

@@ -84,13 +84,7 @@ struct ViewModel {
         return brushSize
     }
 
-    func dragSelectionBy(_ vector: SIMD2<Float>, moveRotationCenter: Bool = true) {
-        for aPoint in drawingInfo.selectedPoints {
-            let theCurve = drawingInfo.curves[aPoint.curveIndex]
-            var thePoint = theCurve.points[aPoint.pointIndex]
-            thePoint.coord += vector
-            drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex] = thePoint
-        }
+    func dragTransformHandlesBy(_ vector: SIMD2<Float>, moveRotationCenter: Bool = true) {
         if drawingInfo.transformSelection, var transformModeValues = drawingInfo.transformModeValues {
             transformModeValues.topLeft +=  vector
             transformModeValues.topRight +=  vector
@@ -104,6 +98,16 @@ struct ViewModel {
             }
             drawingInfo.transformModeValues = transformModeValues
         }
+    }
+    
+    func dragSelectionBy(_ vector: SIMD2<Float>, moveRotationCenter: Bool = true) {
+        for aPoint in drawingInfo.selectedPoints {
+            let theCurve = drawingInfo.curves[aPoint.curveIndex]
+            var thePoint = theCurve.points[aPoint.pointIndex]
+            thePoint.coord += vector
+            drawingInfo.curves[aPoint.curveIndex].points[aPoint.pointIndex] = thePoint
+        }
+        dragTransformHandlesBy(vector, moveRotationCenter: moveRotationCenter)
     }
     
     func updateSelectionUsingMarkquee(deselect: Bool) {
@@ -769,6 +773,8 @@ struct ViewModel {
                         
                         drawingInfo.curves[pointIndex.curveIndex].points[pointIndex.pointIndex] = point
                     }
+                    // TODO: Also nudge the transform handles by the same amount
+                    dragTransformHandlesBy(delta)
                 }
             }
         } else {
@@ -906,7 +912,7 @@ struct ViewModel {
                 drawingInfo.selectedPoints = []
                 let curve = drawingInfo.curves[activeCurveIndex]
                 let timeStamp = Date().timeIntervalSince1970
-                let paredCurve = parePoints(curve, autoTerminate: true, maxError: 0.01)
+                let paredCurve = parePoints(curve, autoTerminate: true, maxError: 0.005)
                 let elapsed = Date().timeIntervalSince1970 - timeStamp
                 let startingPointCount = curve.points.count
                 let paredCurvePointCount = paredCurve.points.count
@@ -939,14 +945,14 @@ struct ViewModel {
             }
         
         //If the rotation center is in the list, return that.
-        if let rotationCenter = matches.first( where: { point in
-            if case .inTransformHandle(handleType: .rotationCenter) = point.gestureLocation {
-                return true
-            }
-            return false
-        }) {
-            return rotationCenter
-        }
+//        if let rotationCenter = matches.first( where: { point in
+//            if case .inTransformHandle(handleType: .rotationCenter) = point.gestureLocation {
+//                return true
+//            }
+//            return false
+//        }) {
+//            return rotationCenter
+//        }
         return matches
             //Calculate the distance of each matching point from the tap point
             .map { ($0, distanceSquardBetween(p1: tapPoint, p2: $0.point)) }
