@@ -137,7 +137,7 @@ struct ViewModel {
             }
         }
         guard !marqueePoints.isEmpty else {
-            print("No marquee points selected")
+            dlog(context: .error, "No marquee points selected")
             return
         }
         if deselect {
@@ -208,7 +208,6 @@ struct ViewModel {
                 }
 
             } else {
-                //print("Single-tap not on a known location.")
                 
                 let coords = drawingInfo.viewPointToMetal(location)
                 let point =  CatmullRomPoint(coord: coords,
@@ -255,7 +254,7 @@ struct ViewModel {
 //                }
 //                drawingInfo.selectedPoints = newSelection
             case .inTransformHandle:
-                print("Two-finger tapped on a transform handle")
+                break
             case .outside:
                 break
             }
@@ -277,11 +276,11 @@ struct ViewModel {
             case .inTransformHandle(let handleType):
                 if handleType != .transformRect && handleType != .rotationCenter && handleType != .outside {
                     if drawingInfo.transformModeValues?.selectedTransformHandle == handleType {
-                        print("drawing handle \(drawingInfo.transformModeValues!.selectedTransformHandle!) deselected.")
+                        //print("drawing handle \(drawingInfo.transformModeValues!.selectedTransformHandle!) deselected.")
                         drawingInfo.transformModeValues?.selectedTransformHandle = nil
                     } else {
                         drawingInfo.transformModeValues?.selectedTransformHandle = handleType
-                        print("drawing handle \(handleType) selected.")
+                        //print("drawing handle \(handleType) selected.")
                     }
                     
                 }
@@ -289,7 +288,7 @@ struct ViewModel {
                 break
             }
         } else {
-            print("double-tap location not found")
+            dlog(context: .error, "double-tap location not found")
         }
     }
         
@@ -353,7 +352,7 @@ struct ViewModel {
         drawingInfo.suppressUndo = true
 
         if event.modifierKeys.contains(GestureModifierKeys.command) {
-            print("command drag begun")
+            dlog(context: .newDev, "command drag begun")
         }
         if (drawingInfo.inMarqueeSelectionMode ||
             event.modifierKeys.contains(GestureModifierKeys.command) ||
@@ -363,7 +362,7 @@ struct ViewModel {
             drawingInfo.lastDragLocation = location
             drawingInfo.marqueeSelectionStartPoint = drawingInfo.viewPointToMetal(location)
             drawingInfo.drawingMode = .selecting
-        } else if let target = getGestureLocation(touchLocation: location) {
+        } else if let target = getGestureLocation(touchLocation: location, slopDistance: 10) {
             drawingInfo.drawingMode = .editingCurve
             switch target.gestureLocation {
             case .inControlPoint(let curveIndex, let pointIndex):
@@ -444,16 +443,12 @@ struct ViewModel {
     func handleDragChanged(location: CGPoint, event: GestureEvent) {
         guard let lastDragLocation = drawingInfo.lastDragLocation else { return }
 
-        if event.modifierKeys.contains(GestureModifierKeys.shift) {
-            print("Shift drag in progress")
-        }
 
         switch drawingInfo.drawingMode {
             
         case .creatingCurve:
 
             guard drawingInfo.selectedPoints.count == 1 else {
-                print("No active curve")
                 return
             }
             let selectedPoint = drawingInfo.selectedPoints.first!
@@ -514,7 +509,6 @@ struct ViewModel {
                                 drawingInfo.centerpointSnappedToHandle = nil
                                 // Use the "raw" mouse/touch location as the new rotation point.
                                 pointToUse = drawingInfo.viewPointToMetal(location)
-                                //print("Snap ended")
                                 break
                             }
                         }
@@ -688,78 +682,24 @@ struct ViewModel {
         }
     }
     
+    // Nudges selected points to the nearest grid line in the requested arrow direction.
     func nudgePoints(arrowKey: KeyEquivalent) {
         enum Axis: Int {
             case x, y
         }
-        
-        func deltaForPoint(_ point: CatmullRomPoint) -> simd_float2? {
-            var newCoord =  simd_float2.zero
-            let viewCoord = drawingInfo.metalPointToView(point.coord)
-            if axis == .x {
-                var x: Int = 0
-                let nearestX = Int(round(viewCoord.x / 5)) * 5
-                var  metalX: Float = Float(nearestX).interpolated(from: 0.0...Float(drawingInfo.viewportSize.width), to: -1...1)
-                if abs(point.coord.x - metalX) < drawingInfo.metalPixelSize.x / 2 {
-                    print("No change needed")
-                    return nil
-                }
-                if increase {
-                    x = Int(ceil(viewCoord.x / 5)) * 5
-                } else {
-                    x = Int(floor(viewCoord.x / 5)) * 5
-                }
-                metalX = Float(x).interpolated(from: 0.0...Float(drawingInfo.viewportSize.width), to: -1...1)
-                
-                return simd_float2(x: metalX - point.coord.x, y: 0)
-//                newCoord.x = metalX
-//                newCoord.y = point.coord.y
-                
-//                point.coord = newCoord
-//                curve.points[pointIndex] = point
-                
-            } else {
-                var y: Int
-                let nearestY = Int(round(viewCoord.y / 5)) * 5
-                
-                var metalY = 0 - Float(nearestY).interpolated(from: 0.0...Float(drawingInfo.viewportSize.height), to: -1...1)
-                if abs(point.coord.y - metalY) < drawingInfo.metalPixelSize.y / 2 {
-                    print("No change needed.")
-                    return nil
-                }
-                if increase {
-                    y = Int(ceil(viewCoord.y / 5)) * 5
-                } else {
-                    y = Int(floor(viewCoord.y / 5)) * 5
-                }
-                metalY = 0 - Float(y).interpolated(from: 0.0...Float(drawingInfo.viewportSize.height), to: -1...1)
-                newCoord.x = point.coord.x
-                newCoord.y = metalY
-                
-                return simd_float2(x: 0, y: metalY - point.coord.y)
-
-//                point.coord = newCoord
-//                curve.points[pointIndex] = point
-            }
-        }
-        
         let axis: Axis
         let increase: Bool
         switch arrowKey {
         case .leftArrow:
-            print("In \(#function). leftArrow")
             increase = false
             axis = .x
         case .rightArrow:
-            print("In \(#function). rightArrow")
             increase = true
             axis = .x
         case .upArrow:
-            print("In \(#function). upArrow")
             increase = false
             axis = .y
         case .downArrow:
-            print("In \(#function). downArrow")
             increase = true
             axis = .y
             
@@ -773,7 +713,6 @@ struct ViewModel {
             } else {
                 limit = Float.greatestFiniteMagnitude
             }
-            print("arrow key in transformSelection mode")
             var curveIndex = 0
             var pointIndex = 0
             for pointIndexes in drawingInfo.selectedPoints {
@@ -805,17 +744,29 @@ struct ViewModel {
                         curveIndex = pointIndexes.curveIndex
                         pointIndex = pointIndexes.pointIndex
                     }
-
+                    
                 default:
                     return
                 }
             }
             let point = drawingInfo.curves[curveIndex].points[pointIndex]
             if let delta = deltaForPoint(point) {
+                let deltaXInPixels = String(format: "%.1f", delta.x / drawingInfo.metalPixelSize.x)
+                let deltaYInPixels = String(format: "%.1f", delta.y / drawingInfo.metalPixelSize.y)
+                dlog(context: .newDev, "Shifting transform group by (x: \(deltaXInPixels), y: \(deltaYInPixels)) from curve \(curveIndex), pointIndex \(pointIndex)")
                 Task { @MainActor in
                     for pointIndex in drawingInfo.selectedPoints {
                         var point = drawingInfo.curves[pointIndex.curveIndex].points[pointIndex.pointIndex]
+                        let oldPoint = point
+                        let oldViewPoint = drawingInfo.metalPointToView(point.coord)
+                        
                         point.coord = point.coord + delta
+                        let newViewCoord = drawingInfo.metalPointToView(point.coord)
+                        dlog(context: .newDev, "\nShifting curve \(pointIndex.curveIndex), pointIndex \(pointIndex.pointIndex)")
+                        dlog(context: .newDev, "MetalPoint = \(oldPoint.coord), newCoord = \(point.coord)")
+                        dlog(context: .newDev, "ViewPoint = \(oldViewPoint.debugDescription)")
+                        dlog(context: .newDev, "adjusted =  \(newViewCoord.debugDescription)")
+                        
                         drawingInfo.curves[pointIndex.curveIndex].points[pointIndex.pointIndex] = point
                     }
                 }
@@ -825,20 +776,66 @@ struct ViewModel {
             for selectedCurvePoint in selectedCurvePoints {
                 var curve = drawingInfo.curves[selectedCurvePoint.curveIndex]
                 for pointIndex in selectedCurvePoint.pointIndexes {
+                    dlog(context: .newDev, "\nShifting curve \(selectedCurvePoint.curveIndex), pointIndex \(pointIndex)")
+                    
                     var point = curve.points[pointIndex]
                     if let delta = deltaForPoint(point) {
-                        let newCoord = point.coord + delta
-                                        point.coord = newCoord
-                                        curve.points[pointIndex] = point
-                        let adjusted = drawingInfo.metalPointToView(newCoord)
-                        print("MetalPoint = \(point.coord), newCoord = \(newCoord)")
                         let viewCoord = drawingInfo.metalPointToView(point.coord)
-                        print("ViewPoint = \(viewCoord). adjusted = \(adjusted)")
+                        let newCoord = point.coord + delta
+                        point.coord = newCoord
+                        curve.points[pointIndex] = point
+                        let adjusted = drawingInfo.metalPointToView(newCoord)
+                        dlog(context: .newDev, "MetalPoint = \(point.coord), newCoord = \(newCoord.debugDescription)")
+                        dlog(context: .newDev, "ViewPoint = \(viewCoord.debugDescription)")
+                        dlog(context: .newDev, "adjusted  = \(adjusted.debugDescription)")
                         Task { @MainActor in
                             drawingInfo.curves[selectedCurvePoint.curveIndex] = curve
                         }
                     }
                 }
+            }
+        }
+        // nudgePoints helper function that figures out how far to move a point in the specified arrow direction
+        // to align it with the nearest grid line. Returns nil if the point doesn't need to move.
+        
+        func deltaForPoint(_ point: CatmullRomPoint) -> simd_float2? {
+            var newCoord =  simd_float2.zero
+            let viewCoord = drawingInfo.metalPointToView(point.coord)
+            if axis == .x {
+                var x: Int = 0
+                let nearestX = Int(round(viewCoord.x / 5)) * 5
+                var  metalX: Float = Float(nearestX).interpolated(from: 0.0...Float(drawingInfo.viewportSize.width), to: -1...1)
+                if abs(point.coord.x - metalX) < drawingInfo.metalPixelSize.x / 2 {
+                    dlog(context: .newDev, "No change needed")
+                    return nil
+                }
+                if increase {
+                    x = Int(ceil(viewCoord.x / 5)) * 5
+                } else {
+                    x = Int(floor(viewCoord.x / 5)) * 5
+                }
+                metalX = Float(x).interpolated(from: 0.0...Float(drawingInfo.viewportSize.width), to: -1...1)
+                
+                return simd_float2(x: metalX - point.coord.x, y: 0)
+            } else {
+                var y: Int
+                let nearestY = Int(round(viewCoord.y / 5)) * 5
+                
+                var metalY = 0 - Float(nearestY).interpolated(from: 0.0...Float(drawingInfo.viewportSize.height), to: -1...1)
+                if abs(point.coord.y - metalY) < drawingInfo.metalPixelSize.y / 2 {
+                    dlog(context: .newDev, "No change needed.")
+                    return nil
+                }
+                if increase {
+                    y = Int(ceil(viewCoord.y / 5)) * 5
+                } else {
+                    y = Int(floor(viewCoord.y / 5)) * 5
+                }
+                metalY = 0 - Float(y).interpolated(from: 0.0...Float(drawingInfo.viewportSize.height), to: -1...1)
+                newCoord.x = point.coord.x
+                newCoord.y = metalY
+                
+                return simd_float2(x: 0, y: metalY - point.coord.y)
             }
         }
     }
@@ -908,12 +905,21 @@ struct ViewModel {
             } else {
                 drawingInfo.selectedPoints = []
                 let curve = drawingInfo.curves[activeCurveIndex]
+                let timeStamp = Date().timeIntervalSince1970
                 let paredCurve = parePoints(curve, autoTerminate: true, maxError: 0.01)
+                let elapsed = Date().timeIntervalSince1970 - timeStamp
                 let startingPointCount = curve.points.count
                 let paredCurvePointCount = paredCurve.points.count
                 let percent = Float(startingPointCount - paredCurvePointCount) / Float(startingPointCount) * 100
                 let percentString = String(format: "%.1f", percent)
-                print("pared curve from \(curve.points.count) to \(paredCurve.points.count) points. \(percentString)% reduction.")
+//                let elapsedString = String(format: "%.6f", elapsed)
+                let duration = Duration.seconds(elapsed)
+                let elapsedString =  duration.formatted(.units(
+                    allowed: [.seconds, .milliseconds, .microseconds, .nanoseconds],
+                    width: .condensedAbbreviated
+                ))
+
+                dlog(context: [.performance, .infoLogging], "pared curve from \(curve.points.count) to \(paredCurve.points.count) points. \(percentString)% reduction in \(elapsedString)")
                 drawingInfo.curves[activeCurveIndex] = paredCurve
             }
         }
@@ -995,12 +1001,10 @@ struct ViewModel {
             if let result,
                case .inTransformHandle(_) = result.gestureLocation
             {
-                //print("Gesture \(handleType.rawValue)")
             }
             else {
                 if pointIsInTransformRect(touchLocation) {
                     result = GesturePointTuple(touchLocation, .inTransformHandle(handleType: .transformRect))
-                    //print("Gesture .\(result!.gestureLocation), .transformRect")
                 } else {
                     result = GesturePointTuple(touchLocation, .inTransformHandle(handleType: .outside))
                 }

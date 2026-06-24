@@ -157,7 +157,7 @@ struct CatmullRomCurve: Codable {
                     self.points = [CatmullRomPoint]()
             }
         } catch {
-            print("Error decoding CatmullRomCurve: \(error)")
+            dlog(context: .error, "Error decoding CatmullRomCurve: \(error)")
             throw(error)
         }
     }
@@ -193,13 +193,7 @@ final class DrawingInfo: ObservableObject, Codable {
     @Published var showSmoothingPoints: Bool = false
     @Published var showQuads: Bool = false
     
-    var squeezeActive: Bool = false {
-        didSet {
-            if squeezeActive != oldValue {
-                print("squeezeActive = \(squeezeActive)")
-            }
-        }
-    }
+    var squeezeActive: Bool = false 
     
     @Published var inMarqueeSelectionMode: Bool = false
     
@@ -858,10 +852,10 @@ final class DrawingInfo: ObservableObject, Codable {
          Array(Set(selectedPoints.map(\.curveIndex))).sorted{ $0 > $1 }
     }
     
-    
+    // Snaps all selected points to their nearest 5 point grid lines.
     func snapPointsToGrid() {
+        var pointsMoved = 0
         guard !selectedPoints.isEmpty else { return }
-        print("In \(#function)")
         let selectedCurvePoints = findSelectedCurvePoints()
         for selectedCurvePoint in selectedCurvePoints {
             var curve = curves[selectedCurvePoint.curveIndex]
@@ -871,12 +865,22 @@ final class DrawingInfo: ObservableObject, Codable {
                 let x = Int(round(coord.x / 5)) * 5
                 let y = Int(round(coord.y / 5)) * 5
                 let adjusted = CGPoint(x: CGFloat(x), y: CGFloat(y))
-                print("MetalPoint = \(point.coord)", "ViewPoint = \(coord). adjusted = \(adjusted)")
+                if abs(adjusted.x - coord.x) < 0.25 && abs(adjusted.y - coord.y) < 0.25 {
+                    //dlog(context: .newDev, "No change needed.")
+                    continue
+                }
+                dlog(context: .newDev, "\nSnapping curve \(selectedCurvePoint.curveIndex), pointIndex \(pointIndex) to grid:")
+                dlog(context: .newDev, "MetalPoint = \(point.coord.debugDescription)")
+                dlog(context: .newDev, "ViewPoint = \(coord.debugDescription)")
+                dlog(context: .newDev, "adjusted  = \(adjusted.debugDescription)")
                 point.coord = viewPointToMetal(adjusted)
                 curve.points[pointIndex] = point
+                pointsMoved += 1
             }
             curves[selectedCurvePoint.curveIndex] = curve
         }
+        dlog(context: .newDev, "\nShifted \(pointsMoved) points of \(selectedPoints.count).")
+
     }
     
     func deletePoints(deleteEntireCurve: Bool = false) {
@@ -984,7 +988,6 @@ final class DrawingInfo: ObservableObject, Codable {
     }
     
     func selectAll() {
-        //print("In \(#function)")
         guard curves.count > 0 else {
             selectedPoints = []
             return

@@ -53,7 +53,6 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         float2 coord = (in.position.xy + uniforms.textureOffset) / (texSize * uniforms.scale);
         return tex.sample(s, coord);
     } else {
-        constexpr sampler s(s_address::repeat, t_address::repeat, filter::linear);
         float4 color = uniforms.color;
         color[3] = pow((in.alpha * 1.2), uniforms.hardness);
         return color;

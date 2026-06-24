@@ -8,6 +8,7 @@ import SwiftUI
 
 struct DrawingCommands: Commands {
     @FocusedObject var drawingInfo: DrawingInfo?
+    @Environment(\.openWindow) var open
 
     // MacOS menus
     var body: some Commands {
@@ -159,8 +160,23 @@ struct DrawingCommands: Commands {
                 get: { drawingInfo?.showQuads ?? false },
                 set: { newValue in drawingInfo?.showQuads = newValue }
             ))
+            
+            Divider()
+            #if os(macOS)
+            Button("Info window") {
+                open(id: "Info_window")
+            }
+            .keyboardShortcut("i", modifiers: [.command])
             .keyboardShortcut("q", modifiers: [.option])
             .disabled(drawingInfo == nil)
+            #else
+            Button("Info window") {
+                AppSettings.sharedSettings.showInfoInspector.toggle()
+            }
+            .keyboardShortcut("i", modifiers: [.command])
+            .keyboardShortcut("q", modifiers: [.option])
+            .disabled(drawingInfo == nil)
+            #endif
         }
     }
 }

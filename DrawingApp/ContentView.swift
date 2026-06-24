@@ -24,7 +24,8 @@ extension KeyEquivalent {
     @Environment(\.undoManager) var undoManager
     
     @State private var showSettings = false
-    
+    @State private var showInfoInspector = false
+    @Environment(\.openWindow) var openWindow
 
     var viewModel: ViewModel
 
@@ -156,6 +157,37 @@ extension KeyEquivalent {
                     }
                 }
             #endif
+            #if os(iOS)
+            if showInfoInspector {
+                HStack(spacing: 0) {
+                    Spacer()
+                    VStack(spacing: 0) {
+                        HStack {
+                            Text("Info")
+                                .font(.headline)
+                            Spacer()
+                            Button {
+                                showInfoInspector = false
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(10)
+                        TextEditor(text: .init(
+                            get: { AppSettings.sharedSettings.infoWindowString },
+                            set: { AppSettings.sharedSettings.infoWindowString = $0 }
+                        ))
+                            .font(Font.custom("Courier", size: 12))
+                    }
+                    .frame(width: 320)
+                    .background(.regularMaterial)
+                }
+                .transition(.move(edge: .trailing))
+                .animation(.easeInOut(duration: 0.25), value: showInfoInspector)
+            }
+            #endif
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(doneButtonuttonAction: { showSettings = false } )
@@ -227,6 +259,11 @@ extension KeyEquivalent {
                 //⌥
                 Button("Show Quads (⌥Q)") { drawingInfo.showQuads.toggle() }
                     .keyboardShortcut("q", modifiers: [.option])
+                
+                Button("Show Info window (⌘I)") { showInfoInspector.toggle() }
+                    .keyboardShortcut("i", modifiers: [.command])
+
+
                 
                 // MARK: - Arrange curves menu items (hidden versions with keyboard shortcuts)
                 Button("Move Forward") {
@@ -335,7 +372,6 @@ extension KeyEquivalent {
                             },
                             set: { newValue in
                                 drawingInfo.inMarqueeSelectionMode = newValue
-                                print("in Marquee Selection Mode toggle. drawingInfo.inMarqueeSelectionMode: \(drawingInfo.inMarqueeSelectionMode)")
                             } )
                         )
                         Button("Snap Points to Grid") {
@@ -400,10 +436,12 @@ extension KeyEquivalent {
                     Toggle("Show Control Points (⌥C)", isOn: $drawingInfo.showControlPoints)
                     Toggle("Show Grid Lines (⌥G)", isOn: $drawingInfo.showGridLines)
                     Toggle("Show Quads (⌥Q)", isOn: $drawingInfo.showQuads)
+                    Toggle("Show Info window (⌘I)", isOn: $showInfoInspector)
                 }
             }
         }
         #endif
+
     }
 
     init(drawingInfo: DrawingInfo) {

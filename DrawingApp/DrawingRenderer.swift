@@ -109,7 +109,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         let bundle = Bundle.main
         guard let url = bundle.url(forResource: "Checkerboard", withExtension: "png"),
         let imageData = try? Data(contentsOf: url) else {
-            print("Can't load image data")
+            dlog(context: .error, "Can't load image data")
             return
         }
         let loader = MTKTextureLoader(device: device)
@@ -128,7 +128,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
 //            tex.pixelFormat == .rgba32Float
             //                    print("[ScopeRenderer] Loaded texture pixel format: \(tex.pixelFormat) | hasAlpha: \(hasAlpha)")
         } catch {
-            print("Error loading texture: \(error)")
+            dlog(context: .error, "Error loading texture: \(error)")
         }
 
     }
@@ -168,7 +168,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
             {
                 newScale = CGFloat(backingScaleFactor)
             } else {
-                print("backingScaleFactor is nil!")
+                dlog(context: .error, "backingScaleFactor is nil!")
                 newScale = 1
             }
     #else
@@ -200,15 +200,15 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
         }
 
         guard let drawable = view.currentDrawable else {
-            print("[ScopeRenderer] currentDrawable is nil")
+            dlog(context: .error, "[ScopeRenderer] currentDrawable is nil")
             return
         }
         guard let descriptor = view.currentRenderPassDescriptor else {
-            print("[ScopeRenderer] currentRenderPassDescriptor is nil")
+            dlog(context: .error, "[ScopeRenderer] currentRenderPassDescriptor is nil")
             return
         }
         guard let pipeline = pipeline else {
-            print("[ScopeRenderer] pipeline is nil")
+            dlog(context: .error, "[ScopeRenderer] pipeline is nil")
             return
         }
 #if os(macOS)
@@ -366,7 +366,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                 x -= xStepSize * 2
             }
             if vertexes.count > expectedCapacity {
-                print("vertexes.count = \(vertexes.count). expectedCapacity = \(expectedCapacity).")
+                dlog(context: .error, "vertexes.count = \(vertexes.count). expectedCapacity = \(expectedCapacity).")
             }
             let verticiesSize = MemoryLayout<Vertex>.stride * vertexes.count
             let offset = allocateVerticiesInRing(byteCount: verticiesSize)
@@ -560,15 +560,7 @@ class DrawingRenderer: NSObject, MTKViewDelegate {
                             
                             let crossProduct = vectorAB.x * vectorBC.y - vectorAB.y * vectorBC.x
                             
-                            //                        if abs(crossProduct) < 2e-9 {
-                            //                            print("Skipping point at index \(index)")
-                            //                            continue
-                            //                        }
-                            
                             let dir2 = normalize(last - middle)
-//                            // Get the next point's radius
-//                            pixelRadius = computeRadiusForPoint(smoothedPoints[index], inCurve: curve)
-//                            radius = pixelRadius * widthPerPixel
 
                             let normal2 = simd_float2(-dir2.y, dir2.x) * radius
                             let secondLeftTwo = (middle + normal2) / adjustment

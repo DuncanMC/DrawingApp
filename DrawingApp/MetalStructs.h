@@ -10,8 +10,4 @@
 
 #include <simd/simd.h>
 
-//struct Vertex {
-//    vector_float2 position;
-//};
-
 #endif /* MetalStructs_h */

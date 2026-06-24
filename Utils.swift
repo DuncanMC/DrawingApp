@@ -9,6 +9,13 @@
 import Foundation
 import SwiftUI
 
+public extension CGPoint {
+    var debugDescription: String {
+        let xString = String(format: "%.1f",self.x)
+        let yString = String(format: "%.1f",self.y)
+        return "(\(xString), \(yString))"
+    }
+}
 public extension Color {
     func components() -> [Double] {
         var colorComponents: [CGFloat] = [1, 1, 1, 1]
@@ -54,6 +61,12 @@ extension simd_float2 {
     var y: Float {
         get { return self[1] }
         set { self[1] = newValue }
+    }
+    
+    var debugDescription: String {
+        let xString = String(format: "%.5f", self.x)
+        let yString = String(format: "%.5f", self.y)
+        return "(\(xString), \(yString))"
     }
     
 }
