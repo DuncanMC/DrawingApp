@@ -354,6 +354,15 @@ extension KeyEquivalent {
                             get: {  drawingInfo.transformSelection},
                             set: {  newValue in drawingInfo.transformSelection = newValue } ))
                         .disabled(drawingInfo.drawingMode != .editingCurve || drawingInfo.selectedPoints.count < 2)
+                        
+/*
+                        Button("Rotate Selection 5° CW (R)") {
+                            print("In rotate 5° CW° function")
+                        }
+                        .keyboardShortcut("r", modifiers: [])
+*/
+
+
                         Button("Flip Selection Vertically (⌥v)") {
                             drawingInfo.flipSelection(vertically: true)
                         }

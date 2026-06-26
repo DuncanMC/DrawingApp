@@ -80,7 +80,7 @@ func dlog(function: String = #function,  file: String = #file, line: Int = #line
         outputString += "\(function): "
     }
     outputString += "\(stringToPrint)"
-    if context.contains(.infoLogging) {
+    if context.contains(.infoLogging) || context.contains(.error){
         AppSettings.sharedSettings.infoWindowString += "\(outputString )\n"
     }
     // If there are other output flags that are set, print the output to the console

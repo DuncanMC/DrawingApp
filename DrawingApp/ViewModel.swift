@@ -899,7 +899,6 @@ struct ViewModel {
             drawingInfo.centerpointSnappedToHandle = nil
         }
         if drawingInfo.drawingMode == .selecting {
-            //TODO: Figure out how to do a deselect from an iPad without a keyboard
             let deselect = event.modifierKeys.contains(GestureModifierKeys.option)
             updateSelectionUsingMarkquee(deselect: deselect)
         } else  if drawingInfo.drawingMode == .creatingCurve {

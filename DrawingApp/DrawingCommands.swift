@@ -50,6 +50,35 @@ struct DrawingCommands: Commands {
                 set: {  newValue in drawingInfo?.transformSelection = newValue } ))
             .disabled(drawingInfo?.drawingMode != .editingCurve || drawingInfo?.selectedPoints.count ?? 0 < 2)
             .keyboardShortcut("t", modifiers: .command)
+            
+            /*
+            Button("Rotate Selection 5° CW") {
+                print("In rotate 5° CW function")
+            }
+            .keyboardShortcut("r", modifiers: [])
+
+            #if os(macOS)
+                .modifierKeyAlternate(.shift) {
+                    Button("Rotate Selection 22.5° CW") {
+                        print("In shift rotate function")
+                    }
+                    .keyboardShortcut("r", modifiers: [.shift])
+                }
+                .modifierKeyAlternate(.option) {
+                    Button("Rotate Selection 5° CCW") {
+                        print("In option rotate function")
+                    }
+                    .keyboardShortcut("r", modifiers: [.option])
+                }
+                .modifierKeyAlternate([.shift, .option]) {
+                    Button("Rotate Selection 22.5° CCW") {
+                        print("In shift option rotate function")
+                    }
+                    .keyboardShortcut("r", modifiers: [.shift, .option])
+                }
+            #endif
+*/
+            
             Button("Flip Selection Vertically") {
                 drawingInfo?.flipSelection(vertically: true)
             }

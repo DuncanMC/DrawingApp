@@ -39,6 +39,7 @@ struct DragHandle {
     var coord: simd_float2
     let handleType: TransformHandle
 }
+
 struct TransformModeValues {
     var rotationPoint: simd_float2
     var topLeft: simd_float2
@@ -956,11 +957,12 @@ final class DrawingInfo: ObservableObject, Codable {
         for (curveIndex, pointIndices) in curveGroups.sorted(by: { $0.key < $1.key }) {
             let curve = curves[curveIndex]
             let points = pointIndices.sorted().map { curve.points[$0] }
+            let allPointsSelected = curve.points.count == points.count
             copiedCurves.append(CatmullRomCurve(
                 color: curve.color,
                 radius: curve.radius,
                 outlineColor: curve.outlineColor,
-                isClosedCurve: curve.isClosedCurve,
+                isClosedCurve: curve.isClosedCurve && allPointsSelected,
                 points: points,
                 hardness:  curve.hardness
             ))
@@ -975,6 +977,12 @@ final class DrawingInfo: ObservableObject, Codable {
         pasteboard.setData(data, forType: NSPasteboard.PasteboardType(Self.pasteboardType))
         #else
         UIPasteboard.general.setData(data, forPasteboardType: Self.pasteboardType)
+        if UIPasteboard.general.types.isEmpty {
+            dlog(context: .error, "After paste, no types")
+        } else {
+            let pasteTypes = UIPasteboard.general.types.description
+            dlog(context: .infoLogging, "After paste, types: \(pasteTypes)")
+        }
         #endif
 
         return true
@@ -1014,18 +1022,26 @@ final class DrawingInfo: ObservableObject, Codable {
         guard let data = NSPasteboard.general.data(forType: NSPasteboard.PasteboardType(Self.pasteboardType)) else { return }
         #else
         guard let data = UIPasteboard.general.data(forPasteboardType: Self.pasteboardType) else {
+            dlog(context: [.infoLogging, .error], "Error getting pasteboard data")
             return
         }
         #endif
+        
+        
         let dataHash = data.hashValue
-        if dataHash != lastPasteHashValue {
-            pasteOffsetMultipler = 1
-        } else {
+    
+        if dataHash == lastPasteHashValue {
+            // If we've pasted this content before, offset it from last time.
             pasteOffsetMultipler += 1
+        } else {
+            // This is the first time pasting this data, so use the default offset.
+            pasteOffsetMultipler = 1
         }
         lastPasteHashValue = dataHash
         
         guard let copiedCurves = try? JSONDecoder().decode([CatmullRomCurve].self, from: data) else {
+            dlog(context: [.infoLogging, .error], "Error converting pasteboard data to curves.")
+
             return
         }
 
