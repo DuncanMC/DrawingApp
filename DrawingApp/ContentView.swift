@@ -27,7 +27,6 @@ extension KeyEquivalent {
     @State private var showInfoInspector = false
     @Environment(\.openWindow) var openWindow
 
-    var viewModel: ViewModel
 
     var toggleAlignment: Alignment {
     #if os(macOS)
@@ -45,32 +44,32 @@ extension KeyEquivalent {
                 DrawingView(
                     drawingInfo: drawingInfo,
                     onTap: { location, event in
-                        viewModel.handleTap(location: location, modifiers: event.modifierKeys)
+                        drawingInfo.viewModel.handleTap(location: location, modifiers: event.modifierKeys)
                     },
                     onDoubleTap: { location, event in
-                        viewModel.handleDoubleTap(location: location)
+                        drawingInfo.viewModel.handleDoubleTap(location: location)
                     },
                     onTwoFingerTap: { location, event in
-                        viewModel.handleTwoFingerTap(location: location)
+                        drawingInfo.viewModel.handleTwoFingerTap(location: location)
                     },
                     onDragBegan: { location, event in
-                        viewModel.handleDragBegan(location: location, event: event)
+                        drawingInfo.viewModel.handleDragBegan(location: location, event: event)
                     },
                     onDragChanged: { location, event in
-                        viewModel.handleDragChanged(location: location, event: event)
+                        drawingInfo.viewModel.handleDragChanged(location: location, event: event)
                     },
                     onDragEnded: { location, event in
-                        viewModel.handleDragEnded(event: event)
+                        drawingInfo.viewModel.handleDragEnded(event: event)
                     },
                     onPinchRotateBegan: { center in
-                        viewModel.handlePinchRotateBegan(center: center)
+                        drawingInfo.viewModel.handlePinchRotateBegan(center: center)
                     },
                     onPinchRotateChanged: { scale, rotation, center in
                         // TODO: Put test here to ignore pinch/rotate when in transform mode?
-                        viewModel.handlePinchRotateChanged(scale: scale, rotation: rotation, center: center)
+                        drawingInfo.viewModel.handlePinchRotateChanged(scale: scale, rotation: rotation, center: center)
                     },
                     onPinchRotateEnded: {
-                        viewModel.handlePinchRotateEnded()
+                        drawingInfo.viewModel.handlePinchRotateEnded()
                     },
                     onShake: { [weak undoManager] in
                         undoManager?.undo()
@@ -91,11 +90,11 @@ extension KeyEquivalent {
                     if press.modifiers.contains(.control) {
                         return .ignored
                     }
-                    viewModel.handleArrowKey(press)
+                    drawingInfo.viewModel.handleArrowKey(press)
                     return .handled
                 }
                 .onKeyPress(keys: [.plus, .equals, .minus, .underscore]) { press in
-                    viewModel.handlePlusOrMinusKey(press)
+                    drawingInfo.viewModel.handlePlusOrMinusKey(press)
                     return .handled
                 }
                 .frame(width: DrawingInfo.defaultSize.width, height: DrawingInfo.defaultSize.height)
@@ -107,7 +106,7 @@ extension KeyEquivalent {
                         .frame(maxWidth: 150)
                     
                     Button(drawingInfo.deleteSelectedPointString) {
-                        viewModel.handleDeletePoint()
+                        drawingInfo.viewModel.handleDeletePoint()
                     }
                     .keyboardShortcut(.delete, modifiers: [])
                     .disabled(!drawingInfo.enableDeletePointButton)
@@ -228,6 +227,33 @@ extension KeyEquivalent {
                 Button("") {drawingInfo.transformSelection.toggle()}
                 .disabled(drawingInfo.drawingMode != .editingCurve || drawingInfo.selectedPoints.count < 2)
                 .keyboardShortcut("t", modifiers: .command)
+                
+                Button("Rotate Selection 5° CW (R)") {
+                    drawingInfo.viewModel.rotateSelection()
+                }
+                .keyboardShortcut("r", modifiers: [])
+                .disabled(drawingInfo.transformSelection != true)
+
+                Button("Rotate Selection 5° CCW (⌥R)") {
+                    drawingInfo.viewModel.rotateSelection(clockwise: false)
+                }
+                .keyboardShortcut("r", modifiers: [.option])
+                .disabled(drawingInfo.transformSelection != true)
+
+                Button("Rotate Selection 22.5° CW (⇧R)") {
+                    drawingInfo.viewModel.rotateSelection(by: 22.5)
+                }
+                .keyboardShortcut("r", modifiers: [.shift])
+                .disabled(drawingInfo.transformSelection != true)
+
+                Button("Rotate Selection 22.5° CCW (⇧⌥R)") {
+                    drawingInfo.viewModel.rotateSelection(by: 22.5, clockwise: false)
+                }
+                .keyboardShortcut("r", modifiers: [.shift, .option])
+                .disabled(drawingInfo.transformSelection != true)
+
+                
+                
                 Button("Flip Selection Vertically") {
                     drawingInfo.flipSelection(vertically: true)
                 }
@@ -254,7 +280,7 @@ extension KeyEquivalent {
                     .keyboardShortcut("s", modifiers: .option)
 
 
-                Button("Show Smoothing Points (⌥⇧S)") { drawingInfo.showSmoothingPoints.toggle() }
+                Button("Show Smoothing Points (⇧⌥S)") { drawingInfo.showSmoothingPoints.toggle() }
                     .keyboardShortcut("s", modifiers: [.option, .shift])
                 //⌥
                 Button("Show Quads (⌥Q)") { drawingInfo.showQuads.toggle() }
@@ -355,19 +381,31 @@ extension KeyEquivalent {
                             set: {  newValue in drawingInfo.transformSelection = newValue } ))
                         .disabled(drawingInfo.drawingMode != .editingCurve || drawingInfo.selectedPoints.count < 2)
                         
-/*
                         Button("Rotate Selection 5° CW (R)") {
-                            print("In rotate 5° CW° function")
+                            drawingInfo.viewModel.rotateSelection()
                         }
-                        .keyboardShortcut("r", modifiers: [])
-*/
+                        .disabled(drawingInfo.transformSelection != true)
+
+                        Button("Rotate Selection 5° CCW (⌥R)") {
+                            drawingInfo.viewModel.rotateSelection(clockwise: false)
+                        }
+                        .disabled(drawingInfo.transformSelection != true)
+
+                        Button("Rotate Selection 22.5° CW") {
+                            drawingInfo.viewModel.rotateSelection(by: 22.5)
+                        }
+                        .disabled(drawingInfo.transformSelection != true)
+
+                        Button("Rotate Selection 22.5° CCW") {
+                            drawingInfo.viewModel.rotateSelection(by: 22.5, clockwise: false)
+                        }
+                        .disabled(drawingInfo.transformSelection != true)
 
 
                         Button("Flip Selection Vertically (⌥v)") {
                             drawingInfo.flipSelection(vertically: true)
                         }
                         .disabled(drawingInfo.transformSelection != true)
-                        .keyboardShortcut("v", modifiers: [.option])
                         Button("Flip Selection Horizontally (⌥h)") {
                             drawingInfo.flipSelection(vertically: false)
                         }
@@ -455,7 +493,7 @@ extension KeyEquivalent {
 
     init(drawingInfo: DrawingInfo) {
         self.drawingInfo = drawingInfo
-        self.viewModel = .init(drawingInfo: drawingInfo)
+//        self.viewModel = .init(drawingInfo: drawingInfo)
     }
 }
 

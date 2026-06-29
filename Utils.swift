@@ -34,11 +34,15 @@ public extension Color {
     }
 }
 
-extension Float {
-    var degreesToRadians: Float {
-        return self * .pi / 180
-    }
-}
+//extension Float {
+//    var degreesToRadians: Float {
+//        return self * .pi / 180
+//    }
+//    
+//    var radiansToDegrees: Float {
+//        return self * 180 / .pi
+//    }
+//}
 
 // MARK: - Types and methods for managing lines and points in Metal coordinate space
 
@@ -139,6 +143,15 @@ func intersection(line1: LineEquation, line2: LineEquation) -> simd_float2? {
 // MARK: -
 
 extension FloatingPoint {
+    
+    var degreesToRadians: Self {
+        return self * .pi / 180
+    }
+    
+    var radiansToDegrees: Self {
+        return self * 180 / .pi
+    }
+
   /// Allows mapping between reverse ranges, which are illegal to construct (e.g. `10..<0`).
   func interpolated(
     fromLowerBound: Self,

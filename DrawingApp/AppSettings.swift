@@ -26,7 +26,7 @@ class AppSettings: ObservableObject {
     init() {
         dlog(context: .lifecycle, "in AppSettings.init()")
         DebugLog.flags.logIfAny.insert(DebugLog.performance)
-        //DebugLog.flags.logIfAny.insert(DebugLog.newDev)
+        DebugLog.flags.logIfAny.insert(DebugLog.newDev)
     }
     @Published var infoWindowString = ""
     @Published var showInfoInspector = false

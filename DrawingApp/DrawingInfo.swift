@@ -239,7 +239,10 @@ final class DrawingInfo: ObservableObject, Codable {
 
     @Published var curves = [CatmullRomCurve]()
     
-    // Items not saved with Codable
+    // MARK: Items not saved with Codable
+    
+    var viewModel: ViewModel!
+
     
     @Published var enableDeletePointButton: Bool = false
     
@@ -621,7 +624,7 @@ final class DrawingInfo: ObservableObject, Codable {
         self.showControlPoints = try container.decode(Bool.self, forKey: .showControlPoints)
 
         self.viewportSize = DrawingInfo.defaultSize
-
+        self.viewModel = ViewModel(drawingInfo: self)
     }
     
     // MARK: - Encode
@@ -640,6 +643,7 @@ final class DrawingInfo: ObservableObject, Codable {
         self.showSmoothingPoints = false
         self.backgroundColor = .white
         self.viewportSize = DrawingInfo.defaultSize
+        self.viewModel = ViewModel(drawingInfo: self)
     }
 
     // MARK: - Editing Actions

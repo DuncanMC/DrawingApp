@@ -302,7 +302,7 @@ struct ViewModel {
     }
 
     // rotation in radians
-    func handlePinchRotateChanged(scale: CGFloat, rotation: CGFloat, center: CGPoint) {
+    func handlePinchRotateChanged(scale: CGFloat = 1.0, rotation: CGFloat = 0, center: CGPoint) {
         
         func transformPoint(_ point: simd_float2) -> simd_float2 {
             let viewPt = drawingInfo.metalPointToView(point)
@@ -846,6 +846,33 @@ struct ViewModel {
         }
     }
 
+    func rotateSelection(by delta: Double = 5.0, clockwise: Bool = true) {
+        guard drawingInfo.transformSelection, let transformModeValues = drawingInfo.transformModeValues else { return }
+        let rotationPoint = transformModeValues.rotationPoint
+        let middleRight = transformModeValues.middleRight
+
+        // Measure the current angle in VIEW space so delta values correspond
+        // directly to visual rotation (e.g., 22.5° = 1/16th of a circle on screen)
+        let rotationCenter = drawingInfo.metalPointToView(rotationPoint)
+        let mrView = drawingInfo.metalPointToView(middleRight)
+        let viewAngle = atan2(Double(mrView.y - rotationCenter.y), Double(mrView.x - rotationCenter.x))
+        let degrees = fmod(viewAngle.radiansToDegrees + 360, 360)
+
+        // Find the nearest snap point to determine if we're already on one
+        let snapped = round(degrees / delta) * delta
+
+        // In view coords (y-down), increasing atan2 angle = clockwise on screen
+        let target: Double
+        if abs(degrees - snapped) < 0.1 {
+            target = clockwise ? snapped + delta : snapped - delta
+        } else {
+            target = clockwise ? ceil(degrees / delta) * delta : floor(degrees / delta) * delta
+        }
+
+        let change = CGFloat((target - degrees).degreesToRadians)
+        handlePinchRotateChanged(scale: 1.0, rotation: change, center: rotationCenter)
+    }
+    
     func handleArrowKey(_ keyPress: KeyPress) {
 
         let shift = keyPress.modifiers.contains(.shift)
